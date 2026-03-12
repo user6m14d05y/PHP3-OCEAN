@@ -2,16 +2,45 @@ version: '3.8'
 
 services:
   db:
-    image: mysql:8.0
-    container_name: php3-laravel
-    restart: always
-    ports:
-      - "8306:3306"
-    environment:
-      MYSQL_DATABASE: ocean_db
-      MYSQL_ROOT_PASSWORD: root
-    volumes:
-      - mysql_data:/var/lib/mysql
+      image: mysql:8.0
+      container_name: ocean_mysql
+      restart: always
+      ports:
+        - "8306:3306"
+      environment:
+        MYSQL_DATABASE: ${DB_DATABASE:-ocean_db}
+        MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      volumes:
+        - mysql_data:/var/lib/mysql
+
+  backend:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      container_name: ocean_backend
+      restart: always
+      ports:
+        - "8000:8000"
+      env_file:
+        - .env
+      volumes:
+        - ./backend:/var/www
+      command: php artisan serve --host=0.0.0.0 --port=8000
+      depends_on:
+        - db
+        
+  frontend:
+      image: node:20-alpine
+      container_name: ocean_frontend
+      restart: always
+      ports:
+        - "3302:3302"
+      env_file:
+        - .env
+      volumes:
+        - ./frontend:/app
+      working_dir: /app
+      command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 3302"
 
 volumes:
   mysql_data:
