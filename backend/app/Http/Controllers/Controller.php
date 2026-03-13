@@ -1,1 +1,8 @@
-<?php\n\nnamespace App\\Http\\Controllers;\n\nabstract class Controller\n{\n    //\n}
+<?php
+
+namespace App\Http\Controllers;
+
+abstract class Controller
+{
+    //
+}
