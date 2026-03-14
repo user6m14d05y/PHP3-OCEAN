@@ -84,7 +84,7 @@ Sau khi hệ thống khởi chạy thành công, bạn có thể xem kết quả
 | Dịch Vụ          | Công Nghệ    | Đường dẫn truy cập cục bộ                              |
 | ---------------- | ------------ | ------------------------------------------------------ |
 | **Frontend SPA** | Vue 3 (Vite) | [http://localhost:3302](http://localhost:3302)         |
-| **Backend API**  | Laravel 11   | [http://localhost:8000/api](http://localhost:8000/api) |
+| **Backend API**  | Laravel 11   | [http://localhost:8000/api](http://localhost:8383/api) |
 | **Database**     | MySQL 8.0    | `localhost:8306` (Dùng cho HeidiSQL)                   |
 
 ---
