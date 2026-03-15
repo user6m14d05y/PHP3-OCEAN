@@ -5,9 +5,14 @@ import './assets/main.css';
 
 // Import Pages
 import Home from './Pages/Home.vue';
+import ClientHome from './Pages/Client/Home/Index.vue';
+import ClientLogin from './Pages/Client/Auth/login.vue';
+
 
 const routes = [
-  { path: '/', component: Home, name: 'home' }
+  { path: '/', component: Home, name: 'home' },
+  { path: '/client/home', component: ClientHome, name: 'client-home' },
+  { path: '/client/login', component: ClientLogin, name: 'client-login' }
 ];
 
 const router = createRouter({
