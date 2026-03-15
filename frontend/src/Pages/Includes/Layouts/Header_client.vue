@@ -4,25 +4,29 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const isLoggedIn = ref(false);
-const email = ref('');
+const name = ref('');
 
 onMounted(() => {
-    const userSession = sessionStorage.getItem('user');
+    const userSession = localStorage.getItem('user');
     if (userSession) {
         const userData = JSON.parse(userSession);
         isLoggedIn.value = userData.isLoggedIn;
-        email.value = userData.email;
+        name.value = userData.name;
     }
 });
 
-const logout = () => {
-    // remove session
-    sessionStorage.removeItem('user');
-    isLoggedIn.value = false;
-    userName.value = '';
-    
-    // push to login
-    router.push('/client/login');
+const logout = async () => {
+    try {
+        await axios.post('http://localhost:8000/api/Logout'); 
+    } catch (error) {
+        console.error("Lỗi logout server:", error);
+    } finally {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
+        isLoggedIn.value = false;
+        name.value = '';
+        router.push('/client/login');
+    }
 };
 </script>    
 
@@ -51,7 +55,7 @@ const logout = () => {
             </router-link>
             
             <div v-else class="hidden md:flex items-center space-x-4 ml-4 pl-4 border-l border-gray-200">
-                <span class="text-sm font-semibold text-gray-800">Hi, {{ email }}</span>
+                <span class="text-sm font-semibold text-gray-800">Hi, {{ name }}</span>
                 <button @click="logout" class="text-sm font-medium text-gray-500 hover:text-red-600 transition">Đăng xuất</button>
             </div>
           </div>
