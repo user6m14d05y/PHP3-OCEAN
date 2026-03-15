@@ -60,7 +60,13 @@ class AuthController extends Controller
             if (\Illuminate\Support\Facades\Hash::check($password, $user->password)) {
                 return response()->json([
                     'status' => 'success',
-                    'message' => 'Đăng nhập thành công!'
+                    'message' => 'Đăng nhập thành công!',
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'role' => $user->role 
+                    ]
                 ], 200);
             }
         } else {
