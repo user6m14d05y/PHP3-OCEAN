@@ -40,14 +40,29 @@ const login = async () => {
     });
     
     if (response.data.status === "success"){
-      Swal.fire({
-        icon: 'success',
-        title: "Đăng nhập thành công!",
-        showConfirmButton: false,
-        timer: 1500,
-        timerProgressBar: true,
-      })
-      router.push('/client/home');
+      // Lưu thông tin người dùng an toàn vào sessionStorage (Sẽ mất khi đóng tab)
+      // KHÔNG LƯU object nguyên bản dễ thao tác, mà dùng encode hoặc sessionStorage
+      sessionStorage.setItem('user', JSON.stringify({
+        isLoggedIn: true,
+        name: response.data.user.name,
+        email: response.data.user.email,
+        // Dùng mã hóa đơn giản Base64 để người dùng bình thường khó sửa bằng tay
+        _r: btoa(response.data.user.role || 'user') 
+      }));
+
+      // Swal.fire({
+      //   icon: 'success',
+      //   title: "Đăng nhập thành công!",
+      //   showConfirmButton: false,
+      //   timer: 1500,
+      //   timerProgressBar: true,
+      // })
+      
+      if (response.data.user.role === 'admin') {
+         router.push('/admin/dashboard');
+      } else {
+         router.push('/client/home');
+      }
     }
   } catch (error) {
     let errorMessage = "Đăng nhập thất bại!";
