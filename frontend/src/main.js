@@ -1,3 +1,4 @@
+import './bootstrap';
 import { createApp } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
@@ -7,7 +8,7 @@ import './assets/main.css';
 // CLIENT
 import Home from './Pages/Client/Home/Index.vue';
 import ClientHome from './Pages/Client/Home/Index.vue';
-import ClientLogin from './Pages/Client/Auth/Login.vue';
+import ClientLogin from './Pages/Client/Auth/login.vue';
 import ClientRegister from './Pages/Client/Auth/Register.vue';
 import ClientForgot from './Pages/Client/Auth/Forgot.vue';
 

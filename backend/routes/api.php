@@ -17,6 +17,9 @@ Route::get('/', function () {
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/Login', [AuthController::class, 'Login']);
 
+// use middleware auth:sanctum
+Route::middleware('auth:sanctum')->post('/Logout', [AuthController::class, 'Logout']);
+
 // Test get data from database mysql
 Route::get('/users', function () {
     $users = \Illuminate\Support\Facades\DB::table('users')->get();

@@ -40,13 +40,14 @@ const login = async () => {
     });
     
     if (response.data.status === "success"){
-      // Lưu thông tin người dùng an toàn vào sessionStorage (Sẽ mất khi đóng tab)
-      // KHÔNG LƯU object nguyên bản dễ thao tác, mà dùng encode hoặc sessionStorage
-      sessionStorage.setItem('user', JSON.stringify({
+      // save token to storage
+      localStorage.setItem('access_token', response.data.access_token);
+
+      // save user info to storage
+      localStorage.setItem('user', JSON.stringify({
         isLoggedIn: true,
         name: response.data.user.name,
         email: response.data.user.email,
-        // Dùng mã hóa đơn giản Base64 để người dùng bình thường khó sửa bằng tay
         _r: btoa(response.data.user.role || 'user') 
       }));
 
