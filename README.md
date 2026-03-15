@@ -97,3 +97,7 @@ Quá trình chia tách này yêu cầu các logic cũ (như trả về View bằ
 - **Backend** chịu trách nhiệm tính toán logic và Data, trả về bằng định dạng **JSON** theo cấu trúc Route được khai báo trong `backend/routes/api.php` (Thay vì `web.php` như cũ).
 
 Quá trình truy vấn bảo mật giữa 2 khối được thực hiện và chứng thực chéo thông qua kiến trúc của Laravel Sanctum.
+
+## UDATE INSERT ALERT MODULE 
+
+npm install sweetalert2
