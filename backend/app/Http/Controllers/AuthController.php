@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Address;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class AuthController extends Controller
@@ -58,9 +59,15 @@ class AuthController extends Controller
 
             // Compare the entered password with the hash (HASH) in the database
             if (\Illuminate\Support\Facades\Hash::check($password, $user->password)) {
+                // Generate token
+                $userModel = User::find($user->id);
+                $token = $userModel->createToken('auth_token')->plainTextToken;
+
                 return response()->json([
                     'status' => 'success',
                     'message' => 'Đăng nhập thành công!',
+                    'access_token' => $token,
+                    'token_type' => 'Bearer',
                     'user' => [
                         'id' => $user->id,
                         'name' => $user->name,
@@ -75,5 +82,15 @@ class AuthController extends Controller
                 'message' => 'Email hoặc mật khẩu không chính xác!'
             ], 422);
         }
+    }
+
+    public function Logout(Request $request)
+    {
+        // delete token
+        $request->user()->currentAccessToken()->delete(); 
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã đăng xuất thành công!'
+        ]);
     }
 }

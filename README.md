@@ -101,3 +101,8 @@ Quá trình truy vấn bảo mật giữa 2 khối được thực hiện và ch
 ## UDATE INSERT ALERT MODULE 
 
 npm install sweetalert2
+
+## INSTALL CONTAINER BACKEND
+
+sudo docker exec -it <container_backend_name> php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
+sudo docker exec -it <container_backend_name> php artisan migrate
