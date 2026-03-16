@@ -5,14 +5,34 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use Illuminate\Http\Request;
 
+
 class CategoryController extends Controller
 {
+
+    private function buildTree(array $elements, $parentId = 0)
+    {
+        $branch = [];
+        foreach ($elements as $element) {
+            $idKey = array_key_exists('category_id', $element) ? 'category_id' : 'id';
+
+            if ($element['parent_id'] == $parentId) {
+                $children = $this->buildTree($elements, $element[$idKey]);
+                if ($children) {
+                    $element['children'] = $children;
+                }
+                $branch[] = $element;
+            }
+        }
+        return $branch;
+    }
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        //
+        $categories = Category::all()->toArray(); // Chuyển sang mảng
+        $categories = $this->buildTree($categories); // Gọi phương thức nội bộ
+        return response()->json($categories);
     }
 
     /**

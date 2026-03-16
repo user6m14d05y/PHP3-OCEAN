@@ -41,9 +41,15 @@ Route::get('/contact', function () {
 });
 =======
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\CategoryController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 Route::apiResource('products', ProductController::class);
+<<<<<<< HEAD
 >>>>>>> 85eed9c2 (first commit)
+=======
+Route::get('productsAll', [ProductController::class, 'all']);
+Route::apiResource('categories', CategoryController::class);
+>>>>>>> 97fed38b (add products, status:pending)

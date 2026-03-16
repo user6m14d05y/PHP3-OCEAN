@@ -41,6 +41,25 @@ class ProductController extends Controller
         return response()->json($product);
     }
 
+    public function all(Request $request)
+    {
+        $page = $request->query('page', 1);
+        $limit = $request->query('limit', 12);
+        $offset = ($page - 1) * $limit;
+        $products = Product::with([
+            'mainImage' => function ($query) {
+                $query->select('product_images.image_id', 'product_images.image_url', 'product_images.product_id');
+            },
+            'lowestPriceVariant' => function ($query) {
+                $query->select('product_variants.variant_id', 'product_variants.price', 'product_variants.product_id');
+            }
+        ])
+            ->offset($offset)
+            ->limit($limit)
+            ->get();
+        return response()->json($products);
+    }
+
     /**
      * Show the form for creating a new resource.
      */
@@ -59,7 +78,7 @@ class ProductController extends Controller
 
     /**
      * Display the specified resource.
-     */ 
+     */
 
     /**
      * Show the form for editing the specified resource.
