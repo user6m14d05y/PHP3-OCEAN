@@ -2,10 +2,10 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-<<<<<<< HEAD
-
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\CategoryController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -15,15 +15,23 @@ Route::get('/', function () {
     ]);
 });
 
-// Form sent to php
+// Auth & Contact routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/Login', [AuthController::class, 'Login']);
 Route::post('/SubmitContact', [ContactController::class, 'SubmitContact']);
-
-// use middleware auth:sanctum
 Route::middleware('auth:sanctum')->post('/Logout', [AuthController::class, 'Logout']);
 
-// Test get data from database mysql
+// User info
+Route::get('/user', function (Request $request) {
+    return $request->user();
+})->middleware('auth:sanctum');
+
+// Business routes
+Route::apiResource('products', ProductController::class);
+Route::apiResource('categories', CategoryController::class);
+Route::get('productsAll', [ProductController::class, 'all']);
+
+// Test & Debug routes
 Route::get('/users', function () {
     $users = \Illuminate\Support\Facades\DB::table('users')->get();
     return response()->json([
@@ -39,17 +47,3 @@ Route::get('/contact', function () {
         'data' => $users
     ]);
 });
-=======
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\CategoryController;
-
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
-Route::apiResource('products', ProductController::class);
-<<<<<<< HEAD
->>>>>>> 85eed9c2 (first commit)
-=======
-Route::get('productsAll', [ProductController::class, 'all']);
-Route::apiResource('categories', CategoryController::class);
->>>>>>> 97fed38b (add products, status:pending)
