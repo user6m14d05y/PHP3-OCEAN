@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import './bootstrap';
 import { createApp } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
@@ -28,6 +29,12 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
 });
+=======
+import { createApp } from 'vue';
+import App from './App.vue';
+import './assets/main.css';
+import router from './router';
+>>>>>>> 85eed9c2 (first commit)
 
 const app = createApp(App);
 app.use(router);
