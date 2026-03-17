@@ -84,11 +84,7 @@ Sau khi hệ thống khởi chạy thành công, bạn có thể xem kết quả
 | Dịch Vụ          | Công Nghệ    | Đường dẫn truy cập cục bộ                              |
 | ---------------- | ------------ | ------------------------------------------------------ |
 | **Frontend SPA** | Vue 3 (Vite) | [http://localhost:3302](http://localhost:3302)         |
-<<<<<<< HEAD
-| **Backend API**  | Laravel 11   | [http://localhost:8000/api](http://localhost:8383/api) |
-=======
-| **Backend API**  | Laravel 11   | [http://localhost:8000/api](http://localhost:8000/api) |
->>>>>>> 85eed9c2 (first commit)
+| **Backend API**  | Laravel 11   | [http://localhost:8383/api](http://localhost:8383/api) |
 | **Database**     | MySQL 8.0    | `localhost:8306` (Dùng cho HeidiSQL)                   |
 
 ---
@@ -101,15 +97,16 @@ Quá trình chia tách này yêu cầu các logic cũ (như trả về View bằ
 - **Backend** chịu trách nhiệm tính toán logic và Data, trả về bằng định dạng **JSON** theo cấu trúc Route được khai báo trong `backend/routes/api.php` (Thay vì `web.php` như cũ).
 
 Quá trình truy vấn bảo mật giữa 2 khối được thực hiện và chứng thực chéo thông qua kiến trúc của Laravel Sanctum.
-<<<<<<< HEAD
 
-## UDATE INSERT ALERT MODULE 
+## UPDATE INSERT ALERT MODULE 
 
+```bash
 npm install sweetalert2
+```
 
 ## INSTALL CONTAINER BACKEND
 
-sudo docker exec -it <container_backend_name> php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
-sudo docker exec -it <container_backend_name> php artisan migrate
-=======
->>>>>>> 85eed9c2 (first commit)
+```bash
+docker compose exec backend php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
+docker compose exec backend php artisan migrate
+```

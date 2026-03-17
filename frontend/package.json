@@ -9,10 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-<<<<<<< HEAD
     "sweetalert2": "^11.26.22",
-=======
->>>>>>> 85eed9c2 (first commit)
     "vue": "^3.5.29"
   },
   "devDependencies": {
