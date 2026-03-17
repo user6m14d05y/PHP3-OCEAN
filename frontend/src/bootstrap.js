@@ -2,6 +2,7 @@ import axios from 'axios';
 window.axios = axios;
 
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+<<<<<<< HEAD
 
 // add token to request
 window.axios.interceptors.request.use(config => {
@@ -11,3 +12,5 @@ window.axios.interceptors.request.use(config => {
     }
     return config;
 });
+=======
+>>>>>>> 85eed9c2 (first commit)

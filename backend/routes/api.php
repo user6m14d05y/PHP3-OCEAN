@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+<<<<<<< HEAD
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ContactController;
@@ -38,3 +39,11 @@ Route::get('/contact', function () {
         'data' => $users
     ]);
 });
+=======
+use App\Http\Controllers\ProductController;
+
+Route::get('/user', function (Request $request) {
+    return $request->user();
+})->middleware('auth:sanctum');
+Route::apiResource('products', ProductController::class);
+>>>>>>> 85eed9c2 (first commit)
