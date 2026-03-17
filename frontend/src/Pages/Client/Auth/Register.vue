@@ -39,7 +39,7 @@ const handleRegister = async () => {
     isSubmitting.value = true;
     
     try {
-        const response = await axios.post('http://localhost:8000/api/register', {
+        const response = await axios.post('http://localhost:8383/api/register', {
             name: name.value,
             email: email.value,
             password: password.value,

@@ -44,15 +44,11 @@ const collections = ref([
   { name: 'Phụ Kiện', image: 'https://images.unsplash.com/photo-1523206489230-c012c64b2b48?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' }
 ]);
 
-const logout = () => {
-    // Basic logout handling
-    router.push('/client/login');
-};
 </script>
 
 <template>
   <div class="min-h-screen bg-white font-sans text-gray-900">
-    <Header_client/>
+    <!-- <Header_client/> -->
 
 
     <!-- Hero Banner -->
@@ -119,7 +115,7 @@ const logout = () => {
       </div>
     </div>
 
-   <Footer_client/>
+   <!-- <Footer_client/> -->
   </div>
 </template>
 

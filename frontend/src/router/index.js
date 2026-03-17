@@ -1,5 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router";
-import Home from "../Pages/Home.vue";
+
+// Auth
+import Home from "../Pages/Client/Home/Index.vue";
+import ClientLogin from '../Pages/Client/Auth/login.vue';
+import ClientRegister from '../Pages/Client/Auth/Register.vue';
+import ClientForgot from '../Pages/Client/Auth/Forgot.vue';
+
+
 import ClientLayout from "../layouts/ClientLayout.vue";
 import AdminLayout from "../layouts/AdminLayout.vue";
 import AdminHome from "../Pages/admin/AdminHome.vue";
@@ -15,6 +22,21 @@ const routes = [
                 name: "home",
                 component: Home,
             },
+            {
+                path: "login",
+                name: "login",
+                component: ClientLogin,
+            },
+            {
+                path: "register",
+                name: "register",
+                component: ClientRegister,
+            },
+            {
+                path: "forgot",
+                name: "forgot",
+                component: ClientForgot,
+            }
         ],
     },
     {

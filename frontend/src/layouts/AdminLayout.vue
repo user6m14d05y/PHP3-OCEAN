@@ -51,11 +51,14 @@ import AdminAside from '../components/AdminAside.vue';
 </script>
 
 <style scoped>
+
 .admin-layout {
   display: flex;
   min-height: 100vh;
   background: var(--ocean-deepest);
   font-family: var(--font-inter);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
 }
 
 .admin-main {
@@ -217,4 +220,6 @@ import AdminAside from '../components/AdminAside.vue';
   max-width: 1400px;
   margin: 0 auto;
 }
+
+
 </style>
