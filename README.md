@@ -98,20 +98,32 @@ Quá trình chia tách này yêu cầu các logic cũ (như trả về View bằ
 
 Quá trình truy vấn bảo mật giữa 2 khối được thực hiện và chứng thực chéo thông qua kiến trúc của Laravel Sanctum.
 
-## UPDATE INSERT ALERT MODULE
+## 📦 Cài Đặt Các Thư Viện Bổ Sung (Nâng Cao)
+
+Nếu dự án yêu cầu thêm các module hoặc cấu hình xác thực, dưới đây là các lệnh bổ sung đã được tích hợp trong hệ thống:
+
+### 1. Frontend: Cài đặt hệ thống thông báo (SweetAlert2)
+
+Để cài đặt `sweetalert2` cho giao diện người dùng, hãy chạy lệnh sau thông qua container Frontend:
 
 ```bash
-npm install sweetalert2
+docker compose exec frontend npm install sweetalert2
 ```
 
-## INSTALL CONTAINER BACKEND
+### 2. Backend: Cài đặt hệ thống Xác thực (JWT Auth & Sanctum)
+
+Dự án sử dụng xác thực API bằng JWT (JSON Web Token) và Sanctum. Để đảm bảo mọi thứ hoạt động tốt hoặc khi cần khởi tạo lại cấu hình, bạn có thể tham khảo các lệnh sau:
+
+**Khởi tạo cấu hình cho Laravel Sanctum:**
 
 ```bash
 docker compose exec backend php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
 docker compose exec backend php artisan migrate
 ```
 
+**Tích hợp và tạo Secret Key cho JWT Auth:**
+
 ```bash
-docker exec ocean_backend composer require php-open-source-saver/jwt-auth
-docker exec ocean_backend php artisan jwt:secret
+docker compose exec backend composer require php-open-source-saver/jwt-auth
+docker compose exec backend php artisan jwt:secret
 ```
