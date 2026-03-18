@@ -20,7 +20,7 @@ class ProductController extends Controller
                 $query->select('product_images.image_id', 'product_images.image_url', 'product_images.product_id');
             },
             'lowestPriceVariant' => function ($query) {
-                $query->select('product_variants.variant_id', 'product_variants.price', 'product_variants.product_id');
+                $query->select('product_variants.variant_id', 'product_variants.price', 'product_variants.stock', 'product_variants.product_id');
             }
         ])
             ->select('product_id', 'name', 'category_id', 'slug')
@@ -51,7 +51,7 @@ class ProductController extends Controller
                 $query->select('product_images.image_id', 'product_images.image_url', 'product_images.product_id');
             },
             'lowestPriceVariant' => function ($query) {
-                $query->select('product_variants.variant_id', 'product_variants.price', 'product_variants.product_id');
+                $query->select('product_variants.variant_id', 'product_variants.price', 'product_variants.stock', 'product_variants.product_id');
             }
         ])
             ->offset($offset)
