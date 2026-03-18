@@ -1,13 +1,13 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import axios from 'axios';
+import api from '../../axios.js';
 
 const products = ref([]);
 const isLoading = ref(true);
 const searchQuery = ref('');
 
 onMounted(() => {
-    axios.get('http://localhost:8383/api/productsAll?page=1&limit=10')
+    api.get('/productsAll?page=1&limit=10')
         .then(response => {
             products.value = response.data;
         })
@@ -29,7 +29,7 @@ const filteredProducts = computed(() => {
 });
 
 const formatPrice = (price) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
 };
 </script>
 
@@ -123,14 +123,14 @@ const formatPrice = (price) => {
                                     <span class="prod-name">{{ p.name }}</span>
                                 </div>
                             </td>
-                            <td><span class="val-price">{{ formatPrice(p.price) }}</span></td>
+                            <td><span class="val-price">{{ formatPrice(p.lowest_price_variant?.price) }}</span></td>
                             <td>
                                 <span class="badge-stock" :class="{ 
-                                    'good': p.stock > 20, 
-                                    'low': p.stock <= 20 && p.stock > 0, 
-                                    'out': p.stock === 0 
+                                    'good': (p.lowest_price_variant?.stock || 0) > 20, 
+                                    'low': (p.lowest_price_variant?.stock || 0) <= 20 && (p.lowest_price_variant?.stock || 0) > 0, 
+                                    'out': (p.lowest_price_variant?.stock || 0) === 0 
                                 }">
-                                    {{ p.stock }}
+                                    {{ p.lowest_price_variant?.stock || 0 }}
                                 </span>
                             </td>
                             <td>

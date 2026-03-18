@@ -31,7 +31,6 @@ Route::middleware('auth:api')->group(function () {
     });
 });
 
-// Admin routes (Protected - cần JWT token + role admin)
 Route::middleware(['auth:api', 'role:admin'])->prefix('admin')->group(function () {
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::put('/users/{id}/role', [AdminUserController::class, 'updateRole']);

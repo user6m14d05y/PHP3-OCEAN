@@ -13,26 +13,23 @@ class AdminUserController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = $request->input('per_page', 15);
         $search = $request->input('search', '');
 
-        $query = "SELECT user_id, full_name, email, phone, role, status, created_at, last_login_at FROM users WHERE deleted_at IS NULL";
-        $params = [];
+        $query = User::query();
 
         if ($search) {
-            $query .= " AND (full_name LIKE ? OR email LIKE ?)";
-            $params[] = "%{$search}%";
-            $params[] = "%{$search}%";
+            $query->where(function($q) use ($search) {
+                $q->where('full_name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%");
+            });
         }
 
-        $query .= " ORDER BY created_at DESC";
-
-        $users = DB::select($query, $params);
+        $users = $query->orderBy('created_at', 'DESC')->get();
 
         return response()->json([
             'status' => 'success',
             'data' => $users,
-            'total' => count($users)
+            'total' => $users->count()
         ]);
     }
 

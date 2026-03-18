@@ -13,10 +13,11 @@ class ProductImage extends Model
         'image_url',
         'alt_text',
         'sort_order',
-        'is_primary',
+        'is_main',
         'created_at',
-        'updated_at',
     ];
+
+    public $timestamps = false;
 
     public function product()
     {

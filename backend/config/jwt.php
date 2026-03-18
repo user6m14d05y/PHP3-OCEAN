@@ -89,7 +89,7 @@ return [
     |
     */
 
-    'ttl' => (int) env('JWT_TTL', 10080), // 7 ngày = 7 * 24 * 60 phút
+    'ttl' => (int) env('JWT_TTL', 60),
 
     /*
     |--------------------------------------------------------------------------
@@ -118,7 +118,7 @@ return [
     */
 
     'refresh_iat' => env('JWT_REFRESH_IAT', false),
-    'refresh_ttl' => (int) env('JWT_REFRESH_TTL', 43200), // 30 ngày = 30 * 24 * 60 phút
+    'refresh_ttl' => (int) env('JWT_REFRESH_TTL', 20160),
 
     /*
     |--------------------------------------------------------------------------
