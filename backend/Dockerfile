@@ -23,8 +23,5 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Thiết lập thư mục làm việc mặc định trong container
 WORKDIR /var/www
 
-# Copy code backend vào container (Nếu cần build cho production)
-# COPY backend/ .
-
 # Phân quyền cho www-data
 RUN chown -R www-data:www-data /var/www
