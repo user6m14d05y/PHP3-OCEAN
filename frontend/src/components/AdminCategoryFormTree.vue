@@ -17,10 +17,15 @@
 
 <template>
     <template v-for="category in categories" :key="category.category_id">
-        <option :value="category.category_id">
-            <span v-if="props.level > 0" class="text-secondary me-1">{{ '— '.repeat(props.level) }}</span>
-            {{ category.name }}
-        </option>
-        <AdminCategoryFormTree v-if="category.children && category.children.length > 0" :categories="category.children" :level="level + 1" :currentParentId="category.category_id" />
+        <option
+            :value="category.category_id"
+            :disabled="category.category_id === currentParentId"
+        >{{ '　'.repeat(level) + (level > 0 ? '└ ' : '') + category.name + (category.category_id === currentParentId ? ' (đang chỉnh sửa)' : '') }}</option>
+        <AdminCategoryFormTree
+            v-if="category.children && category.children.length > 0"
+            :categories="category.children"
+            :level="level + 1"
+            :currentParentId="currentParentId"
+        />
     </template>
 </template>

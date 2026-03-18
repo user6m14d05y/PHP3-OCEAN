@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
 
 
 class CategoryController extends Controller
@@ -36,50 +38,148 @@ class CategoryController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
     {
-        //
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'parent_id' => 'nullable|integer',
+            'description' => 'nullable|string',
+            'sort_order' => 'nullable|integer',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lỗi xác thực dữ liệu',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $data = $request->all();
+        // Nếu parent_id = 0, treat như null (danh mục gốc)
+        if (isset($data['parent_id']) && $data['parent_id'] == 0) {
+            $data['parent_id'] = null;
+        }
+        $data['slug'] = Str::slug($request->name);
+        
+        $originalSlug = $data['slug'];
+        $count = 1;
+        while (Category::where('slug', $data['slug'])->exists()) {
+            $data['slug'] = $originalSlug . '-' . $count++;
+        }
+
+        $category = Category::create($data);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Tạo danh mục thành công',
+            'data' => $category
+        ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Category $category)
+    public function show($id)
     {
-        //
-    }
+        $category = Category::find($id);
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Category $category)
-    {
-        //
+        if (!$category) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy danh mục'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $category
+        ]);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Category $category)
+    public function update(Request $request, $id)
     {
-        //
+        $category = Category::find($id);
+
+        if (!$category) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy danh mục'
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string|max:255',
+            'parent_id' => 'nullable|integer',
+            'description' => 'nullable|string',
+            'sort_order' => 'nullable|integer',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lỗi xác thực dữ liệu',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $data = $request->all();
+        // Nếu parent_id = 0, treat như null (danh mục gốc)
+        if (isset($data['parent_id']) && $data['parent_id'] == 0) {
+            $data['parent_id'] = null;
+        }
+        if ($request->has('name')) {
+            $data['slug'] = Str::slug($request->name);
+            
+            // Kiểm tra trùng slug (trừ chính nó)
+            $originalSlug = $data['slug'];
+            $count = 1;
+            while (Category::where('slug', $data['slug'])->where('category_id', '!=', $id)->exists()) {
+                $data['slug'] = $originalSlug . '-' . $count++;
+            }
+        }
+
+        $category->update($data);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Cập nhật danh mục thành công',
+            'data' => $category
+        ]);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Category $category)
+    public function destroy($id)
     {
-        //
+        $category = Category::find($id);
+
+        if (!$category) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy danh mục'
+            ], 404);
+        }
+
+
+        $hasChildren = Category::where('parent_id', $id)->exists();
+        if ($hasChildren) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không thể xóa danh mục có danh mục con'
+            ], 400);
+        }
+
+        $category->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Xóa danh mục thành công'
+        ]);
     }
 }

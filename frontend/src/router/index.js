@@ -2,10 +2,11 @@ import { createRouter, createWebHistory } from "vue-router";
 import Home from "../Pages/Home.vue";
 import ClientLayout from "../layouts/ClientLayout.vue";
 import AdminLayout from "../layouts/AdminLayout.vue";
-import AdminHome from "../Pages/admin/AdminHome.vue";
-import AdminProduct from "../Pages/admin/AdminProduct.vue";
-import AdminCreateProduct from "../Pages/admin/AdminCreateProduct.vue";
-import AdminUsers from "../Pages/admin/AdminUsers.vue";
+import AdminHome from "../Pages/Admin/AdminHome.vue";
+import AdminProduct from "../Pages/Admin/AdminProduct.vue";
+import AdminCreateProduct from "../Pages/Admin/AdminCreateProduct.vue";
+import AdminUsers from "../Pages/Admin/AdminUsers.vue";
+import AdminCategory from "../Pages/Admin/AdminCategory.vue";
 import Login from "../Pages/Client/Auth/login.vue";
 import Register from "../Pages/Client/Auth/Register.vue";
 import Forgot from "../Pages/Client/Auth/Forgot.vue";
@@ -67,6 +68,11 @@ const routes = [
                 name: "admin-users",
                 component: AdminUsers,
                 meta: { roles: ['admin'] }, // Chỉ admin mới quản lý nhân sự
+            },
+            {
+                path: "category",
+                name: "admin-category",
+                component: AdminCategory,
             },
         ],
     },
