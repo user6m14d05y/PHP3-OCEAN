@@ -1,86 +1,59 @@
 <script setup>
 import { ref } from 'vue';
-import axios from 'axios';
+import api from '../../../axios.js';
 import { useRouter } from 'vue-router';
+import Swal from 'sweetalert2';
+import ClientHeader from '../../../components/ClientHeader.vue';
+import ClientFooter from '../../../components/ClientFooter.vue';
 
 const name = ref('');
 const email = ref('');
 const password = ref('');
 const password_confirmation = ref('');
+const showPassword = ref(false);
+const showConfirmPassword = ref(false);
+const agreeTerms = ref(false);
 const errorMsg = ref('');
 const isSubmitting = ref(false);
 const router = useRouter();
 
-import Swal from 'sweetalert2';
-
 const handleRegister = async () => {
-    if (name.value === "") {
-      errorMsg.value = "Vui lòng nhập tên"
-      return;
-    }
-    if (email.value === "") {
-      errorMsg.value = "Vui lòng nhập email"
-      return;
-    }
-    if (password.value === "") {
-      errorMsg.value = "Vui lòng nhập mật khẩu"
-      return;
-    }
-    if (password_confirmation.value === "") {
-      errorMsg.value = "Vui lòng nhập mật khẩu xác nhận"
-      return;
-    }
-    if (password.value !== password_confirmation.value) {
-        errorMsg.value = 'Mật khẩu xác nhận không khớp!';
-        return;
-    }
+    if (!name.value) { errorMsg.value = 'Vui lòng nhập họ tên'; return; }
+    if (!email.value) { errorMsg.value = 'Vui lòng nhập email'; return; }
+    if (!password.value) { errorMsg.value = 'Vui lòng nhập mật khẩu'; return; }
+    if (!password_confirmation.value) { errorMsg.value = 'Vui lòng xác nhận mật khẩu'; return; }
+    if (password.value !== password_confirmation.value) { errorMsg.value = 'Mật khẩu xác nhận không khớp!'; return; }
+    if (!agreeTerms.value) { errorMsg.value = 'Bạn cần đồng ý với điều khoản dịch vụ'; return; }
     
     errorMsg.value = '';
     isSubmitting.value = true;
     
     try {
-        const response = await axios.post('http://localhost:8000/api/register', {
+        const response = await api.post('/register', {
             name: name.value,
             email: email.value,
             password: password.value,
-            password_confirmation: password_confirmation.value
         });
         
         if (response.data.status === 'success') {
-            // Show Sweet alert 2
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'success',
-                title: response.data.message || 'Đăng ký thành công!',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true
+            Swal.fire({ 
+              icon: 'success', 
+              title: 'Đăng ký thành công!', 
+              text: 'Vui lòng đăng nhập để tiếp tục.',
+              confirmButtonText: 'Đến trang Đăng nhập'
+            }).then(() => {
+              router.push('/client/login');
             });
-            router.push('/client/login');
         }
     } catch (error) {
-        let errorText = 'Có lỗi xảy ra, vui lòng thử lại sau.';
-        if (error.response && error.response.data.errors) {
-            const errors = error.response.data.errors;
-            errorText = Object.values(errors)[0][0];
+        let errorText = 'Có lỗi xảy ra, vui lòng thử lại.';
+        if (error.response?.data?.errors) {
+            errorText = Object.values(error.response.data.errors)[0][0];
+        } else if (error.response?.data?.message) {
+            errorText = error.response.data.message;
         }
-        
-        // Hiển thị Banner đỏ của Form như bạn thiết kế
         errorMsg.value = errorText;
-        
-        // Show Sweet alert 2
-        Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'error',
-            title: errorText,
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true
-        });
-        
-        console.error('Lỗi đăng ký:', error);
+        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: errorText, showConfirmButton: false, timer: 3000, timerProgressBar: true });
     } finally {
         isSubmitting.value = false;
     }
@@ -88,178 +61,289 @@ const handleRegister = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-    <div class="max-w-4xl w-full flex bg-white rounded-2xl shadow-2xl overflow-hidden min-h-[600px]">
-      
-      <!-- Left side: Image banner (Hidden on small screens) -->
-      <div class="hidden md:block md:w-1/2 relative">
-        <img 
-          class="absolute inset-0 h-full w-full object-cover" 
-          src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" 
-          alt="Fashion Model 2" 
-        />
-        <div class="absolute inset-0 bg-black bg-opacity-20 transition-opacity duration-300 hover:bg-opacity-30"></div>
-        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-        
-        <div class="absolute bottom-0 left-0 p-10 text-white">
-          <h2 class="text-4xl font-serif font-bold mb-3 tracking-wide">Ocean Fashion</h2>
-          <p class="text-sm opacity-90 font-light tracking-wider leading-relaxed">
-            Gia nhập cộng đồng Ocean Fashion. Tận hưởng ưu đãi độc quyền dành riêng cho thành viên.
+  <div class="page-wrapper">
+    <ClientHeader />
+
+    <main class="auth-main">
+      <div class="auth-page">
+        <div class="auth-card">
+          <!-- Icon -->
+          <div class="auth-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>
+            </svg>
+          </div>
+
+          <h1 class="auth-title">Tạo tài khoản</h1>
+          <p class="auth-subtitle">Bắt đầu hành trình mua sắm cùng Ocean</p>
+
+          <!-- Error Banner -->
+          <div v-if="errorMsg" class="error-banner">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+            {{ errorMsg }}
+          </div>
+
+          <form @submit.prevent="handleRegister" class="auth-form">
+            <!-- Name -->
+            <div class="form-group">
+              <label for="reg-name">Họ và tên</label>
+              <input id="reg-name" type="text" v-model="name" placeholder="Nguyễn Văn A" required :disabled="isSubmitting" />
+            </div>
+
+            <!-- Email -->
+            <div class="form-group">
+              <label for="reg-email">Email</label>
+              <input id="reg-email" type="email" v-model="email" placeholder="your@email.com" required :disabled="isSubmitting" />
+            </div>
+
+            <!-- Password -->
+            <div class="form-group">
+              <label for="reg-password">Mật khẩu</label>
+              <div class="input-password">
+                <input id="reg-password" :type="showPassword ? 'text' : 'password'" v-model="password" placeholder="Mật khẩu" required :disabled="isSubmitting" />
+                <button type="button" class="toggle-pw" @click="showPassword = !showPassword" tabindex="-1">
+                  <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="form-group">
+              <label for="reg-confirm">Xác nhận mật khẩu</label>
+              <div class="input-password">
+                <input id="reg-confirm" :type="showConfirmPassword ? 'text' : 'password'" v-model="password_confirmation" placeholder="Nhập lại mật khẩu" required :disabled="isSubmitting" />
+                <button type="button" class="toggle-pw" @click="showConfirmPassword = !showConfirmPassword" tabindex="-1">
+                  <svg v-if="!showConfirmPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Terms -->
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="agreeTerms" />
+              <span>Tôi đồng ý với <a href="#" class="link">Điều khoản dịch vụ</a> và <a href="#" class="link">Chính sách bảo mật</a></span>
+            </label>
+
+            <!-- Submit -->
+            <button type="submit" class="btn-primary" :disabled="isSubmitting">
+              <span v-if="isSubmitting" class="spinner"></span>
+              {{ isSubmitting ? 'Đang xử lý...' : 'Đăng ký' }}
+            </button>
+          </form>
+
+          <!-- Login link -->
+          <p class="auth-switch">
+            Đã có tài khoản?
+            <router-link to="/client/login">Đăng nhập</router-link>
           </p>
         </div>
       </div>
+    </main>
 
-      <!-- Right side: Register Form -->
-      <div class="w-full md:w-1/2 p-8 sm:p-12 flex flex-col justify-center">
-        <!-- Logo / Title -->
-        <div class="mb-6 text-center md:text-left">
-          <h2 class="text-3xl font-serif font-bold text-gray-900 tracking-tight mb-2">Đăng ký</h2>
-          <p class="text-sm text-gray-500">Tạo tài khoản mới để bắt đầu mua sắm.</p>
-        </div>
-
-        <form @submit.prevent="handleRegister" class="space-y-4">
-          
-          <!-- Error Message Banner -->
-          <div v-if="errorMsg" class="mb-4 bg-red-50 p-4 rounded-lg flex items-start">
-             <svg class="h-5 w-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-            </svg>
-            <p class="text-sm font-medium text-red-800">{{ errorMsg }}</p>
-          </div>
-
-          <!-- Name Input -->
-          <div>
-            <label for="name" class="block text-sm font-medium text-gray-700">Họ và tên</label>
-            <div class="mt-1">
-              <input 
-                id="name" 
-                name="name" 
-                type="text" 
-                required 
-                v-model="name"
-                class="appearance-none block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition duration-200"
-                placeholder="Nguyễn Văn A"
-                :disabled="isSubmitting"
-              >
-            </div>
-          </div>
-
-          <!-- Email Input -->
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-700">Địa chỉ Email</label>
-            <div class="mt-1">
-              <input 
-                id="email" 
-                name="email" 
-                type="email" 
-                autocomplete="email" 
-                required 
-                v-model="email"
-                class="appearance-none block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition duration-200"
-                placeholder="you@example.com"
-                :disabled="isSubmitting"
-              >
-            </div>
-          </div>
-
-          <!-- Password Input -->
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-700">Mật khẩu</label>
-            <div class="mt-1 relative">
-              <input 
-                id="password" 
-                name="password" 
-                type="password" 
-                required 
-                v-model="password"
-                class="appearance-none block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition duration-200"
-                placeholder="••••••••"
-                :disabled="isSubmitting"
-              >
-            </div>
-          </div>
-
-          <!-- Confirm Password Input -->
-          <div>
-            <label for="password_confirmation" class="block text-sm font-medium text-gray-700">Xác nhận mật khẩu</label>
-            <div class="mt-1 relative">
-              <input 
-                id="password_confirmation" 
-                name="password_confirmation" 
-                type="password" 
-                required 
-                v-model="password_confirmation"
-                class="appearance-none block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition duration-200"
-                placeholder="••••••••"
-                :disabled="isSubmitting"
-              >
-            </div>
-          </div>
-
-          <!-- Submit Button -->
-          <div class="pt-2">
-            <button 
-              type="submit" 
-              class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition active:scale-[0.98] duration-200 ease-in-out disabled:opacity-70 disabled:cursor-not-allowed"
-              :disabled="isSubmitting"
-            >
-              <span v-if="isSubmitting" class="mr-2">
-                 <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              </span>
-              {{ isSubmitting ? 'Đang xử lý...' : 'Đăng ký tài khoản' }}
-            </button>
-          </div>
-        </form>
-
-        <!-- Divider -->
-        <div class="mt-6">
-          <div class="relative">
-            <div class="absolute inset-0 flex items-center">
-              <div class="w-full border-t border-gray-200"></div>
-            </div>
-            <div class="relative flex justify-center text-sm">
-              <span class="px-2 bg-white text-gray-500">
-                Hoặc đăng ký bằng
-              </span>
-            </div>
-          </div>
-
-          <!-- Social Buttons -->
-          <div class="mt-4 grid grid-cols-2 gap-4">
-            <button class="w-full flex items-center justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition duration-200">
-              <img class="h-5 w-5" src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google">
-              <span class="ml-2">Google</span>
-            </button>
-            <button class="w-full flex items-center justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition duration-200">
-              <img class="h-5 w-5" src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook">
-              <span class="ml-2">Facebook</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Login Link -->
-        <p class="mt-6 text-center text-sm text-gray-600">
-          Đã có tài khoản?
-          <router-link to="/client/login" class="font-medium text-gray-900 hover:underline hover:text-black">
-            Đăng nhập ngay
-          </router-link>
-        </p>
-
-      </div>
-    </div>
+    <ClientFooter />
   </div>
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+.page-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
-.font-serif {
-  font-family: 'Playfair Display', serif;
+.auth-main {
+  flex: 1;
+  background: #f5f7fb;
+  display: flex;
+  flex-direction: column;
 }
-.font-sans {
-  font-family: 'Inter', sans-serif;
+
+.auth-page {
+  flex: 1;
+  padding: 48px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 40px 36px 36px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.auth-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #eef2ff;
+  color: #4f6ef7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.auth-title {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 6px;
+}
+
+.auth-subtitle {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #8892a8;
+  margin-bottom: 24px;
+}
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #fff0f0;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #dc2626;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #e0e4ec;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #1a1a2e;
+  background: #f8f9fc;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus {
+  border-color: #4f6ef7;
+  box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.1);
+  background: #fff;
+}
+
+.form-group input::placeholder { color: #a0a8c0; }
+
+.input-password { position: relative; }
+.input-password input { padding-right: 44px; }
+
+.toggle-pw {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #a0a8c0;
+  display: flex;
+  padding: 4px;
+  transition: color 0.2s;
+}
+
+.toggle-pw:hover { color: #4f6ef7; }
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #555;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #4f6ef7;
+  cursor: pointer;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.link {
+  color: #4f6ef7;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.link:hover { text-decoration: underline; }
+
+.btn-primary {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  background: #4f6ef7;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary:hover:not(:disabled) { background: #3b5de7; }
+.btn-primary:active:not(:disabled) { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.auth-switch {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 24px;
+}
+
+.auth-switch a {
+  color: #4f6ef7;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.auth-switch a:hover { color: #3b5de7; }
 </style>
