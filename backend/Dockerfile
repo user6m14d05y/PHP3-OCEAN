@@ -9,7 +9,9 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
-    libzip-dev
+    libzip-dev \
+    # Thêm default-mysql-client để dùng trong script verify DB connection
+    default-mysql-client
 
 # Xóa cache apt
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -23,5 +25,18 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Thiết lập thư mục làm việc mặc định trong container
 WORKDIR /var/www
 
-# Phân quyền cho www-data
+# Copy toàn bộ src code (Bắt buộc cho Production)
+# Ở môi trường dev, volume mount trong docker-compose sẽ ghi đè đè lên thư mục này.
+COPY . .
+
+# Phân quyền cho www-data TRƯỚC khi chuyển user
 RUN chown -R www-data:www-data /var/www
+
+# CHẠY DƯỚI QUYỀN NON-ROOT WWW-DATA
+USER www-data
+
+# EXPOSE port (FPM mặc định chạy 9000, không cần declare nhưng nên để cho rõ ràng)
+EXPOSE 9000
+
+# Entrypoint script xử lý migrate & start FPM
+ENTRYPOINT ["/var/www/docker-entrypoint.sh"]
