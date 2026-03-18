@@ -98,7 +98,7 @@ Quá trình chia tách này yêu cầu các logic cũ (như trả về View bằ
 
 Quá trình truy vấn bảo mật giữa 2 khối được thực hiện và chứng thực chéo thông qua kiến trúc của Laravel Sanctum.
 
-## UPDATE INSERT ALERT MODULE 
+## UPDATE INSERT ALERT MODULE
 
 ```bash
 npm install sweetalert2
@@ -109,4 +109,9 @@ npm install sweetalert2
 ```bash
 docker compose exec backend php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
 docker compose exec backend php artisan migrate
+```
+
+```bash
+docker exec ocean_backend composer require php-open-source-saver/jwt-auth
+docker exec ocean_backend php artisan jwt:secret
 ```

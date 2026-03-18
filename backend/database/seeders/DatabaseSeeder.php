@@ -2,24 +2,32 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Carbon\Carbon;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $now = Carbon::now()->toDateTimeString();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // Kiểm tra super admin đã tồn tại chưa
+        $exists = DB::select("SELECT * FROM users WHERE email = ?", ['admin123@gmail.com']);
+
+        if (count($exists) === 0) {
+            DB::insert(
+                "INSERT INTO users (full_name, email, password, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                ['Super Admin', 'admin123@gmail.com', Hash::make('123456'), 'admin', 'active', $now, $now]
+            );
+
+            echo "✅ Super Admin created: admin123@gmail.com / 123456\n";
+        } else {
+            echo "ℹ️ Super Admin already exists, skipping.\n";
+        }
     }
 }
