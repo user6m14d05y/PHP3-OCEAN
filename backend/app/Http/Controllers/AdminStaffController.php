@@ -48,7 +48,7 @@ class AdminStaffController extends Controller
         $admin = Admin::create([
             'full_name' => $request->full_name,
             'email' => $request->email,
-            'password' => bcrypt($request->password),
+            'password' => $request->password,
             'role' => $request->role,
         ]);
 
@@ -78,7 +78,7 @@ class AdminStaffController extends Controller
         $admin->update($request->only('full_name', 'email', 'role'));
 
         if ($request->filled('password')) {
-            $admin->password = bcrypt($request->password);
+            $admin->password = $request->password;
             $admin->save();
         }
 

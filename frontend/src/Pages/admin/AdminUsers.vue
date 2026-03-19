@@ -67,18 +67,38 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Bootstrap Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+      <div class="toast align-items-center border-0" :class="toast.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="usersToast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+          <div class="toast-body">{{ toast.message }}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Đóng"></button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import api from '../../axios.js';
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
 
 const users = ref([]);
 const loading = ref(true);
 const searchQuery = ref('');
 let searchTimer = null;
+
+const toast = ref({ message: '', type: 'success' });
+
+const showToast = (message, type = 'success') => {
+  toast.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('usersToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 2500 }).show();
+  });
+};
 
 const debouncedFetch = () => {
     clearTimeout(searchTimer);
@@ -93,7 +113,7 @@ const fetchUsers = async () => {
     const response = await api.get('/admin/users', { params: { search: searchQuery.value } });
     users.value = response.data.data;
   } catch (error) {
-    Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Lỗi tải danh sách khách hàng!', showConfirmButton: false, timer: 2000 });
+    showToast('Lỗi tải danh sách khách hàng!', 'danger');
   } finally {
     loading.value = false;
   }
@@ -102,11 +122,10 @@ const fetchUsers = async () => {
 const updateRole = async (userId, newRole) => {
   try {
     const result = await api.put(`/admin/users/${userId}/role`, { role: newRole });
-    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: result.data.message, showConfirmButton: false, timer: 2000, timerProgressBar: true });
+    showToast(result.data.message, 'success');
     fetchUsers();
   } catch (error) {
-    const msg = error.response?.data?.message || 'Lỗi cập nhật role!';
-    Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: msg, showConfirmButton: false, timer: 2000 });
+    showToast(error.response?.data?.message || 'Lỗi cập nhật role!', 'danger');
     fetchUsers();
   }
 };
@@ -114,11 +133,10 @@ const updateRole = async (userId, newRole) => {
 const updateStatus = async (userId, newStatus) => {
   try {
     const result = await api.put(`/admin/users/${userId}/status`, { status: newStatus });
-    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: result.data.message, showConfirmButton: false, timer: 2000, timerProgressBar: true });
+    showToast(result.data.message, 'success');
     fetchUsers();
   } catch (error) {
-    const msg = error.response?.data?.message || 'Lỗi cập nhật status!';
-    Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: msg, showConfirmButton: false, timer: 2000 });
+    showToast(error.response?.data?.message || 'Lỗi cập nhật status!', 'danger');
     fetchUsers();
   }
 };

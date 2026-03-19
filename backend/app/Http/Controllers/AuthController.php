@@ -68,9 +68,9 @@ class AuthController extends Controller
         ], 401);
     }
 
-    protected function respondWithToken($token, $role)
+    protected function respondWithToken($token, $guardType)
     {
-        $user = ($role === 'admin') ? auth('admin')->user() : auth('api')->user();
+        $user = ($guardType === 'admin') ? auth('admin')->user() : auth('api')->user();
 
         return response()->json([
             'status' => 'success',
@@ -79,9 +79,9 @@ class AuthController extends Controller
             'refresh_token' => $token,
             'token_type' => 'Bearer',
             'expires_in' => config('jwt.ttl', 60) * 60,
-            'role' => $role,
+            'role' => $user->role,
             'user' => [
-                'id' => $role === 'admin' ? $user->admin_id : $user->user_id,
+                'id' => $guardType === 'admin' ? $user->admin_id : $user->user_id,
                 'name' => $user->full_name,
                 'email' => $user->email,
                 'role' => $user->role
