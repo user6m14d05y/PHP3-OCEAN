@@ -51,13 +51,19 @@ else
 fi
 
 # -----------------------------------------------
-# 4. Chạy Database Migration
+# 4. Tạo Storage Symlink (public/storage -> storage/app/public)
 # -----------------------------------------------
-echo "[4/5] Running database migrations..."
+echo "[4/6] Creating storage link..."
+php artisan storage:link --force 2>/dev/null || true
+
+# -----------------------------------------------
+# 5. Chạy Database Migration
+# -----------------------------------------------
+echo "[5/6] Running database migrations..."
 php artisan migrate --force
 
 # -----------------------------------------------
-# 5. Khởi động PHP-FPM
+# 6. Khởi động PHP-FPM
 # -----------------------------------------------
-echo "[5/5] Starting PHP-FPM..."
+echo "[6/6] Starting PHP-FPM..."
 exec php-fpm
