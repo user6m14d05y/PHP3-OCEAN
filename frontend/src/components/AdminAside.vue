@@ -57,7 +57,11 @@
           </router-link>
           <router-link to="/admin/users" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
-            <span>Người dùng</span>
+            <span>Khách hàng</span>
+          </router-link>
+          <router-link to="/admin/staff" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Nhân sự</span>
           </router-link>
           <router-link to="/admin/shipping" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>

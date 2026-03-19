@@ -27,7 +27,7 @@ const fetchCategories = async () => {
     try {
         isLoading.value = true;
         const response = await api.get('/categories');
-        categories.value = response.data;
+        categories.value = response.data.data;
     } catch (error) {
         Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Lỗi tải danh mục!', showConfirmButton: false, timer: 2000 });
     } finally {
@@ -175,14 +175,10 @@ const deleteCategory = async (id) => {
             </div>
         </div>
 
-        <!-- Loading State -->
-        <div v-if="isLoading" class="loading-state">
-            <div class="spinner"></div>
-            <p>Đang tải danh mục...</p>
-        </div>
+
 
         <!-- Category Table -->
-        <div v-else class="table-container ocean-card animate-in" style="animation-delay: 0.2s">
+        <div class="table-container ocean-card animate-in" style="animation-delay: 0.2s">
             <div class="table-header">
                 <span class="table-count">
                     <strong>{{ filteredCategories.length }}</strong> danh mục gốc tìm thấy
