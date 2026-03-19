@@ -9,7 +9,7 @@ const searchQuery = ref('');
 onMounted(() => {
     api.get('/productsAll?page=1&limit=10')
         .then(response => {
-            products.value = response.data;
+            products.value = response.data.data;
         })
         .catch(error => {
             console.error('Error fetching products:', error);
@@ -44,16 +44,16 @@ const formatPrice = (price) => {
                         <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
                         <line x1="12" y1="22.08" x2="12" y2="12"/>
                     </svg>
-                    Products Management
+                    Quản lý Sản phẩm
                 </h1>
-                <p class="page-subtitle">Manage your ocean store inventory</p>
+                <p class="page-subtitle">Quản lý kho hàng ocean store của bạn</p>
             </div>
             <router-link to="/admin/product/create" class="btn-primary" id="add-product-btn">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="12" y1="5" x2="12" y2="19"/>
                     <line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
-                Add Product
+                Thêm Sản phẩm
             </router-link>
         </div>
 
@@ -67,7 +67,7 @@ const formatPrice = (price) => {
                 <input 
                     type="text" 
                     v-model="searchQuery"
-                    placeholder="Search products by name or ID..." 
+                    placeholder="Tìm kiếm sản phẩm theo tên hoặc ID..." 
                     class="search-input"
                 />
             </div>
@@ -79,24 +79,20 @@ const formatPrice = (price) => {
                         <rect x="14" y="14" width="7" height="7"/>
                         <rect x="3" y="14" width="7" height="7"/>
                     </svg>
-                    All
+                    Tất cả
                 </button>
-                <button class="filter-btn">In Stock</button>
-                <button class="filter-btn">Low Stock</button>
+                <button class="filter-btn">Còn hàng</button>
+                <button class="filter-btn">Sắp hết hàng</button>
             </div>
         </div>
 
-        <!-- Loading State -->
-        <div v-if="isLoading" class="loading-state">
-            <div class="spinner"></div>
-            <p>Loading products...</p>
-        </div>
+
 
         <!-- Products Table -->
-        <div v-else class="table-container ocean-card animate-in" style="animation-delay: 0.2s">
+        <div class="table-container ocean-card animate-in" style="animation-delay: 0.2s">
             <div class="table-header">
                 <span class="table-count">
-                    <strong>{{ filteredProducts.length }}</strong> products found
+                    <strong>{{ filteredProducts.length }}</strong> sản phẩm được tìm thấy
                 </span>
             </div>
             <div class="table-wrapper">
@@ -104,10 +100,10 @@ const formatPrice = (price) => {
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Product Name</th>
-                            <th>Price</th>
-                            <th>Stock</th>
-                            <th>Actions</th>
+                            <th>TÊN SẢN PHẨM</th>
+                            <th>GIÁ</th>
+                            <th>KHO</th>
+                            <th>HÀNH ĐỘNG</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -135,13 +131,13 @@ const formatPrice = (price) => {
                             </td>
                             <td>
                                 <div class="actions-cell">
-                                    <button class="btn-icon view" title="View">
+                                    <button class="btn-icon view" title="Xem">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                     </button>
-                                    <button class="btn-icon edit" title="Edit">
+                                    <button class="btn-icon edit" title="Sửa">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                     </button>
-                                    <button class="btn-icon del" title="Delete">
+                                    <button class="btn-icon del" title="Xóa">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                                     </button>
                                 </div>
@@ -154,8 +150,8 @@ const formatPrice = (price) => {
             <!-- Empty -->
             <div v-if="filteredProducts.length === 0" class="empty-state">
                 <span class="empty-emoji">🐚</span>
-                <h3>No products found</h3>
-                <p>Try a different search term.</p>
+                <h3>Không tìm thấy sản phẩm</h3>
+                <p>Thử một từ khóa khác.</p>
             </div>
         </div>
     </div>

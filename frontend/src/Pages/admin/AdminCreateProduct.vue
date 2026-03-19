@@ -35,7 +35,7 @@ const product = reactive({
 const handleFetchCategories = async () => {
     try {
         const response = await api.get("/categories");
-        categories.value = response.data;
+        categories.value = response.data.data;
     } catch (error) {
         console.error("Error fetching categories:", error);
     }
