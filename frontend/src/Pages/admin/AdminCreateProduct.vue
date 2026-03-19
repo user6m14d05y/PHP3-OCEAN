@@ -376,7 +376,7 @@ onMounted(() => {
                             class="form-control"
                             placeholder="Ví dụ: Đồng Hồ Xanh Đại Dương"
                         />
-                        <div v-if="errors.name" class="error-message text-red-500 text-sm mt-2">
+                        <div v-if="errors.name" class="error-message">
                             {{ errors.name }}
                         </div>
                     </div>
