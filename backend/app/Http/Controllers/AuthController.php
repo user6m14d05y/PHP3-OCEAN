@@ -10,16 +10,12 @@ use Carbon\Carbon;
 
 class AuthController extends Controller
 {
-    /**
-     * Đăng ký tài khoản mới.
-     */
     public function register(Request $request)
     {
         $name = $request->input('full_name') ?? $request->input('name');
         $email = $request->input('email');
         $password = $request->input('password');
 
-        // Kiểm tra email đã tồn tại chưa
         $checkEmail = DB::select("SELECT * FROM users WHERE email = ?", [$email]);
 
         if (count($checkEmail) > 0) {
@@ -31,7 +27,6 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Tạo user mới
         $hashedPassword = Hash::make($password);
         $now = Carbon::now()->toDateTimeString();
 
@@ -40,7 +35,6 @@ class AuthController extends Controller
             [$name, $email, $hashedPassword, 'customer', $now, $now]
         );
 
-        // Tự động đăng nhập và trả token sau khi đăng ký
         $credentials = ['email' => $email, 'password' => $password];
         $token = auth('api')->attempt($credentials);
 
@@ -48,29 +42,35 @@ class AuthController extends Controller
             'status' => 'success',
             'message' => 'Đăng ký tài khoản thành công!',
             'access_token' => $token,
-            'refresh_token' => $token, // JWT dùng cùng 1 token để refresh
+            'refresh_token' => $token,
             'token_type' => 'Bearer',
-            'expires_in' => auth('api')->factory()->getTTL() * 60, // tính bằng giây
+            'expires_in' => auth('api')->factory()->getTTL() * 60,
         ], 201);
     }
 
-    /**
-     * Đăng nhập và nhận JWT token.
-     */
     public function login(Request $request)
     {
         $credentials = $request->only('email', 'password');
 
-        $token = auth('api')->attempt($credentials);
-
-        if (!$token) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Email hoặc mật khẩu không chính xác!'
-            ], 401);
+        // BƯỚC 1: Thử đăng nhập Admin (nhân sự) trước
+        if ($token = auth('admin')->attempt($credentials)) {
+            return $this->respondWithToken($token, 'admin');
         }
 
-        $user = auth('api')->user();
+        // BƯỚC 2: Thử đăng nhập Customer
+        if ($token = auth('api')->attempt($credentials)) {
+            return $this->respondWithToken($token, 'customer');
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Email hoặc mật khẩu không chính xác!'
+        ], 401);
+    }
+
+    protected function respondWithToken($token, $guardType)
+    {
+        $user = ($guardType === 'admin') ? auth('admin')->user() : auth('api')->user();
 
         return response()->json([
             'status' => 'success',
@@ -78,9 +78,10 @@ class AuthController extends Controller
             'access_token' => $token,
             'refresh_token' => $token,
             'token_type' => 'Bearer',
-            'expires_in' => auth('api')->factory()->getTTL() * 60,
+            'expires_in' => config('jwt.ttl', 60) * 60,
+            'role' => $user->role,
             'user' => [
-                'id' => $user->user_id,
+                'id' => $guardType === 'admin' ? $user->admin_id : $user->user_id,
                 'name' => $user->full_name,
                 'email' => $user->email,
                 'role' => $user->role
@@ -88,33 +89,29 @@ class AuthController extends Controller
         ], 200);
     }
 
-    /**
-     * Refresh token — dùng token cũ để nhận token mới.
-     */
     public function refresh()
     {
-        $newToken = auth('api')->refresh();
+        $guard = auth('admin')->check() ? 'admin' : 'api';
+        $newToken = auth($guard)->refresh();
 
         return response()->json([
             'status' => 'success',
             'access_token' => $newToken,
             'refresh_token' => $newToken,
             'token_type' => 'Bearer',
-            'expires_in' => auth('api')->factory()->getTTL() * 60,
+            'expires_in' => auth($guard)->factory()->getTTL() * 60,
         ]);
     }
 
-    /**
-     * Lấy thông tin user đang đăng nhập.
-     */
     public function me()
     {
-        $user = auth('api')->user();
+        $guard = auth('admin')->check() ? 'admin' : 'api';
+        $user = auth($guard)->user();
 
         return response()->json([
             'status' => 'success',
             'user' => [
-                'id' => $user->user_id,
+                'id' => $guard === 'admin' ? $user->admin_id : $user->user_id,
                 'name' => $user->full_name,
                 'email' => $user->email,
                 'role' => $user->role
@@ -122,12 +119,10 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Đăng xuất — hủy token hiện tại (blacklist).
-     */
     public function logout()
     {
-        auth('api')->logout();
+        $guard = auth('admin')->check() ? 'admin' : 'api';
+        auth($guard)->logout();
 
         return response()->json([
             'status' => 'success',

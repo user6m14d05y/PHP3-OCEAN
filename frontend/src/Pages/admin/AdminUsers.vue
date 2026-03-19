@@ -1,8 +1,8 @@
 <template>
   <div class="admin-users animate-in">
     <div class="page-header">
-      <h2 class="section-title">👥 Quản lý nhân sự</h2>
-      <p class="section-desc">Quản lý tài khoản, phân quyền và trạng thái người dùng.</p>
+      <h2 class="section-title">👥 Quản lý Khách hàng</h2>
+      <p class="section-desc">Quản lý tài khoản khách hàng và người bán hàng trên hệ thống.</p>
     </div>
 
     <!-- Search -->
@@ -10,8 +10,8 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
-      <input v-model="searchQuery" @input="fetchUsers" type="text" placeholder="Tìm kiếm theo tên hoặc email..." class="search-input" />
-      <span class="user-count">{{ users.length }} người dùng</span>
+      <input v-model="searchQuery" @input="debouncedFetch" type="text" placeholder="Tìm kiếm theo tên hoặc email..." class="search-input" />
+      <span class="user-count">{{ users.length }} khách hàng</span>
     </div>
 
     <!-- Table -->
@@ -29,15 +29,6 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading">
-            <td colspan="7" class="loading-cell">
-              <div class="loading-spinner"></div>
-              Đang tải...
-            </td>
-          </tr>
-          <tr v-else-if="users.length === 0">
-            <td colspan="7" class="empty-cell">Không tìm thấy người dùng nào.</td>
-          </tr>
           <tr v-for="user in users" :key="user.user_id" class="user-row">
             <td class="id-cell">#{{ user.user_id }}</td>
             <td>
@@ -55,10 +46,8 @@
                 class="role-select"
                 :class="'role-' + user.role"
               >
-                <option value="admin">Admin</option>
-                <option value="staff">Staff</option>
-                <option value="customer">Customer</option>
-                <option value="seller">Seller</option>
+                <option value="customer">Khách hàng</option>
+                <option value="seller">Người bán</option>
               </select>
             </td>
             <td>
@@ -68,9 +57,9 @@
                 class="status-select"
                 :class="'status-' + user.status"
               >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="banned">Banned</option>
+                <option value="active">Hoạt động</option>
+                <option value="inactive">Không hoạt động</option>
+                <option value="banned">Bị cấm</option>
               </select>
             </td>
             <td class="date-cell">{{ formatDate(user.created_at) }}</td>
@@ -78,17 +67,45 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Bootstrap Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+      <div class="toast align-items-center border-0" :class="toast.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="usersToast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+          <div class="toast-body">{{ toast.message }}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Đóng"></button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import api from '../../axios.js';
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
 
 const users = ref([]);
 const loading = ref(true);
 const searchQuery = ref('');
+let searchTimer = null;
+
+const toast = ref({ message: '', type: 'success' });
+
+const showToast = (message, type = 'success') => {
+  toast.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('usersToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 2500 }).show();
+  });
+};
+
+const debouncedFetch = () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+        fetchUsers();
+    }, 500);
+};
 
 const fetchUsers = async () => {
   try {
@@ -96,7 +113,7 @@ const fetchUsers = async () => {
     const response = await api.get('/admin/users', { params: { search: searchQuery.value } });
     users.value = response.data.data;
   } catch (error) {
-    Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Lỗi tải danh sách users!', showConfirmButton: false, timer: 2000 });
+    showToast('Lỗi tải danh sách khách hàng!', 'danger');
   } finally {
     loading.value = false;
   }
@@ -105,23 +122,21 @@ const fetchUsers = async () => {
 const updateRole = async (userId, newRole) => {
   try {
     const result = await api.put(`/admin/users/${userId}/role`, { role: newRole });
-    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: result.data.message, showConfirmButton: false, timer: 2000, timerProgressBar: true });
+    showToast(result.data.message, 'success');
     fetchUsers();
   } catch (error) {
-    const msg = error.response?.data?.message || 'Lỗi cập nhật role!';
-    Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: msg, showConfirmButton: false, timer: 2000 });
-    fetchUsers(); // Reset dropdown
+    showToast(error.response?.data?.message || 'Lỗi cập nhật role!', 'danger');
+    fetchUsers();
   }
 };
 
 const updateStatus = async (userId, newStatus) => {
   try {
     const result = await api.put(`/admin/users/${userId}/status`, { status: newStatus });
-    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: result.data.message, showConfirmButton: false, timer: 2000, timerProgressBar: true });
+    showToast(result.data.message, 'success');
     fetchUsers();
   } catch (error) {
-    const msg = error.response?.data?.message || 'Lỗi cập nhật status!';
-    Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: msg, showConfirmButton: false, timer: 2000 });
+    showToast(error.response?.data?.message || 'Lỗi cập nhật status!', 'danger');
     fetchUsers();
   }
 };
@@ -136,51 +151,47 @@ onMounted(fetchUsers);
 
 <style scoped>
 .page-header { margin-bottom: 24px; }
-.section-title { font-size: 1.4rem; font-weight: 700; color: var(--text-main); }
-.section-desc { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+.section-title { font-size: 1.4rem; font-weight: 700; color: #1a1a1a; }
+.section-desc { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
 
 .search-bar {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 16px; margin-bottom: 16px;
 }
-.search-bar svg { color: var(--text-light); flex-shrink: 0; }
+.search-bar svg { color: #94a3b8; flex-shrink: 0; }
 .search-input {
   flex: 1; background: transparent; border: none; outline: none;
-  font-size: 0.9rem; color: var(--text-main); font-family: var(--font-inter);
+  font-size: 0.9rem; color: #1e293b;
 }
-.search-input::placeholder { color: var(--text-light); }
-.user-count { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+.user-count { font-size: 0.75rem; color: #64748b; white-space: nowrap; }
 
-.table-wrapper { overflow-x: auto; }
+.table-wrapper { overflow-x: auto; background: #fff; border-radius: 12px; border: 1px solid #eee; }
 .user-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .user-table th {
   text-align: left; padding: 12px 16px; font-weight: 600; font-size: 0.75rem;
   text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--text-muted); border-bottom: 1px solid var(--border-color);
-  background: var(--ocean-deepest);
+  color: #64748b; border-bottom: 1px solid #eee;
+  background: #f8fafc;
 }
-.user-table td { padding: 12px 16px; border-bottom: 1px solid var(--border-color); }
-.user-row:hover { background: var(--hover-bg); }
-.id-cell { color: var(--text-light); font-weight: 600; }
-.email-cell { color: var(--ocean-blue); }
-.date-cell { color: var(--text-muted); font-size: 0.8rem; }
+.user-table td { padding: 12px 16px; border-bottom: 1px solid #eee; }
+.user-row:hover { background: #f8fafc; }
+.id-cell { color: #94a3b8; font-weight: 600; }
+.email-cell { color: #1d4ed8; }
+.date-cell { color: #64748b; font-size: 0.8rem; }
 
 .user-info-cell { display: flex; align-items: center; gap: 10px; }
 .avatar-circle {
   width: 32px; height: 32px; border-radius: 50%;
-  background: var(--ocean-blue); color: white;
+  background: #1d4ed8; color: white;
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
 }
 
 .role-select, .status-select {
-  padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color);
+  padding: 4px 8px; border-radius: 6px; border: 1px solid #eee;
   font-size: 0.8rem; font-weight: 500; cursor: pointer;
-  background: white; outline: none; font-family: var(--font-inter);
+  background: white; outline: none;
 }
-.role-select:focus, .status-select:focus { border-color: var(--ocean-blue); }
-.role-admin { color: #d32f2f; border-color: #ffcdd2; background: #ffebee; }
-.role-staff { color: #1565c0; border-color: #bbdefb; background: #e3f2fd; }
 .role-customer { color: #2e7d32; border-color: #c8e6c9; background: #e8f5e9; }
 .role-seller { color: #ef6c00; border-color: #ffe0b2; background: #fff3e0; }
 .status-active { color: #2e7d32; border-color: #c8e6c9; background: #e8f5e9; }
@@ -189,11 +200,11 @@ onMounted(fetchUsers);
 
 .loading-cell, .empty-cell {
   text-align: center; padding: 40px 16px !important;
-  color: var(--text-muted); font-size: 0.9rem;
+  color: #64748b; font-size: 0.9rem;
 }
 .loading-spinner {
   display: inline-block; width: 20px; height: 20px;
-  border: 2px solid var(--border-color); border-top-color: var(--ocean-blue);
+  border: 2px solid #eee; border-top-color: #1d4ed8;
   border-radius: 50%; animation: spin 0.8s linear infinite;
   margin-right: 8px; vertical-align: middle;
 }

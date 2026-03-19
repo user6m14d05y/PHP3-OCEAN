@@ -6,7 +6,8 @@ import AdminHome from "../Pages/admin/AdminHome.vue";
 import AdminProduct from "../Pages/admin/AdminProduct.vue";
 import AdminCreateProduct from "../Pages/admin/AdminCreateProduct.vue";
 import AdminUsers from "../Pages/admin/AdminUsers.vue";
-import AdminCategory from "../Pages/Admin/AdminCategory.vue";
+import AdminCategory from "../Pages/admin/AdminCategory.vue";
+import AdminStaff from "../Pages/admin/AdminStaff.vue";
 import Login from "../Pages/Client/Auth/login.vue";
 import Register from "../Pages/Client/Auth/Register.vue";
 import Forgot from "../Pages/Client/Auth/Forgot.vue";
@@ -73,6 +74,12 @@ const routes = [
                 path: "category",
                 name: "admin-category",
                 component: AdminCategory,
+            },
+            {
+                path: "staff",
+                name: "admin-staff",
+                component: AdminStaff,
+                meta: { roles: ['admin'] },
             },
         ],
     },

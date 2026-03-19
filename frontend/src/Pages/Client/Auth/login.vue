@@ -1,8 +1,8 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, nextTick } from 'vue';
 import api from '../../../axios.js';
 import { useRouter } from 'vue-router';
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
 import ClientHeader from '../../../components/ClientHeader.vue';
 import ClientFooter from '../../../components/ClientFooter.vue';
 
@@ -11,14 +11,23 @@ const password = ref('');
 const showPassword = ref(false);
 const isSubmitting = ref(false);
 const router = useRouter();
+const toast = ref({ message: '', type: 'success' });
+
+const showToast = (message, type = 'success') => {
+  toast.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('loginToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 2500 }).show();
+  });
+};
 
 const login = async () => {
   if (!email.value) {
-    Swal.fire({ icon: 'error', title: 'Vui lòng nhập email', showConfirmButton: false, timer: 1500, timerProgressBar: true });
+    showToast('Vui lòng nhập email', 'danger');
     return;
   }
   if (!password.value) {
-    Swal.fire({ icon: 'error', title: 'Vui lòng nhập mật khẩu', showConfirmButton: false, timer: 1500, timerProgressBar: true });
+    showToast('Vui lòng nhập mật khẩu', 'danger');
     return;
   }
 
@@ -36,7 +45,7 @@ const login = async () => {
         role: response.data.user.role
       }));
 
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Đăng nhập thành công!', showConfirmButton: false, timer: 1500, timerProgressBar: true });
+      showToast('Đăng nhập thành công!', 'success');
       
       if (response.data.user.role === 'admin' || response.data.user.role === 'staff') {
         router.push('/admin');
@@ -46,7 +55,7 @@ const login = async () => {
     }
   } catch (error) {
     const msg = error.response?.data?.message || 'Đăng nhập thất bại!';
-    Swal.fire({ icon: 'error', title: msg, showConfirmButton: false, timer: 1500, timerProgressBar: true });
+    showToast(msg, 'danger');
   } finally {
     isSubmitting.value = false;
   }
@@ -128,6 +137,16 @@ const login = async () => {
     </main>
 
     <ClientFooter />
+
+    <!-- Bootstrap Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+      <div class="toast align-items-center border-0" :class="toast.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="loginToast" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">{{ toast.message }}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

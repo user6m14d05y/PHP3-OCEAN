@@ -1,8 +1,8 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, nextTick } from 'vue';
 import api from '../../../axios.js';
 import { useRouter } from 'vue-router';
-import Swal from 'sweetalert2';
+import { Toast, Modal } from 'bootstrap';
 import ClientHeader from '../../../components/ClientHeader.vue';
 import ClientFooter from '../../../components/ClientFooter.vue';
 
@@ -16,6 +16,16 @@ const agreeTerms = ref(false);
 const errorMsg = ref('');
 const isSubmitting = ref(false);
 const router = useRouter();
+
+const toast = ref({ message: '', type: 'success' });
+
+const showToast = (message, type = 'success') => {
+  toast.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('registerToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  });
+};
 
 const handleRegister = async () => {
     if (!name.value) { errorMsg.value = 'Vui lòng nhập họ tên'; return; }
@@ -36,13 +46,9 @@ const handleRegister = async () => {
         });
         
         if (response.data.status === 'success') {
-            Swal.fire({ 
-              icon: 'success', 
-              title: 'Đăng ký thành công!', 
-              text: 'Vui lòng đăng nhập để tiếp tục.',
-              confirmButtonText: 'Đến trang Đăng nhập'
-            }).then(() => {
-              router.push('/client/login');
+            nextTick(() => {
+                const el = document.getElementById('registerSuccessModal');
+                if (el) Modal.getOrCreateInstance(el).show();
             });
         }
     } catch (error) {
@@ -53,10 +59,14 @@ const handleRegister = async () => {
             errorText = error.response.data.message;
         }
         errorMsg.value = errorText;
-        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: errorText, showConfirmButton: false, timer: 3000, timerProgressBar: true });
+        showToast(errorText, 'danger');
     } finally {
         isSubmitting.value = false;
     }
+};
+
+const goToLogin = () => {
+    router.push('/client/login');
 };
 </script>
 
@@ -143,6 +153,33 @@ const handleRegister = async () => {
     </main>
 
     <ClientFooter />
+
+    <!-- Bootstrap Modal: Đăng ký thành công -->
+    <div class="modal fade" id="registerSuccessModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-success text-white">
+            <h5 class="modal-title">✅ Đăng ký thành công!</h5>
+          </div>
+          <div class="modal-body">
+            <p>Vui lòng đăng nhập để tiếp tục.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-success" @click="goToLogin">Đến trang Đăng nhập</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+      <div class="toast align-items-center border-0 text-bg-danger" id="registerToast" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">{{ toast.message }}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

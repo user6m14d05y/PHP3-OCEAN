@@ -27,7 +27,10 @@ class ProductController extends Controller
             ->offset($offset)
             ->limit($limit)
             ->get();
-        return response()->json($products);
+        return response()->json([
+            'status' => 'success',
+            'data' => $products
+        ]);
     }
     public function show($slug)
     {
@@ -57,7 +60,10 @@ class ProductController extends Controller
             ->offset($offset)
             ->limit($limit)
             ->get();
-        return response()->json($products);
+        return response()->json([
+            'status' => 'success',
+            'data' => $products
+        ]);
     }
 
     /**
