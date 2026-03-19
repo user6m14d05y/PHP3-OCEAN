@@ -10,11 +10,11 @@ class ProductImage extends Model
     protected $primaryKey = 'image_id';
     protected $fillable = [
         'product_id',
+        'variant_id',
         'image_url',
         'alt_text',
         'sort_order',
         'is_main',
-        'created_at',
     ];
 
     public $timestamps = false;

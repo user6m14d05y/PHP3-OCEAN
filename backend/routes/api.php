@@ -41,6 +41,7 @@ Route::middleware(['auth:api', 'role:admin'])->prefix('admin')->group(function (
 Route::apiResource('products', ProductController::class);
 Route::apiResource('categories', CategoryController::class);
 Route::get('productsAll', [ProductController::class, 'all']);
+Route::get('products/{id}/edit', [ProductController::class, 'edit']);
 
 // Test & Debug routes
 Route::get('/contact', function () {
