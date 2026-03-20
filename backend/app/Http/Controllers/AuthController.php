@@ -36,7 +36,7 @@ class AuthController extends Controller
 
             return $response->json('success', false);
         } catch (\Exception $e) {
-            \Log::error('Turnstile verification failed: ' . $e->getMessage());
+            Log::error('Turnstile verification failed: ' . $e->getMessage());
             return false;
         }
     }
@@ -206,5 +206,110 @@ class AuthController extends Controller
             'status' => 'success',
             'message' => 'Đã đăng xuất thành công!'
         ]);
+    }
+
+    /**
+     * Google OAuth 2.0 Callback
+     * Nhận authorization code từ frontend, đổi lấy user info, tạo/liên kết tài khoản
+     */
+    public function googleCallback(Request $request)
+    {
+        $code = $request->input('code');
+
+        if (!$code) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Thiếu mã xác thực từ Google!'
+            ], 422);
+        }
+
+        try {
+            // Bước 1: Đổi authorization code lấy access_token
+            $tokenResponse = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+                'code' => $code,
+                'client_id' => env('GOOGLE_CLIENT_ID'),
+                'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+                'redirect_uri' => 'http://localhost:3302/api/auth/google/callback',
+                'grant_type' => 'authorization_code',
+            ]);
+
+            if ($tokenResponse->failed()) {
+                Log::error('Google token exchange failed: ' . $tokenResponse->body());
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Xác thực Google thất bại! Vui lòng thử lại.'
+                ], 401);
+            }
+
+            $accessToken = $tokenResponse->json('access_token');
+
+            // Bước 2: Lấy thông tin user từ Google
+            $userResponse = Http::withToken($accessToken)
+                ->get('https://www.googleapis.com/oauth2/v2/userinfo');
+
+            if ($userResponse->failed()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Không thể lấy thông tin từ Google!'
+                ], 401);
+            }
+
+            $googleUser = $userResponse->json();
+            $googleId = $googleUser['id'];
+            $googleEmail = $googleUser['email'];
+            $googleName = $googleUser['name'] ?? $googleUser['email'];
+            $googleAvatar = $googleUser['picture'] ?? null;
+
+            // Bước 3: Tìm hoặc tạo user (Account Linking)
+            $now = Carbon::now()->toDateTimeString();
+
+            // Tìm bằng google_id trước
+            $user = DB::selectOne("SELECT * FROM users WHERE google_id = ? AND deleted_at IS NULL", [$googleId]);
+
+            if (!$user) {
+                // Tìm bằng email (account linking)
+                $user = DB::selectOne("SELECT * FROM users WHERE email = ? AND deleted_at IS NULL", [$googleEmail]);
+
+                if ($user) {
+                    // Liên kết google_id vào tài khoản hiện tại
+                    DB::update("UPDATE users SET google_id = ?, avatar_url = COALESCE(avatar_url, ?), updated_at = ? WHERE user_id = ?", [
+                        $googleId, $googleAvatar, $now, $user->user_id
+                    ]);
+                } else {
+                    // Tạo user mới (password = null vì login bằng Google)
+                    DB::insert(
+                        "INSERT INTO users (full_name, email, google_id, password, avatar_url, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$googleName, $googleEmail, $googleId, null, $googleAvatar, 'customer', $now, $now]
+                    );
+                    $user = DB::selectOne("SELECT * FROM users WHERE google_id = ?", [$googleId]);
+                }
+            }
+
+            // Bước 4: Generate JWT token
+            $token = auth('api')->login(User::find($user->user_id));
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Đăng nhập Google thành công!',
+                'access_token' => $token,
+                'refresh_token' => $token,
+                'token_type' => 'Bearer',
+                'expires_in' => config('jwt.ttl', 60) * 60,
+                'role' => $user->role,
+                'user' => [
+                    'id' => $user->user_id,
+                    'name' => $user->full_name,
+                    'email' => $user->email,
+                    'role' => $user->role
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Google login error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Đăng nhập Google thất bại! ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
