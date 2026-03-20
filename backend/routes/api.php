@@ -8,6 +8,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminStaffController;
+use App\Http\Controllers\ForgotPasswordController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -17,10 +18,15 @@ Route::get('/', function () {
     ]);
 });
 
-// Auth routes (Public)
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+// Auth routes (Public) — có Rate Limiting + Turnstile
+Route::middleware('throttle:5,1')->post('/login', [AuthController::class, 'login']);
+Route::middleware('throttle:3,1')->post('/register', [AuthController::class, 'register']);
 Route::post('/SubmitContact', [ContactController::class, 'SubmitContact']);
+
+// Forgot Password routes (Public) — có Rate Limiting cho send OTP
+Route::middleware('throttle:3,1')->post('/forgot-password/send-otp', [ForgotPasswordController::class, 'sendOtp']);
+Route::post('/forgot-password/verify-otp', [ForgotPasswordController::class, 'verifyOtp']);
+Route::post('/forgot-password/reset', [ForgotPasswordController::class, 'resetPassword']);
 
 // Auth routes (Protected - cần JWT token)
 Route::middleware('auth:api,admin')->group(function () {
