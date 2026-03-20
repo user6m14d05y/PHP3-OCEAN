@@ -18,11 +18,17 @@ class Product extends Model
         'slug',
         'short_description',
         'description',
-        'base_price',
-        'is_active',
+        'thumbnail_url',
+        'product_type',
+        'status',
         'is_featured',
-        'created_at',
-        'updated_at',
+        'min_price',
+        'max_price',
+        'rating_avg',
+        'rating_count',
+        'view_count',
+        'sold_count',
+        'published_at',
     ];
 
     public function category()

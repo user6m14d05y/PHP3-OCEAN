@@ -64,4 +64,5 @@ Route::middleware(['auth:admin', 'role:admin,staff'])->prefix('admin')->group(fu
 Route::apiResource('products', ProductController::class);
 Route::apiResource('categories', CategoryController::class);
 Route::get('productsAll', [ProductController::class, 'all']);
+Route::get('products/{id}/edit', [ProductController::class, 'edit']);
 
