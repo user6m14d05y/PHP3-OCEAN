@@ -11,12 +11,20 @@ class ProductVariant extends Model
     protected $fillable = [
         'product_id',
         'sku',
+        'barcode',
         'variant_name',
+        'color',
+        'size',
+        'material',
+        'weight_gram',
+        'cost_price',
         'price',
+        'compare_at_price',
         'stock',
+        'reserved_stock',
+        'safety_stock',
+        'image_url',
         'status',
-        'created_at',
-        'updated_at',
     ];
 
     public function product()
