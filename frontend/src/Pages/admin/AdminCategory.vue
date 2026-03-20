@@ -1,7 +1,7 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import api from '../../axios.js';
-import Swal from 'sweetalert2';
+import { Toast, Modal } from 'bootstrap';
 import AdminCategoryFormTree from '../../components/AdminCategoryFormTree.vue';
 import AdminCategoryRow from '../../components/AdminCategoryRow.vue';
 
@@ -23,13 +23,25 @@ const defaultForm = () => ({
 
 const form = ref(defaultForm());
 
+const toast = ref({ message: '', type: 'success' });
+const deletingCategoryId = ref(null);
+let deleteModalInstance = null;
+
+const showToast = (message, type = 'success') => {
+  toast.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('categoryToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 2500 }).show();
+  });
+};
+
 const fetchCategories = async () => {
     try {
         isLoading.value = true;
         const response = await api.get('/categories');
-        categories.value = response.data;
+        categories.value = response.data.data;
     } catch (error) {
-        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Lỗi tải danh mục!', showConfirmButton: false, timer: 2000 });
+        showToast('Lỗi tải danh mục!', 'danger');
     } finally {
         isLoading.value = false;
     }
@@ -79,7 +91,7 @@ const closeModal = () => {
 
 const handleSubmit = async () => {
     if (!form.value.name.trim()) {
-        Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: 'Vui lòng nhập tên danh mục!', showConfirmButton: false, timer: 2000 });
+        showToast('Vui lòng nhập tên danh mục!', 'danger');
         return;
     }
 
@@ -89,42 +101,42 @@ const handleSubmit = async () => {
     try {
         if (isEditing.value) {
             const res = await api.put(`/categories/${data.category_id}`, data);
-            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.data.message || 'Cập nhật thành công!', showConfirmButton: false, timer: 2000, timerProgressBar: true });
+            showToast(res.data.message || 'Cập nhật thành công!', 'success');
         } else {
             const res = await api.post('/categories', data);
-            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.data.message || 'Thêm danh mục thành công!', showConfirmButton: false, timer: 2000, timerProgressBar: true });
+            showToast(res.data.message || 'Thêm danh mục thành công!', 'success');
         }
         await fetchCategories();
         closeModal();
     } catch (error) {
         const msg = error.response?.data?.message || (isEditing.value ? 'Cập nhật thất bại!' : 'Thêm danh mục thất bại!');
-        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: msg, showConfirmButton: false, timer: 3000 });
+        showToast(msg, 'danger');
     } finally {
         isSubmitting.value = false;
     }
 };
 
 const deleteCategory = async (id) => {
-    const result = await Swal.fire({
-        title: 'Xóa danh mục?',
-        text: 'Danh mục này sẽ bị xóa vĩnh viễn. Bạn có chắc chắn không?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#ef5350',
-        cancelButtonColor: '#78909c',
-        confirmButtonText: 'Xóa',
-        cancelButtonText: 'Hủy',
+    deletingCategoryId.value = id;
+    nextTick(() => {
+        const el = document.getElementById('deleteCategoryModal');
+        if (el) {
+            deleteModalInstance = Modal.getOrCreateInstance(el);
+            deleteModalInstance.show();
+        }
     });
+};
 
-    if (!result.isConfirmed) return;
-
+const confirmDeleteCategory = async () => {
+    if (!deletingCategoryId.value) return;
     try {
-        const res = await api.delete(`/categories/${id}`);
-        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.data.message || 'Đã xóa danh mục!', showConfirmButton: false, timer: 2000, timerProgressBar: true });
+        const res = await api.delete(`/categories/${deletingCategoryId.value}`);
+        if (deleteModalInstance) deleteModalInstance.hide();
+        showToast(res.data.message || 'Đã xóa danh mục!', 'success');
         await fetchCategories();
     } catch (error) {
-        const msg = error.response?.data?.message || 'Xóa thất bại!';
-        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: msg, showConfirmButton: false, timer: 3000 });
+        if (deleteModalInstance) deleteModalInstance.hide();
+        showToast(error.response?.data?.message || 'Xóa thất bại!', 'danger');
     }
 };
 </script>
@@ -175,14 +187,10 @@ const deleteCategory = async (id) => {
             </div>
         </div>
 
-        <!-- Loading State -->
-        <div v-if="isLoading" class="loading-state">
-            <div class="spinner"></div>
-            <p>Đang tải danh mục...</p>
-        </div>
+
 
         <!-- Category Table -->
-        <div v-else class="table-container ocean-card animate-in" style="animation-delay: 0.2s">
+        <div class="table-container ocean-card animate-in" style="animation-delay: 0.2s">
             <div class="table-header">
                 <span class="table-count">
                     <strong>{{ filteredCategories.length }}</strong> danh mục gốc tìm thấy
@@ -214,7 +222,7 @@ const deleteCategory = async (id) => {
 
             <!-- Empty State -->
             <div v-if="filteredCategories.length === 0" class="empty-state">
-                <span class="empty-emoji">📂</span>
+                <span class="empty-emoji"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span>
                 <h3>Không tìm thấy danh mục</h3>
                 <p>{{ searchQuery ? 'Thử từ khóa khác.' : 'Bắt đầu bằng cách thêm danh mục đầu tiên.' }}</p>
             </div>
@@ -225,7 +233,7 @@ const deleteCategory = async (id) => {
             <div v-if="isModalOpen" class="modal-overlay" @click.self="closeModal">
                 <div class="modal-box ocean-card">
                     <div class="modal-head">
-                        <h3>{{ isEditing ? '✏️ Chỉnh sửa danh mục' : '➕ Thêm danh mục mới' }}</h3>
+                        <h3>{{ isEditing ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới' }}</h3>
                         <button class="btn-close" @click="closeModal">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
@@ -275,6 +283,36 @@ const deleteCategory = async (id) => {
                 </div>
             </div>
         </Transition>
+
+        <!-- Bootstrap Modal: Xác nhận xóa danh mục -->
+        <div class="modal fade" id="deleteCategoryModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Xóa danh mục?</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Danh mục này sẽ bị xóa vĩnh viễn. Bạn có chắc chắn không?</p>
+                        <p class="text-muted mb-0">Hành động này không thể hoàn tác.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="button" class="btn btn-danger" @click="confirmDeleteCategory">Đồng ý xóa</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bootstrap Toast -->
+        <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+            <div class="toast align-items-center border-0" :class="toast.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="categoryToast" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">{{ toast.message }}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 

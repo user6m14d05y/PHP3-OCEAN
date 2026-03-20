@@ -8,20 +8,40 @@ import AdminCreateProduct from "../Pages/admin/AdminCreateProduct.vue";
 import AdminEditProduct from "../Pages/admin/AdminEditProduct.vue";
 import AdminUsers from "../Pages/admin/AdminUsers.vue";
 import AdminCategory from "../Pages/admin/AdminCategory.vue";
+<<<<<<< HEAD
+=======
+import AdminStaff from "../Pages/admin/AdminStaff.vue";
+import AdminContact from "../Pages/admin/AdminContact.vue";
+>>>>>>> 2621a63c70a980b83874b7769cafbfec329fd7bd
 import Login from "../Pages/Client/Auth/login.vue";
 import Register from "../Pages/Client/Auth/Register.vue";
 import Forgot from "../Pages/Client/Auth/Forgot.vue";
+import GoogleCallback from "../Pages/Client/Auth/GoogleCallback.vue";
+
+// Static pages
+import BrandStory from "../Pages/Client/Static/BrandStory.vue";
+import Careers from "../Pages/Client/Static/Careers.vue";
+import Terms from "../Pages/Client/Static/Terms.vue";
+import Privacy from "../Pages/Client/Static/Privacy.vue";
+import FAQ from "../Pages/Client/Static/FAQ.vue";
+import ReturnPolicy from "../Pages/Client/Static/ReturnPolicy.vue";
+import Contact from "../Pages/Client/Static/Contact.vue";
+import ShoppingGuide from "../Pages/Client/Static/ShoppingGuide.vue";
 
 const routes = [
     {
         path: "/",
         component: ClientLayout,
         children: [
-            {
-                path: "",
-                name: "home",
-                component: Home,
-            },
+            { path: "", name: "home", component: Home },
+            { path: "about", name: "brand-story", component: BrandStory },
+            { path: "careers", name: "careers", component: Careers },
+            { path: "terms", name: "terms", component: Terms },
+            { path: "privacy", name: "privacy", component: Privacy },
+            { path: "faq", name: "faq", component: FAQ },
+            { path: "return-policy", name: "return-policy", component: ReturnPolicy },
+            { path: "contact", name: "contact", component: Contact },
+            { path: "shopping-guide", name: "shopping-guide", component: ShoppingGuide },
         ],
     },
     // Auth routes (không có layout header/footer)
@@ -42,6 +62,11 @@ const routes = [
         name: "forgot",
         component: Forgot,
         meta: { guest: true },
+    },
+    {
+        path: "/api/auth/google/callback",
+        name: "google-callback",
+        component: GoogleCallback,
     },
     // Admin routes
     {
@@ -79,6 +104,17 @@ const routes = [
                 path: "category",
                 name: "admin-category",
                 component: AdminCategory,
+            },
+            {
+                path: "staff",
+                name: "admin-staff",
+                component: AdminStaff,
+                meta: { roles: ['admin'] },
+            },
+            {
+                path: "contact",
+                name: "admin-contact",
+                component: AdminContact,
             },
         ],
     },

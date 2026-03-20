@@ -22,10 +22,10 @@
         <div class="footer-col">
           <h4 class="footer-heading">Về Ocean Store</h4>
           <ul class="footer-links">
-            <li><a href="#">Câu chuyện thương hiệu</a></li>
-            <li><a href="#">Tuyển dụng</a></li>
-            <li><a href="#">Điều khoản dịch vụ</a></li>
-            <li><a href="#">Chính sách bảo mật</a></li>
+            <li><router-link to="/about">Câu chuyện thương hiệu</router-link></li>
+            <li><router-link to="/careers">Tuyển dụng</router-link></li>
+            <li><router-link to="/terms">Điều khoản dịch vụ</router-link></li>
+            <li><router-link to="/privacy">Chính sách bảo mật</router-link></li>
           </ul>
         </div>
 
@@ -33,10 +33,10 @@
         <div class="footer-col">
           <h4 class="footer-heading">Hỗ Trợ Khách Hàng</h4>
           <ul class="footer-links">
-            <li><a href="#">Câu hỏi thường gặp (FAQ)</a></li>
-            <li><a href="#">Chính sách đổi trả</a></li>
-            <li><a href="#">Liên hệ hỗ trợ</a></li>
-            <li><a href="#">Hướng dẫn mua hàng</a></li>
+            <li><router-link to="/faq">Câu hỏi thường gặp (FAQ)</router-link></li>
+            <li><router-link to="/return-policy">Chính sách đổi trả</router-link></li>
+            <li><router-link to="/contact">Liên hệ hỗ trợ</router-link></li>
+            <li><router-link to="/shopping-guide">Hướng dẫn mua hàng</router-link></li>
           </ul>
         </div>
 
