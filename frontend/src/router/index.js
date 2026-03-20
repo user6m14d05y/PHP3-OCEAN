@@ -11,6 +11,7 @@ import AdminStaff from "../Pages/admin/AdminStaff.vue";
 import Login from "../Pages/Client/Auth/login.vue";
 import Register from "../Pages/Client/Auth/Register.vue";
 import Forgot from "../Pages/Client/Auth/Forgot.vue";
+import GoogleCallback from "../Pages/Client/Auth/GoogleCallback.vue";
 
 const routes = [
     {
@@ -42,6 +43,11 @@ const routes = [
         name: "forgot",
         component: Forgot,
         meta: { guest: true },
+    },
+    {
+        path: "/api/auth/google/callback",
+        name: "google-callback",
+        component: GoogleCallback,
     },
     // Admin routes
     {

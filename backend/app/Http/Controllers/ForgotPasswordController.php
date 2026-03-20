@@ -240,8 +240,8 @@ class ForgotPasswordController extends Controller
                         <table width="480" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 16px rgba(0,0,0,0.08);">
                             <!-- Header -->
                             <tr><td style="background: linear-gradient(135deg, #4f6ef7 0%, #6366f1 100%); padding: 28px 32px; text-align: center;">
-                                <h1 style="color: #ffffff; font-size: 20px; margin: 0; font-weight: 600; letter-spacing: 0.5px;">🔒 Đặt lại mật khẩu</h1>
-                                <p style="color: rgba(255,255,255,0.8); font-size: 13px; margin: 6px 0 0;">Ocean Fashion</p>
+                                <h1 style="color: #ffffff; font-size: 20px; margin: 0; font-weight: 600; letter-spacing: 0.5px;">Đặt lại mật khẩu</h1>
+                                <p style="color: rgba(255,255,255,0.8); font-size: 13px; margin: 6px 0 0;">Ocean Store</p>
                             </td></tr>
 
                             <!-- Body -->
@@ -257,7 +257,7 @@ class ForgotPasswordController extends Controller
                                 <!-- Timer Warning -->
                                 <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
                                     <p style="color: #92400e; font-size: 13px; margin: 0; text-align: center; line-height: 1.5;">
-                                        ⏱ Mã có hiệu lực trong <strong>15 phút</strong>. Không chia sẻ mã này với bất kỳ ai.
+                                        Mã có hiệu lực trong <strong>15 phút</strong>. Không chia sẻ mã này với bất kỳ ai.
                                     </p>
                                 </div>
 
@@ -284,14 +284,14 @@ class ForgotPasswordController extends Controller
             $emailMessage = (new \Symfony\Component\Mime\Email())
                 ->from($emailUser)
                 ->to($email)
-                ->subject('Mã OTP đặt lại mật khẩu - Ocean Fashion')
+                ->subject('Mã OTP đặt lại mật khẩu - Ocean Store')
                 ->html($htmlBody);
 
             $mailer->send($emailMessage);
 
             return true;
         } catch (\Exception $e) {
-            \Log::error('Failed to send OTP email: ' . $e->getMessage());
+            Log::error('Failed to send OTP email: ' . $e->getMessage());
             return false;
         }
     }
