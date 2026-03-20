@@ -222,7 +222,7 @@ const confirmDeleteCategory = async () => {
 
             <!-- Empty State -->
             <div v-if="filteredCategories.length === 0" class="empty-state">
-                <span class="empty-emoji">📂</span>
+                <span class="empty-emoji"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span>
                 <h3>Không tìm thấy danh mục</h3>
                 <p>{{ searchQuery ? 'Thử từ khóa khác.' : 'Bắt đầu bằng cách thêm danh mục đầu tiên.' }}</p>
             </div>
@@ -233,7 +233,7 @@ const confirmDeleteCategory = async () => {
             <div v-if="isModalOpen" class="modal-overlay" @click.self="closeModal">
                 <div class="modal-box ocean-card">
                     <div class="modal-head">
-                        <h3>{{ isEditing ? '✏️ Chỉnh sửa danh mục' : '➕ Thêm danh mục mới' }}</h3>
+                        <h3>{{ isEditing ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới' }}</h3>
                         <button class="btn-close" @click="closeModal">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
@@ -289,7 +289,7 @@ const confirmDeleteCategory = async () => {
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title">⚠️ Xóa danh mục?</h5>
+                        <h5 class="modal-title"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Xóa danh mục?</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">

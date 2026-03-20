@@ -53,6 +53,11 @@ Route::middleware(['auth:admin', 'role:admin,staff'])->prefix('admin')->group(fu
     Route::put('/staff/{id}', [AdminStaffController::class, 'update']);
     Route::put('/staff/{id}/role', [AdminStaffController::class, 'updateRole']);
     Route::delete('/staff/{id}', [AdminStaffController::class, 'destroy']);
+
+    // Quản lý Liên hệ
+    Route::get('/contacts', [ContactController::class, 'index']);
+    Route::post('/contacts/{id}/reply', [ContactController::class, 'reply']);
+    Route::delete('/contacts/{id}', [ContactController::class, 'destroy']);
 });
 
 // Business routes
@@ -60,11 +65,3 @@ Route::apiResource('products', ProductController::class);
 Route::apiResource('categories', CategoryController::class);
 Route::get('productsAll', [ProductController::class, 'all']);
 
-// Test & Debug routes
-Route::get('/contact', function () {
-    $users = \Illuminate\Support\Facades\DB::table('contact')->get();
-    return response()->json([
-        'status' => 'success',
-        'data' => $users
-    ]);
-});
