@@ -75,6 +75,15 @@ onBeforeUnmount(() => {
   if (turnstileWidgetId !== null && window.turnstile) window.turnstile.remove(turnstileWidgetId);
 });
 
+// Google OAuth
+const loginWithGoogle = () => {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const redirectUri = 'http://localhost:3302/api/auth/google/callback';
+  const scope = 'openid email profile';
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+  window.location.href = url;
+};
+
 const login = async () => {
   // Validate all fields
   touched.email = true;
@@ -193,7 +202,7 @@ const login = async () => {
 
           <!-- Social -->
           <div class="social-buttons">
-            <button class="btn-social">
+            <button class="btn-social" @click="loginWithGoogle" type="button">
               <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" width="20" height="20" />
               Google
             </button>
