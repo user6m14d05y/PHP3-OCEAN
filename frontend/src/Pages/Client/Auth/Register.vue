@@ -281,7 +281,7 @@ const goToLogin = () => { router.push('/client/login'); };
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header bg-success text-white">
-            <h5 class="modal-title">✅ Đăng ký thành công!</h5>
+            <h5 class="modal-title"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Đăng ký thành công!</h5>
           </div>
           <div class="modal-body"><p>Vui lòng đăng nhập để tiếp tục.</p></div>
           <div class="modal-footer">
