@@ -6,15 +6,84 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class AuthController extends Controller
 {
+    /**
+     * Xác thực Cloudflare Turnstile token
+     */
+    private function verifyTurnstile(?string $token): bool
+    {
+        if (!$token) {
+            return false;
+        }
+
+        $secretKey = env('TURNSTILE_SECRET_KEY');
+
+        if (!$secretKey) {
+            // Nếu chưa cấu hình Turnstile, bỏ qua verification (dev mode)
+            return true;
+        }
+
+        try {
+            $response = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                'secret' => $secretKey,
+                'response' => $token,
+            ]);
+
+            return $response->json('success', false);
+        } catch (\Exception $e) {
+            \Log::error('Turnstile verification failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Validate password: chữ hoa + số + ký tự đặc biệt + tối thiểu 8 ký tự
+     */
+    private function validatePassword(string $password): ?string
+    {
+        if (strlen($password) < 8) {
+            return 'Mật khẩu phải có ít nhất 8 ký tự!';
+        }
+        if (!preg_match('/[A-Z]/', $password)) {
+            return 'Mật khẩu phải chứa ít nhất 1 chữ hoa!';
+        }
+        if (!preg_match('/[0-9]/', $password)) {
+            return 'Mật khẩu phải chứa ít nhất 1 chữ số!';
+        }
+        if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+            return 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt!';
+        }
+        return null; // Valid
+    }
+
     public function register(Request $request)
     {
+        // Verify Cloudflare Turnstile
+        $turnstileToken = $request->input('turnstile_token');
+        if (!$this->verifyTurnstile($turnstileToken)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Xác thực CAPTCHA thất bại! Vui lòng thử lại.'
+            ], 422);
+        }
+
         $name = $request->input('full_name') ?? $request->input('name');
         $email = $request->input('email');
         $password = $request->input('password');
+
+        // Password validation
+        $passwordError = $this->validatePassword($password);
+        if ($passwordError) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $passwordError
+            ], 422);
+        }
 
         $checkEmail = DB::select("SELECT * FROM users WHERE email = ?", [$email]);
 
@@ -50,6 +119,15 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        // Verify Cloudflare Turnstile
+        $turnstileToken = $request->input('turnstile_token');
+        if (!$this->verifyTurnstile($turnstileToken)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Xác thực CAPTCHA thất bại! Vui lòng thử lại.'
+            ], 422);
+        }
+
         $credentials = $request->only('email', 'password');
 
         // BƯỚC 1: Thử đăng nhập Admin (nhân sự) trước
