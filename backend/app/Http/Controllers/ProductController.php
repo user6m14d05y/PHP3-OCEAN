@@ -35,7 +35,8 @@ class ProductController extends Controller
         ]);
 
         if ($search) {
-            $query->where(function ($q) use ($search) {
+            $query->where(function ($q) use ($search) 
+            {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('slug', 'like', "%{$search}%");
             });
@@ -95,7 +96,10 @@ class ProductController extends Controller
             ->offset($offset)
             ->limit($limit)
             ->get();
-        return response()->json($products);
+        return response()->json([
+            'status' => 'success',
+            'data' => $products
+        ]);
     }
 
     /**

@@ -1,12 +1,11 @@
 <template>
   <div class="dashboard">
     <!-- Welcome -->
-    <div class="welcome-card ocean-card animate-in">
+    <!-- <div class="welcome-card ocean-card animate-in">
       <div>
-        <h1 class="welcome-title">Welcome back, <span class="highlight">Admin</span> 🌊</h1>
-        <p class="welcome-sub">Here's what's happening with your ocean store today.</p>
+        <h1 class="welcome-title">Chào mừng trở lại, <span class="highlight">Admin</span> 🌊</h1>
       </div>
-    </div>
+    </div> -->
 
     <!-- Stat Cards -->
     <div class="stats-grid">
@@ -29,10 +28,10 @@
       <!-- Revenue -->
       <div class="ocean-card chart-card animate-in" style="animation-delay: 0.3s">
         <div class="card-head">
-          <h3 class="card-title">Revenue</h3>
+          <h3 class="card-title">Doanh thu</h3>
           <div class="tab-group">
-            <button class="tab active">Week</button>
-            <button class="tab">Month</button>
+            <button class="tab active">Tuần</button>
+            <button class="tab">Tháng</button>
           </div>
         </div>
         <div class="bar-chart">
@@ -50,8 +49,8 @@
       <!-- Recent Orders -->
       <div class="ocean-card chart-card animate-in" style="animation-delay: 0.35s">
         <div class="card-head">
-          <h3 class="card-title">Recent Orders</h3>
-          <router-link to="/admin/order" class="link-all">View All →</router-link>
+          <h3 class="card-title">Đơn hàng gần đây</h3>
+          <router-link to="/admin/order" class="link-all">Xem tất cả →</router-link>
         </div>
         <div class="order-list">
           <div class="order-row" v-for="o in orders" :key="o.id">
@@ -71,31 +70,31 @@
 
     <!-- Quick Actions -->
     <div class="animate-in" style="animation-delay: 0.4s">
-      <h3 class="section-title">Quick Actions</h3>
+      <h3 class="section-title">Thao tác nhanh</h3>
       <div class="actions-grid">
         <router-link to="/admin/product" class="action-item ocean-card">
           <div class="action-icon" style="background: var(--ocean-blue)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </div>
-          <span>Add Product</span>
+          <span>Thêm sản phẩm</span>
         </router-link>
         <div class="action-item ocean-card">
           <div class="action-icon" style="background: var(--seafoam)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
           </div>
-          <span>View Orders</span>
+          <span>Xem đơn hàng</span>
         </div>
         <div class="action-item ocean-card">
           <div class="action-icon" style="background: var(--coral)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           </div>
-          <span>Messages</span>
+          <span>Tin nhắn</span>
         </div>
         <div class="action-item ocean-card">
           <div class="action-icon" style="background: var(--amber)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           </div>
-          <span>Reports</span>
+          <span>Báo cáo</span>
         </div>
       </div>
     </div>
@@ -107,42 +106,42 @@ import { ref } from 'vue';
 
 const stats = ref([
   {
-    title: 'Total Revenue', value: '$48,290', change: '12.5%', isUp: true,
+    title: 'Tổng doanh thu', value: '$48,290', change: '12.5%', isUp: true,
     icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>',
     iconBg: '#0288d1',
   },
   {
-    title: 'Total Orders', value: '1,256', change: '8.2%', isUp: true,
+    title: 'Tổng đơn hàng', value: '1,256', change: '8.2%', isUp: true,
     icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>',
     iconBg: '#26a69a',
   },
   {
-    title: 'Products', value: '346', change: '3.1%', isUp: true,
+    title: 'Sản phẩm', value: '346', change: '3.1%', isUp: true,
     icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>',
     iconBg: '#ffa726',
   },
   {
-    title: 'Customers', value: '2,890', change: '1.8%', isUp: false,
+    title: 'Khách hàng', value: '2,890', change: '1.8%', isUp: false,
     icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>',
     iconBg: '#7e57c2',
   },
 ]);
 
 const revenue = ref([
-  { label: 'Mon', val: '$2.4k', h: 60 },
-  { label: 'Tue', val: '$3.1k', h: 78 },
-  { label: 'Wed', val: '$2.8k', h: 70 },
-  { label: 'Thu', val: '$4.2k', h: 95 },
-  { label: 'Fri', val: '$3.5k', h: 82 },
-  { label: 'Sat', val: '$2.1k', h: 52 },
-  { label: 'Sun', val: '$1.8k', h: 45 },
+  { label: 'T2', val: '$2.4k', h: 60 },
+  { label: 'T3', val: '$3.1k', h: 78 },
+  { label: 'T4', val: '$2.8k', h: 70 },
+  { label: 'T5', val: '$4.2k', h: 95 },
+  { label: 'T6', val: '$3.5k', h: 82 },
+  { label: 'T7', val: '$2.1k', h: 52 },
+  { label: 'CN', val: '$1.8k', h: 45 },
 ]);
 
 const orders = ref([
-  { id: 1, name: 'Nguyễn Văn A', product: 'Ocean Pearl Necklace', amount: '$125', status: 'done', statusText: 'Done', init: 'NA', bg: '#0288d1' },
-  { id: 2, name: 'Trần Thị B', product: 'Sea Shell Collection', amount: '$89', status: 'pending', statusText: 'Pending', init: 'TB', bg: '#26a69a' },
-  { id: 3, name: 'Lê Minh C', product: 'Deep Blue Watch', amount: '$340', status: 'shipped', statusText: 'Shipped', init: 'LC', bg: '#ffa726' },
-  { id: 4, name: 'Phạm Đức D', product: 'Coral Bracelet Set', amount: '$67', status: 'done', statusText: 'Done', init: 'PD', bg: '#7e57c2' },
+  { id: 1, name: 'Nguyễn Văn A', product: 'Ocean Pearl Necklace', amount: '$125', status: 'done', statusText: 'Hoàn thành', init: 'NA', bg: '#0288d1' },
+  { id: 2, name: 'Trần Thị B', product: 'Sea Shell Collection', amount: '$89', status: 'pending', statusText: 'Chờ xử lý', init: 'TB', bg: '#26a69a' },
+  { id: 3, name: 'Lê Minh C', product: 'Deep Blue Watch', amount: '$340', status: 'shipped', statusText: 'Đang giao', init: 'LC', bg: '#ffa726' },
+  { id: 4, name: 'Phạm Đức D', product: 'Coral Bracelet Set', amount: '$67', status: 'done', statusText: 'Hoàn thành', init: 'PD', bg: '#7e57c2' },
 ]);
 </script>
 

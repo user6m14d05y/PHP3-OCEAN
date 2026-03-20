@@ -42,8 +42,8 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span class="action-label">Tài khoản</span>
           </button>
-          <div class="dropdown-menu" v-show="showDropdown">
-            <div class="dropdown-menu-inner">
+          <div class="account-menu" v-show="showDropdown">
+            <div class="account-menu-inner">
             <template v-if="isLoggedIn">
               <div class="dropdown-user">
                 <div class="dropdown-avatar">{{ (userName || '?')[0].toUpperCase() }}</div>
@@ -53,21 +53,21 @@
                 </div>
               </div>
               <div class="dropdown-divider"></div>
-              <router-link v-if="isAdmin" to="/admin" class="dropdown-item">
+              <router-link v-if="isAdmin" to="/admin" class="account-menu-item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
                 Quản trị
               </router-link>
-              <button @click="handleLogout" class="dropdown-item dropdown-logout">
+              <button @click="handleLogout" class="account-menu-item account-logout">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 Đăng xuất
               </button>
             </template>
             <template v-else>
-              <router-link to="/client/login" class="dropdown-item">
+              <router-link to="/client/login" class="account-menu-item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                 Đăng nhập
               </router-link>
-              <router-link to="/client/register" class="dropdown-item">
+              <router-link to="/client/register" class="account-menu-item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                 Đăng ký
               </router-link>
@@ -257,7 +257,7 @@ watch(() => route.path, checkAuth);
 /* Dropdown */
 .account-dropdown { position: relative; }
 
-.dropdown-menu {
+.account-menu {
   position: absolute;
   top: 100%;
   right: 0;
@@ -266,7 +266,7 @@ watch(() => route.path, checkAuth);
   z-index: 200;
 }
 
-.dropdown-menu-inner {
+.account-menu-inner {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
@@ -292,7 +292,7 @@ watch(() => route.path, checkAuth);
 .dropdown-email { font-size: 0.75rem; color: #888; }
 .dropdown-divider { height: 1px; background: #e5e7eb; margin: 4px 0; }
 
-.dropdown-item {
+.account-menu-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -310,9 +310,9 @@ watch(() => route.path, checkAuth);
   transition: background 0.15s;
 }
 
-.dropdown-item:hover { background: #f3f4f6; }
-.dropdown-logout { color: #dc2626; }
-.dropdown-logout:hover { background: #fff0f0; }
+.account-menu-item:hover { background: #f3f4f6; }
+.account-logout { color: #dc2626; }
+.account-logout:hover { background: #fff0f0; }
 
 @media (max-width: 768px) {
   .search-box { display: none; }

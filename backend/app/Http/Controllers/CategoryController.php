@@ -34,7 +34,10 @@ class CategoryController extends Controller
     {
         $categories = Category::all()->toArray(); // Chuyển sang mảng
         $categories = $this->buildTree($categories); // Gọi phương thức nội bộ
-        return response()->json($categories);
+        return response()->json([
+            'status' => 'success',
+            'data' => $categories
+        ]);
     }
 
     /**
