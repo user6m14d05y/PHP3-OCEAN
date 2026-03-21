@@ -1,34 +1,45 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import api from '../../../axios.js';
+import { useRouter } from 'vue-router';
 
-const Products = ref([
-  { 
-    id: 1, 
-    name: 'Áo Khoác Blazer Classic', 
-    price: '1.250.000 ₫', 
-    image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80', 
-    badge: 'Mới' 
-  },
-  { 
-    id: 2, 
-    name: 'Đầm Lụa Midi Mùa Thu', 
-    price: '850.000 ₫', 
-    image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80' 
-  },
-  { 
-    id: 3, 
-    name: 'Sơ Mi Cotton Kẻ Sọc', 
-    price: '450.000 ₫', 
-    image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80', 
-    badge: 'Hot' 
-  },
-  { 
-    id: 4, 
-    name: 'Quần Jeans Ống Suông', 
-    price: '650.000 ₫', 
-    image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80' 
-  },
-]);
+const Products = ref([]);
+const Categories = ref([]);
+
+const fetchProducts = async () => {
+  try {
+    const response = await api.get('/products');
+    Products.value = response.data.data.map(item => ({
+      id: item.product_id,
+      name: item.name,
+      price: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.min_price),
+      image: item.thumbnail_url !== "0" ? item.thumbnail_url : 'https://placehold.co/400x500?text=No+Image',
+      badge: item.is_featured ? 'Hot' : null
+    }));
+  } catch (error) {
+    console.error('Error fetching products:', error);
+  }
+};
+
+
+const fetchCategories = async () => {
+  try {
+    const response = await api.get('/categories');
+    Categories.value = response.data.data.map(item => ({
+      id: item.category_id,
+      name: item.name,
+      image: item.image_url !== "0" ? item.image_url : 'https://placehold.co/400x500?text=No+Image',
+    }));
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+  }
+};
+
+onMounted(() => {
+  fetchProducts();
+  fetchCategories();
+});
+
 </script>
 
 <template>
@@ -55,8 +66,9 @@ const Products = ref([
         
         <div class="products-grid">
           <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
+            <router-link :to="{ name: 'product-detail', params: { id: product.id } }" class="text-decoration-none">
             <div class="product-img-wrapper">
-              <span class="product-badge" v-if="product.badge" :class="{'badge-hot': product.badge === 'Hot'}">{{ product.badge }}</span>
+              <!-- <span class="product-badge" v-if="product.badge" :class="{'badge-hot': product.badge === 'Hot'}">{{ product.badge }}</span> -->
               <img :src="product.image" :alt="product.name" class="product-img" />
               <div class="product-hover-action">
                 <button class="btn-icon">
@@ -68,6 +80,7 @@ const Products = ref([
               <h3 class="product-name">{{ product.name }}</h3>
               <span class="product-price">{{ product.price }}</span>
             </div>
+            </router-link>
           </div>
         </div>
       </section>
@@ -86,20 +99,21 @@ const Products = ref([
         </div>
       </section>
 
-      <section class="products-section animate-in" style="animation-delay: 0.1s">
+      <section v-for="item in Categories"  class="products-section animate-in" style="animation-delay: 0.1s">
         <div class="section-header">
-          <h2 class="section-title">Quần</h2>
+          <h2 class="section-title">{{ item.name }}</h2>
           <a href="#" class="link-all">Xem tất cả →</a>
         </div>
         
         <div class="products-grid">
           <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
+            <router-link :to="{ name: 'product-detail', params: { id: product.id } }" class="text-decoration-none">
             <div class="product-img-wrapper">
               <span class="product-badge" v-if="product.badge" :class="{'badge-hot': product.badge === 'Hot'}">{{ product.badge }}</span>
               <img :src="product.image" :alt="product.name" class="product-img" />
               <div class="product-hover-action">
                 <button class="btn-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+                  <i class="fas fa-shopping-cart"></i>
                 </button>
               </div>
             </div>
@@ -107,56 +121,7 @@ const Products = ref([
               <h3 class="product-name">{{ product.name }}</h3>
               <span class="product-price">{{ product.price }}</span>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="products-section animate-in" style="animation-delay: 0.1s">
-        <div class="section-header">
-          <h2 class="section-title">Áo</h2>
-          <a href="#" class="link-all">Xem tất cả →</a>
-        </div>
-        
-        <div class="products-grid">
-          <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
-            <div class="product-img-wrapper">
-              <span class="product-badge" v-if="product.badge" :class="{'badge-hot': product.badge === 'Hot'}">{{ product.badge }}</span>
-              <img :src="product.image" :alt="product.name" class="product-img" />
-              <div class="product-hover-action">
-                <button class="btn-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
-                </button>
-              </div>
-            </div>
-            <div class="product-info">
-              <h3 class="product-name">{{ product.name }}</h3>
-              <span class="product-price">{{ product.price }}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="products-section animate-in" style="animation-delay: 0.1s">
-        <div class="section-header">
-          <h2 class="section-title">Phụ Kiện</h2>
-          <a href="#" class="link-all">Xem tất cả →</a>
-        </div>
-        
-        <div class="products-grid">
-          <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
-            <div class="product-img-wrapper">
-              <span class="product-badge" v-if="product.badge" :class="{'badge-hot': product.badge === 'Hot'}">{{ product.badge }}</span>
-              <img :src="product.image" :alt="product.name" class="product-img" />
-              <div class="product-hover-action">
-                <button class="btn-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
-                </button>
-              </div>
-            </div>
-            <div class="product-info">
-              <h3 class="product-name">{{ product.name }}</h3>
-              <span class="product-price">{{ product.price }}</span>
-            </div>
+            </router-link>
           </div>
         </div>
       </section>

@@ -1,5 +1,25 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import api from '../../../axios.js';
+import { useRouter } from 'vue-router';
+
+const Products = ref([]);
+const Categories = ref([]);
+
+const fetchProducts = async () => {
+  try {
+    const response = await api.get('/products');
+    Products.value = response.data.data.map(item => ({
+      id: item.product_id,
+      name: item.name,
+      price: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.min_price),
+      image: item.thumbnail_url !== "0" ? item.thumbnail_url : 'https://placehold.co/400x500?text=No+Image',
+      badge: item.is_featured ? 'Hot' : null
+    }));
+  } catch (error) {
+    console.error('Error fetching products:', error);
+  }
+};
 
 // State lưu trữ bộ lọc
 const selectedCategory = ref('All');
@@ -144,6 +164,10 @@ const filteredProducts = computed(() => {
 
     return result;
 });
+
+onMounted(() => {
+  fetchProducts();
+});
 </script>
 
 <template>
@@ -213,8 +237,9 @@ const filteredProducts = computed(() => {
                         </div>
 
                         <!-- Grid Sản Phẩm (Hiển thị CHÍNH XÁC 4 HÀNG NGANG) -->
-                        <div class="products-grid" v-if="filteredProducts.length > 0">
-                            <div class="product-card ocean-card" v-for="product in filteredProducts" :key="product.id">
+                        <div class="products-grid" v-if="Products.length > 0">
+                            <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
+                                <router-link :to="{ name: 'product-detail', params: { id: product.id } }" class="text-decoration-none">
                                 <div class="product-img-wrapper">
                                     <span class="product-badge" v-if="product.badge"
                                         :class="{ 'badge-hot': product.badge === 'Hot' }">{{ product.badge }}</span>
@@ -232,14 +257,14 @@ const filteredProducts = computed(() => {
                                 </div>
                                 <div class="product-info">
                                     <h3 class="product-name">{{ product.name }}</h3>
-                                    <span class="product-price">{{ formatPrice(product.price) }}</span>
+                                    <span class="product-price">{{product.price }}</span>
                                 </div>
+                                </router-link>
                             </div>
                         </div>
 
                         <!-- Empty State khi không có sản phẩm -->
                         <div v-else class="empty-state">
-                            <div class="empty-icon">😥</div>
                             <h3>Không tìm thấy sản phẩm nào!</h3>
                             <p>Không có sản phẩm nào phù hợp với bộ lọc bạn vừa chọn.</p>
                             <button class="btn-outline" @click="selectedCategory = 'All'; selectedPriceRange = 'All'">Xóa bộ lọc</button>
