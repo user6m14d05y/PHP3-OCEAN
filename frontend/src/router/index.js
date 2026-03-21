@@ -8,11 +8,8 @@ import AdminCreateProduct from "../Pages/admin/AdminCreateProduct.vue";
 import AdminEditProduct from "../Pages/admin/AdminEditProduct.vue";
 import AdminUsers from "../Pages/admin/AdminUsers.vue";
 import AdminCategory from "../Pages/admin/AdminCategory.vue";
-<<<<<<< HEAD
-=======
 import AdminStaff from "../Pages/admin/AdminStaff.vue";
 import AdminContact from "../Pages/admin/AdminContact.vue";
->>>>>>> 2621a63c70a980b83874b7769cafbfec329fd7bd
 import Login from "../Pages/Client/Auth/login.vue";
 import Register from "../Pages/Client/Auth/Register.vue";
 import Forgot from "../Pages/Client/Auth/Forgot.vue";
