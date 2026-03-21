@@ -3,14 +3,17 @@
     <div class="header-inner">
       <!-- Logo -->
       <router-link to="/" class="logo">
-        <span class="logo-text">Ocean Store</span>
+        <span class="logo-text">Ocean</span>
+      </router-link>
+      <router-link to="/product" class="logo">
+        <span class="action-label">Sản phẩm</span>
       </router-link>
 
       <!-- Danh mục -->
-      <button class="category-btn">
+      <!-- <button class="category-btn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Danh mục
-      </button>
+      </button> -->
 
       <!-- Search -->
       <div class="search-box">

@@ -1,18 +1,21 @@
 import { createRouter, createWebHistory } from "vue-router";
-import Home from "../Pages/Home.vue";
+
+// User
+import Home from "../Pages/Client/Home/Home.vue";
+import Product from "../Pages/Client/Home/Product.vue";
 import ClientLayout from "../layouts/ClientLayout.vue";
+
+// Admin
 import AdminLayout from "../layouts/AdminLayout.vue";
-import AdminHome from "../Pages/admin/AdminHome.vue";
-import AdminProduct from "../Pages/admin/AdminProduct.vue";
-import AdminCreateProduct from "../Pages/admin/AdminCreateProduct.vue";
-import AdminEditProduct from "../Pages/admin/AdminEditProduct.vue";
-import AdminUsers from "../Pages/admin/AdminUsers.vue";
-import AdminCategory from "../Pages/admin/AdminCategory.vue";
-<<<<<<< HEAD
-=======
-import AdminStaff from "../Pages/admin/AdminStaff.vue";
-import AdminContact from "../Pages/admin/AdminContact.vue";
->>>>>>> 2621a63c70a980b83874b7769cafbfec329fd7bd
+import AdminHome from "../Pages/Admin/AdminHome.vue";
+import AdminProduct from "../Pages/Admin/AdminProduct.vue";
+import AdminCreateProduct from "../Pages/Admin/AdminCreateProduct.vue";
+import AdminUsers from "../Pages/Admin/AdminUsers.vue";
+import AdminCategory from "../Pages/Admin/AdminCategory.vue";
+import AdminStaff from "../Pages/Admin/AdminStaff.vue";
+import AdminContact from "../Pages/Admin/AdminContact.vue";
+
+// Auth
 import Login from "../Pages/Client/Auth/login.vue";
 import Register from "../Pages/Client/Auth/Register.vue";
 import Forgot from "../Pages/Client/Auth/Forgot.vue";
@@ -34,6 +37,7 @@ const routes = [
         component: ClientLayout,
         children: [
             { path: "", name: "home", component: Home },
+            { path: "product", name: "product", component: Product },
             { path: "about", name: "brand-story", component: BrandStory },
             { path: "careers", name: "careers", component: Careers },
             { path: "terms", name: "terms", component: Terms },
@@ -88,11 +92,6 @@ const routes = [
                 path: "product/create",
                 name: "admin-product-create",
                 component: AdminCreateProduct,
-            },
-            {
-                path: "product/edit/:id",
-                name: "admin-product-edit",
-                component: AdminEditProduct,
             },
             {
                 path: "users",
