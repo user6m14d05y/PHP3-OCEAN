@@ -32,9 +32,6 @@ COPY . .
 # Phân quyền cho www-data TRƯỚC khi chuyển user
 RUN chown -R www-data:www-data /var/www
 
-# CHẠY DƯỚI QUYỀN NON-ROOT WWW-DATA
-USER www-data
-
 # EXPOSE port (FPM mặc định chạy 9000, không cần declare nhưng nên để cho rõ ràng)
 EXPOSE 9000
 
