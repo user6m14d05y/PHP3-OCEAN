@@ -39,7 +39,7 @@ const routes = [
         children: [
             { path: "", name: "home", component: Home },
             { path: "product", name: "product", component: Product },
-            { path: "product/:id", name: "product-detail", component: ProductDetail }, // Updated dynamic route
+            { path: "product/:id", name: "product-detail", component: ProductDetail }, 
             { path: "about", name: "brand-story", component: BrandStory },
             { path: "careers", name: "careers", component: Careers },
             { path: "terms", name: "terms", component: Terms },
