@@ -19,7 +19,8 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:3302'],
+    // .env ip address
+    'allowed_origins' => [env('URL_CORS'), env('URL_CORS_LOCAL')],
 
     'allowed_origins_patterns' => [],
 

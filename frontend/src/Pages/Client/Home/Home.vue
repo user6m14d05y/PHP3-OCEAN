@@ -43,36 +43,43 @@ onMounted(() => {
 </script>
 
 <template>
-    <main class="home-main">
-      <!-- Bố cục 1: Banner -->
-      <section class="banner-section animate-in">
-        <div class="banner-content">
-          <span class="banner-subtitle">Xu hướng 2026</span>
-          <h1 class="banner-title">Phong Cách<br><span class="highlight">Thời Thượng</span></h1>
-          <p class="banner-desc">Định hình cá tính của bạn với bộ sưu tập thời trang mới nhất. Thiết kế tối giản, dễ mặc, dễ phối cho mọi lứa tuổi.</p>
-          <button class="btn-primary btn-large">Mua sắm ngay</button>
-        </div>
-        <div class="banner-image">
-          <img src="https://images.unsplash.com/photo-1469334031218-e382a71b716b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" alt="Fashion Banner" />
-        </div>
-      </section>
+  <main class="home-main">
+    <!-- Bố cục 1: Banner -->
+    <section class="banner-section animate-in">
+      <div class="banner-content">
+        <span class="banner-subtitle">Xu hướng 2026</span>
+        <h1 class="banner-title">Phong Cách<br><span class="highlight">Thời Thượng</span></h1>
+        <p class="banner-desc">Định hình cá tính của bạn với bộ sưu tập thời trang mới nhất. Thiết kế tối giản, dễ mặc,
+          dễ phối cho mọi lứa tuổi.</p>
+        <button class="btn-primary btn-large">Mua sắm ngay</button>
+      </div>
+      <div class="banner-image">
+        <img
+          src="https://images.unsplash.com/photo-1469334031218-e382a71b716b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
+          alt="Fashion Banner" />
+      </div>
+    </section>
 
-      <!-- Bố cục 2: Sản phẩm nổi bật -->
-      <section class="products-section animate-in" style="animation-delay: 0.1s">
-        <div class="section-header">
-          <h2 class="section-title">Sản phẩm nổi bật</h2>
-          <a href="#" class="link-all">Xem tất cả →</a>
-        </div>
-        
-        <div class="products-grid">
-          <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
-            <router-link :to="{ name: 'product-detail', params: { id: product.id } }" class="text-decoration-none">
+    <!-- Bố cục 2: Sản phẩm nổi bật -->
+    <section class="products-section animate-in" style="animation-delay: 0.1s">
+      <div class="section-header">
+        <h2 class="section-title">Sản phẩm nổi bật</h2>
+        <a href="#" class="link-all">Xem tất cả →</a>
+      </div>
+
+      <div class="products-grid">
+        <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
+          <router-link :to="{ name: 'product-detail', params: { id: product.id } }" class="text-decoration-none">
             <div class="product-img-wrapper">
               <!-- <span class="product-badge" v-if="product.badge" :class="{'badge-hot': product.badge === 'Hot'}">{{ product.badge }}</span> -->
               <img :src="product.image" :alt="product.name" class="product-img" />
               <div class="product-hover-action">
                 <button class="btn-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="9" cy="21" r="1" />
+                    <circle cx="20" cy="21" r="1" />
+                    <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -80,36 +87,40 @@ onMounted(() => {
               <h3 class="product-name">{{ product.name }}</h3>
               <span class="product-price">{{ product.price }}</span>
             </div>
-            </router-link>
-          </div>
+          </router-link>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- Bố cục 3: Banner quảng cáo -->
-      <section class="promo-section animate-in" style="animation-delay: 0.2s">
-        <div class="promo-banner ocean-card">
-          <div class="promo-text">
-            <h3>Siêu Sale Đầu Mùa</h3>
-            <p>Sở hữu ngay những items hot nhất với mức giảm lên đến <strong>50%</strong>. Giao hàng miễn phí toàn quốc cho đơn từ 500.000đ.</p>
-            <button class="btn-outline">Khám phá ưu đãi</button>
-          </div>
-          <div class="promo-art">
-             <img src="https://images.unsplash.com/photo-1445205170230-053b83016050?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Promo Image" />
-          </div>
+    <!-- Bố cục 3: Banner quảng cáo -->
+    <section class="promo-section animate-in" style="animation-delay: 0.2s">
+      <div class="promo-banner ocean-card">
+        <div class="promo-text">
+          <h3>Siêu Sale Đầu Mùa</h3>
+          <p>Sở hữu ngay những items hot nhất với mức giảm lên đến <strong>50%</strong>. Giao hàng miễn phí toàn quốc
+            cho đơn từ 500.000đ.</p>
+          <button class="btn-outline">Khám phá ưu đãi</button>
         </div>
-      </section>
+        <div class="promo-art">
+          <img
+            src="https://images.unsplash.com/photo-1445205170230-053b83016050?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+            alt="Promo Image" />
+        </div>
+      </div>
+    </section>
 
-      <section v-for="item in Categories"  class="products-section animate-in" style="animation-delay: 0.1s">
-        <div class="section-header">
-          <h2 class="section-title">{{ item.name }}</h2>
-          <a href="#" class="link-all">Xem tất cả →</a>
-        </div>
-        
-        <div class="products-grid">
-          <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
-            <router-link :to="{ name: 'product-detail', params: { id: product.id } }" class="text-decoration-none">
+    <section v-for="item in Categories" class="products-section animate-in" style="animation-delay: 0.1s">
+      <div class="section-header">
+        <h2 class="section-title">{{ item.name }}</h2>
+        <a href="#" class="link-all">Xem tất cả →</a>
+      </div>
+
+      <div class="products-grid">
+        <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
+          <router-link :to="{ name: 'product-detail', params: { id: product.id } }" class="text-decoration-none">
             <div class="product-img-wrapper">
-              <span class="product-badge" v-if="product.badge" :class="{'badge-hot': product.badge === 'Hot'}">{{ product.badge }}</span>
+              <span class="product-badge" v-if="product.badge" :class="{ 'badge-hot': product.badge === 'Hot' }">{{
+                product.badge }}</span>
               <img :src="product.image" :alt="product.name" class="product-img" />
               <div class="product-hover-action">
                 <button class="btn-icon">
@@ -121,11 +132,11 @@ onMounted(() => {
               <h3 class="product-name">{{ product.name }}</h3>
               <span class="product-price">{{ product.price }}</span>
             </div>
-            </router-link>
-          </div>
+          </router-link>
         </div>
-      </section>
-    </main>
+      </div>
+    </section>
+  </main>
 </template>
 
 <style scoped>
@@ -149,16 +160,19 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .btn-primary:hover {
   background: var(--ocean-bright, #03a9f4);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(2, 136, 209, 0.2);
 }
+
 .btn-large {
   padding: 12px 28px;
   font-size: 1.05rem;
   border-radius: 10px;
 }
+
 .btn-outline {
   background: transparent;
   color: var(--ocean-blue, #0288d1);
@@ -169,6 +183,7 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .btn-outline:hover {
   background: var(--ocean-blue, #0288d1);
   color: white;
@@ -176,9 +191,7 @@ onMounted(() => {
 
 /* Main Layout */
 .home-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 16px;
+  padding: 24px 0;
   width: 100%;
 }
 
@@ -192,11 +205,13 @@ onMounted(() => {
   border-radius: 20px;
   padding: 40px;
   border: 1px solid var(--border-color, #d9e8f0);
-  box-shadow: 0 8px 24px rgba(0,0,0, 0.03);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
 }
+
 .banner-content {
   flex: 1;
 }
+
 .banner-subtitle {
   color: var(--ocean-blue, #0288d1);
   font-weight: 700;
@@ -206,28 +221,33 @@ onMounted(() => {
   margin-bottom: 12px;
   display: block;
 }
+
 .banner-title {
   font-size: 3rem;
   font-weight: 800;
   line-height: 1.2;
   margin-bottom: 20px;
 }
+
 .banner-title .highlight {
   color: var(--ocean-blue, #0288d1);
 }
+
 .banner-desc {
   color: var(--text-muted, #627d98);
   font-size: 1.1rem;
   line-height: 1.6;
   margin-bottom: 30px;
 }
+
 .banner-image {
   flex: 1;
   height: 380px;
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
 }
+
 .banner-image img {
   width: 100%;
   height: 100%;
@@ -242,13 +262,18 @@ onMounted(() => {
   align-items: flex-end;
   margin-bottom: 24px;
 }
+
 .section-title {
   font-size: 1.75rem;
   font-weight: 800;
   color: var(--text-main, #102a43);
   margin-bottom: 24px;
 }
-.products-section .section-title { margin-bottom: 0; }
+
+.products-section .section-title {
+  margin-bottom: 0;
+}
+
 .link-all {
   color: var(--ocean-blue, #0288d1);
   font-weight: 600;
@@ -256,6 +281,7 @@ onMounted(() => {
   font-size: 0.95rem;
   transition: color 0.2s;
 }
+
 .link-all:hover {
   color: var(--ocean-bright, #03a9f4);
 }
@@ -264,26 +290,32 @@ onMounted(() => {
 .products-section {
   margin-bottom: 60px;
 }
+
 .products-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 24px;
 }
+
 .product-card {
-  padding: 0; /* Changed from 16px to 0 so image hits borders */
+  padding: 0;
+  /* Changed from 16px to 0 so image hits borders */
   display: flex;
   flex-direction: column;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border-color, #d9e8f0);
   border-radius: 12px;
-  overflow: hidden; /* Important for rounding image corners at top */
+  overflow: hidden;
+  /* Important for rounding image corners at top */
 }
+
 .product-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 12px 24px rgba(0,0,0,0.06);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
   border-color: rgba(2, 136, 209, 0.3);
 }
+
 .product-img-wrapper {
   position: relative;
   width: 100%;
@@ -291,6 +323,7 @@ onMounted(() => {
   background: var(--ocean-deepest, #f0f7fa);
   overflow: hidden;
 }
+
 .product-img {
   width: 100%;
   height: 100%;
@@ -298,9 +331,12 @@ onMounted(() => {
   object-position: center;
   transition: transform 0.6s ease;
 }
+
 .product-card:hover .product-img {
-  transform: scale(1.08); /* Zoom in on hover */
+  transform: scale(1.08);
+  /* Zoom in on hover */
 }
+
 .product-badge {
   position: absolute;
   top: 12px;
@@ -313,9 +349,11 @@ onMounted(() => {
   font-weight: 700;
   z-index: 10;
 }
+
 .badge-hot {
   background: var(--coral, #ef5350);
 }
+
 .product-hover-action {
   position: absolute;
   bottom: -40px;
@@ -323,9 +361,11 @@ onMounted(() => {
   transition: all 0.3s ease;
   z-index: 10;
 }
+
 .product-card:hover .product-hover-action {
   bottom: 12px;
 }
+
 .btn-icon {
   background: white;
   border: none;
@@ -336,30 +376,36 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: var(--text-main);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .btn-icon:hover {
   background: var(--ocean-blue, #0288d1);
   color: white;
   transform: scale(1.1);
 }
+
 .product-info {
   padding: 20px;
 }
+
 .product-info.center {
   text-align: center;
 }
+
 .product-info.center .product-name {
   margin-bottom: 0;
 }
+
 .product-name {
   font-size: 1.1rem;
   font-weight: 700;
   margin-bottom: 8px;
   color: var(--text-main, #102a43);
 }
+
 .product-price {
   font-weight: 800;
   color: var(--coral, #ef5350);
@@ -370,6 +416,7 @@ onMounted(() => {
 .promo-section {
   margin-bottom: 60px;
 }
+
 .promo-banner {
   display: flex;
   align-items: center;
@@ -379,16 +426,19 @@ onMounted(() => {
   overflow: hidden;
   position: relative;
 }
+
 .promo-text {
   flex: 1;
   padding: 48px;
 }
+
 .promo-text h3 {
   font-size: 2.25rem;
   font-weight: 800;
   color: var(--ocean-blue, #0288d1);
   margin-bottom: 16px;
 }
+
 .promo-text p {
   font-size: 1.1rem;
   color: var(--text-muted, #627d98);
@@ -396,14 +446,17 @@ onMounted(() => {
   line-height: 1.5;
   max-width: 500px;
 }
+
 .promo-text strong {
   color: var(--coral, #ef5350);
   font-size: 1.2rem;
 }
+
 .promo-art {
   flex: 1;
   height: 320px;
 }
+
 .promo-art img {
   width: 100%;
   height: 100%;
@@ -415,22 +468,33 @@ onMounted(() => {
 .categories-section {
   margin-bottom: 60px;
 }
+
 .categories-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
 }
+
 .category-block {
   cursor: pointer;
 }
+
 .category-block .product-img-wrapper {
-  height: 360px; /* A bit taller for categories */
+  height: 360px;
+  /* A bit taller for categories */
 }
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-in {
@@ -444,24 +508,30 @@ onMounted(() => {
     text-align: center;
     padding: 32px 20px;
   }
+
   .banner-image {
     width: 100%;
     height: 280px;
   }
+
   .promo-banner {
     flex-direction: column;
   }
+
   .promo-art {
     width: 100%;
     height: 200px;
   }
+
   .promo-art img {
     clip-path: none;
   }
+
   .promo-text {
     padding: 32px;
     text-align: center;
   }
+
   .categories-grid {
     grid-template-columns: 1fr;
   }
