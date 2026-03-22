@@ -212,11 +212,10 @@ const decreaseQuantity = () => { if (quantity.value > 1) quantity.value-- };
 
 <style scoped>
 .product-detail-wrapper {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 30px 16px;
+  padding: 30px 0;
   font-family: var(--font-inter, 'Inter', sans-serif);
   color: var(--text-main, #102a43);
+  width: 100%;
 }
 
 /* Breadcrumb */

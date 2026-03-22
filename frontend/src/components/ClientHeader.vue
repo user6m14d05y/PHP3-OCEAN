@@ -144,7 +144,7 @@ watch(() => route.path, checkAuth);
 }
 
 .header-inner {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 24px;
   height: 80px;
