@@ -43,6 +43,7 @@ const AdminUsers = () => import("../Pages/Admin/AdminUsers.vue");
 const AdminCategory = () => import("../Pages/Admin/AdminCategory.vue");
 const AdminStaff = () => import("../Pages/Admin/AdminStaff.vue");
 const AdminContact = () => import("../Pages/Admin/AdminContact.vue");
+const AdminCoupon = () => import("../Pages/Admin/AdminCoupon.vue");
 
 const routes = [
     {
@@ -153,7 +154,12 @@ const routes = [
                 component: AdminContact,
                 meta: { title: 'Quản lý liên hệ' },
             },
-
+            {
+                path: "coupon",
+                name: "admin-coupon",
+                component: AdminCoupon,
+                meta: { title: 'Quản lý mã giảm giá' },
+            },
         ],
     },
 ];
@@ -169,6 +175,7 @@ const router = createRouter({
 });
 
 // ==================== Navigation Guard ====================
+
 router.beforeEach((to, from) => {
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user');
