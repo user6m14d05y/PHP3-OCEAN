@@ -65,7 +65,7 @@ fi
 # 4. Tạo Storage Symlink (public/storage -> storage/app/public)
 # -----------------------------------------------
 echo "[4/6] Creating storage link..."
-php artisan storage:link --force 2>/dev/null || true
+ln -sf /var/www/storage/app/public /var/www/public/storage
 
 # -----------------------------------------------
 # 5. Chạy Database Migration
