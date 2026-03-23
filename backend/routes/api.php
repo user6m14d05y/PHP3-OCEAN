@@ -10,6 +10,7 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminStaffController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ForgotPasswordController;
+use App\Http\Controllers\CouponController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -46,7 +47,7 @@ Route::middleware('auth:api,admin')->group(function () {
     Route::get('products/edit/{id}', [ProductController::class, 'edit']);
 });
 
-Route::middleware(['auth:admin', 'role:admin,staff'])->prefix('admin')->group(function () {
+Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->group(function () {
     // Quản lý Khách hàng (bảng users)
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::put('/users/{id}/role', [AdminUserController::class, 'updateRole']);
@@ -63,6 +64,13 @@ Route::middleware(['auth:admin', 'role:admin,staff'])->prefix('admin')->group(fu
     Route::get('/contacts', [ContactController::class, 'index']);
     Route::post('/contacts/{id}/reply', [ContactController::class, 'reply']);
     Route::delete('/contacts/{id}', [ContactController::class, 'destroy']);
+
+    // Quản lý Mã giảm giá
+    Route::get('/coupons', [CouponController::class, 'index']);
+    Route::post('/coupons', [CouponController::class, 'store']);
+    Route::put('/coupons/{id}', [CouponController::class, 'update']);
+    Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
+    
 });
 Route::get('products/{id}', [ProductController::class, 'show']);
 // Business routes
