@@ -8,6 +8,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminStaffController;
+use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ForgotPasswordController;
 
 // Add this line to run the route: http://localhost:8000/api
@@ -39,6 +40,10 @@ Route::middleware('auth:api,admin')->group(function () {
     Route::get('/user', function (Request $request) {
         return auth('admin')->user() ?? auth('api')->user();
     });
+    Route::post('/products', [ProductController::class, 'store']);
+    Route::put('/products/{id}', [ProductController::class, 'update']);
+    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+    Route::get('products/edit/{id}', [ProductController::class, 'edit']);
 });
 
 Route::middleware(['auth:admin', 'role:admin,staff'])->prefix('admin')->group(function () {
@@ -59,10 +64,10 @@ Route::middleware(['auth:admin', 'role:admin,staff'])->prefix('admin')->group(fu
     Route::post('/contacts/{id}/reply', [ContactController::class, 'reply']);
     Route::delete('/contacts/{id}', [ContactController::class, 'destroy']);
 });
-
+Route::get('products/{id}', [ProductController::class, 'show']);
 // Business routes
-Route::apiResource('products', ProductController::class);
+Route::get('products', [ProductController::class, 'index']);
 Route::apiResource('categories', CategoryController::class);
 Route::get('productsAll', [ProductController::class, 'all']);
-Route::get('products/{id}/edit', [ProductController::class, 'edit']);
 
+Route::get('brands', [BrandController::class, 'index']);

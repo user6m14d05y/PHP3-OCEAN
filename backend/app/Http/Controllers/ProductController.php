@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -117,9 +118,8 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'name'              => 'required|string|max:200',
-            'slug'              => 'required|string|max:220|unique:products,slug',
             'category_id'       => 'required|exists:categories,category_id',
             'brand_id'          => 'nullable|exists:brands,brand_id',
             'seller_id'         => 'nullable|exists:users,user_id',
@@ -131,55 +131,72 @@ class ProductController extends Controller
             'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
             'gallery'           => 'nullable|array',
             'gallery.*'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-
-            // Simple product
             'price'             => 'nullable|numeric|min:0',
             'compare_at_price'  => 'nullable|numeric|min:0',
             'stock'             => 'nullable|integer|min:0',
-
-            // Variant product
-            'variants'                    => 'nullable|array',
-            'variants.*.color'            => 'nullable|string|max:60',
-            'variants.*.size'             => 'nullable|string|max:60',
-            'variants.*.material'         => 'nullable|string|max:120',
-            'variants.*.price'            => 'nullable|numeric|min:0',
-            'variants.*.compare_at_price' => 'nullable|numeric|min:0',
-            'variants.*.cost_price'       => 'nullable|numeric|min:0',
-            'variants.*.stock'            => 'nullable|integer|min:0',
-            'variants.*.image'            => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-            // Alternative: nested sizes
-            'variants.*.sizes'            => 'nullable|array',
-            'variants.*.sizes.*.size'     => 'nullable|string|max:60',
-            'variants.*.sizes.*.price'    => 'nullable|numeric|min:0',
-            'variants.*.sizes.*.stock'    => 'nullable|integer|min:0',
+            'variants'          => 'nullable|string',
         ]);
 
         DB::beginTransaction();
+
         try {
-            // 1) Thumbnail
-            $thumbnailPath = null;
-            if ($request->hasFile('thumbnail')) {
-                $thumbnailPath = $request->file('thumbnail')->store('products/thumbnails', 'public');
+            // 0. Đảm bảo thư mục storage tồn tại
+            $storageDisk = Storage::disk('public');
+            foreach (['products/thumbnails', 'products/gallery', 'products/variants'] as $dir) {
+                if (!$storageDisk->exists($dir)) {
+                    $storageDisk->makeDirectory($dir);
+                }
             }
 
-            // 2) Create product
+            // 1. Parse variants JSON (FE gửi dạng JSON string)
+            $variantsData = [];
+            if ($request->filled('variants')) {
+                $variantsData = json_decode($request->variants, true);
+                if (!is_array($variantsData)) {
+                    return response()->json(['message' => 'Dữ liệu variants không hợp lệ.'], 422);
+                }
+            }
+
+            // 2. Upload thumbnail
+            $thumbnailPath = null;
+            Log::info('[ProductStore] hasFile thumbnail: ' . ($request->hasFile('thumbnail') ? 'YES' : 'NO'));
+            Log::info('[ProductStore] all files: ', array_keys($request->allFiles()));
+
+            if ($request->hasFile('thumbnail')) {
+                $file = $request->file('thumbnail');
+                Log::info('[ProductStore] thumbnail file info', [
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime'          => $file->getClientMimeType(),
+                    'size'          => $file->getSize(),
+                ]);
+
+                $thumbnailPath = $file->store('products/thumbnails', 'public');
+                Log::info('[ProductStore] store() returned: ' . var_export($thumbnailPath, true));
+
+                if (!$thumbnailPath || $thumbnailPath === false) {
+                    throw new \Exception('Lỗi lưu thumbnail. Kiểm tra quyền thư mục storage. store() returned: ' . var_export($thumbnailPath, true));
+                }
+            }
+
+            // 3. Tạo sản phẩm
+            $slug = Str::slug($request->name) . '-' . Str::random(5);
             $product = Product::create([
-                'category_id'       => $validated['category_id'],
-                'brand_id'          => $validated['brand_id'] ?? null,
-                'seller_id'         => $validated['seller_id'] ?? null,
-                'name'              => $validated['name'],
-                'slug'              => Str::slug($validated['name'], '-'),
-                'short_description' => $validated['short_description'] ?? null,
-                'description'       => $validated['description'] ?? null,
+                'category_id'       => $request->category_id,
+                'brand_id'          => $request->brand_id ?: null,
+                'seller_id'         => $request->seller_id ?: null,
+                'name'              => $request->name,
+                'slug'              => $slug,
+                'short_description' => $request->short_description,
+                'description'       => $request->description,
                 'thumbnail_url'     => $thumbnailPath,
-                'product_type'      => $validated['product_type'],
-                'status'            => $validated['status'],
-                'is_featured'       => $validated['is_featured'] ?? false,
+                'product_type'      => $request->product_type,
+                'status'            => $request->status,
+                'is_featured'       => $request->boolean('is_featured'),
                 'min_price'         => 0,
                 'max_price'         => 0,
             ]);
 
-            // 3) Main image → product_images
+            // 4. Main image → product_images
             if ($thumbnailPath) {
                 ProductImage::create([
                     'product_id' => $product->product_id,
@@ -189,10 +206,13 @@ class ProductController extends Controller
                 ]);
             }
 
-            // 4) Gallery images
+            // 5. Gallery images
             if ($request->hasFile('gallery')) {
                 foreach ($request->file('gallery') as $i => $file) {
                     $path = $file->store('products/gallery', 'public');
+                    if (!$path || $path === false) {
+                        throw new \Exception('Lỗi lưu ảnh gallery. Kiểm tra quyền thư mục storage.');
+                    }
                     ProductImage::create([
                         'product_id' => $product->product_id,
                         'image_url'  => $path,
@@ -202,112 +222,79 @@ class ProductController extends Controller
                 }
             }
 
-            // 5) Variants
+            // 6. Tạo variants
             $allPrices = [];
-            if ($validated['product_type'] === 'simple') {
-                $price = $validated['price'] ?? 0;
+
+            if ($request->product_type === 'simple') {
+                $price = $request->price ?? 0;
                 $allPrices[] = $price;
                 ProductVariant::create([
                     'product_id'       => $product->product_id,
-                    'sku'              => Str::slug($validated['slug']) . '-default',
+                    'sku'              => $slug . '-default',
                     'price'            => $price,
-                    'compare_at_price' => $validated['compare_at_price'] ?? null,
-                    'stock'            => $validated['stock'] ?? 0,
+                    'compare_at_price' => $request->compare_at_price,
+                    'stock'            => $request->stock ?? 0,
                     'status'           => 'active',
                 ]);
             } else {
-                $variantsData = $request->input('variants', []);
-                $variantFiles = $request->file('variants', []);
+                // Variant product: mỗi color có nhiều sizes
+                // FE gửi: [{ color: "Đỏ", sizes: [{ size: "M", price: 100, stock: 10 }, ...] }, ...]
                 $combinations = [];
 
-                foreach ($variantsData as $idx => $vData) {
-                    // Upload variant image
-                    $variantImgPath = null;
-                    if (isset($variantFiles[$idx]['image'])) {
-                        $variantImgPath = $variantFiles[$idx]['image']->store('products/variants', 'public');
+                foreach ($variantsData as $vIndex => $vData) {
+                    $color = $vData['color'] ?? null;
+                    $sizes = $vData['sizes'] ?? [];
+
+                    // Upload variant images (nhiều ảnh mỗi biến thể)
+                    $variantImagePaths = [];
+                    if ($request->hasFile("variant_images.{$vIndex}")) {
+                        foreach ($request->file("variant_images.{$vIndex}") as $imgFile) {
+                            $imgPath = $imgFile->store('products/variants', 'public');
+                            if (!$imgPath || $imgPath === false) {
+                                throw new \Exception('Lỗi lưu ảnh biến thể. Kiểm tra quyền thư mục storage.');
+                            }
+                            $variantImagePaths[] = $imgPath;
+                        }
                     }
 
-                    // Check if this variant uses nested sizes
-                    $sizes = $vData['sizes'] ?? [];
-                    if (count($sizes) > 0) {
-                        foreach ($sizes as $sData) {
-                            $color = $vData['color'] ?? null;
-                            $size  = $sData['size'] ?? null;
-                            $combo = ($color ?? '') . '|' . ($size ?? '');
-
-                            if (in_array($combo, $combinations)) {
-                                throw new \Exception("Biến thể trùng lặp: Màu [{$color}] - Size [{$size}]");
-                            }
-                            $combinations[] = $combo;
-
-                            $vPrice = $sData['price'] ?? 0;
-                            $allPrices[] = $vPrice;
-
-                            $variant = ProductVariant::create([
-                                'product_id' => $product->product_id,
-                                'sku'        => Str::slug($validated['slug']) . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
-                                'color'      => $color,
-                                'size'       => $size,
-                                'material'   => $vData['material'] ?? null,
-                                'price'      => $vPrice,
-                                'cost_price' => $sData['cost_price'] ?? 0,
-                                'stock'      => $sData['stock'] ?? 0,
-                                'image_url'  => $variantImgPath,
-                                'status'     => 'active',
-                            ]);
-
-                            if ($variantImgPath) {
-                                ProductImage::create([
-                                    'product_id' => $product->product_id,
-                                    'variant_id' => $variant->variant_id,
-                                    'image_url'  => $variantImgPath,
-                                    'is_main'    => false,
-                                    'sort_order' => 1,
-                                ]);
-                            }
-                        }
-                    } else {
-                        // Flat variant (no nested sizes)
-                        $color = $vData['color'] ?? null;
-                        $size  = $vData['size'] ?? null;
-                        $combo = ($color ?? '') . '|' . ($size ?? '');
+                    foreach ($sizes as $sData) {
+                        $size = $sData['size'] ?? null;
+                        $combo = strtolower(trim($color ?? '')) . '|' . strtolower(trim($size ?? ''));
 
                         if (in_array($combo, $combinations)) {
                             throw new \Exception("Biến thể trùng lặp: Màu [{$color}] - Size [{$size}]");
                         }
                         $combinations[] = $combo;
 
-                        $vPrice = $vData['price'] ?? 0;
+                        $vPrice = $sData['price'] ?? 0;
                         $allPrices[] = $vPrice;
 
                         $variant = ProductVariant::create([
-                            'product_id'       => $product->product_id,
-                            'sku'              => Str::slug($validated['slug']) . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
-                            'color'            => $color,
-                            'size'             => $size,
-                            'material'         => $vData['material'] ?? null,
-                            'price'            => $vPrice,
-                            'compare_at_price' => $vData['compare_at_price'] ?? null,
-                            'cost_price'       => $vData['cost_price'] ?? 0,
-                            'stock'            => $vData['stock'] ?? 0,
-                            'image_url'        => $variantImgPath,
-                            'status'           => 'active',
+                            'product_id' => $product->product_id,
+                            'sku'        => $slug . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
+                            'color'      => $color,
+                            'size'       => $size,
+                            'price'      => $vPrice,
+                            'stock'      => $sData['stock'] ?? 0,
+                            'image_url'  => $variantImagePaths[0] ?? null,
+                            'status'     => 'active',
                         ]);
 
-                        if ($variantImgPath) {
+                        // Lưu ảnh biến thể vào product_images
+                        foreach ($variantImagePaths as $imgIndex => $imgPath) {
                             ProductImage::create([
                                 'product_id' => $product->product_id,
                                 'variant_id' => $variant->variant_id,
-                                'image_url'  => $variantImgPath,
+                                'image_url'  => $imgPath,
                                 'is_main'    => false,
-                                'sort_order' => 1,
+                                'sort_order' => $imgIndex + 1,
                             ]);
                         }
                     }
                 }
             }
 
-            // 6) Update min/max price
+            // 7. Update min/max price
             if (count($allPrices) > 0) {
                 $product->update([
                     'min_price' => min($allPrices),
@@ -316,17 +303,18 @@ class ProductController extends Controller
             }
 
             DB::commit();
+
             return response()->json([
-                'status'  => 'success',
-                'message' => 'Product created successfully',
+                'success' => true,
+                'message' => 'Thêm sản phẩm thành công.',
                 'data'    => $product->load('variants', 'images'),
             ], 201);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Failed to create product: ' . $e->getMessage(),
+                'success' => false,
+                'message' => 'Thêm sản phẩm thất bại: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -338,9 +326,8 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($id);
 
-        $validated = $request->validate([
+        $request->validate([
             'name'              => 'required|string|max:200',
-            'slug'              => 'required|string|max:220|unique:products,slug,' . $product->product_id . ',product_id',
             'category_id'       => 'required|exists:categories,category_id',
             'brand_id'          => 'nullable|exists:brands,brand_id',
             'seller_id'         => 'nullable|exists:users,user_id',
@@ -351,34 +338,49 @@ class ProductController extends Controller
             'is_featured'       => 'boolean',
             'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
             'price'             => 'nullable|numeric|min:0',
+            'compare_at_price'  => 'nullable|numeric|min:0',
             'stock'             => 'nullable|integer|min:0',
-            'variants'          => 'nullable|array',
-            'variants.*.variant_id' => 'nullable|exists:product_variants,variant_id',
-            'variants.*.price'  => 'nullable|numeric|min:0',
-            'variants.*.stock'  => 'nullable|integer|min:0',
-            'variants.*.status' => 'nullable|string',
-            'variants.*.image'  => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
             'gallery'           => 'nullable|array',
             'gallery.*'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-            'deleted_gallery_ids' => 'nullable|array',
+            'deleted_gallery_ids'   => 'nullable|array',
             'deleted_gallery_ids.*' => 'integer',
+            'variants'              => 'nullable|string',
         ]);
 
         DB::beginTransaction();
+
         try {
-            // Handle thumbnail update
+            // 0. Đảm bảo thư mục storage tồn tại
+            $storageDisk = Storage::disk('public');
+            foreach (['products/thumbnails', 'products/gallery', 'products/variants'] as $dir) {
+                if (!$storageDisk->exists($dir)) {
+                    $storageDisk->makeDirectory($dir);
+                }
+            }
+
+            // 1. Parse variants JSON
+            $variantsData = [];
+            if ($request->filled('variants')) {
+                $variantsData = json_decode($request->variants, true);
+                if (!is_array($variantsData)) {
+                    return response()->json(['message' => 'Dữ liệu variants không hợp lệ.'], 422);
+                }
+            }
+
+            // 2. Thumbnail
             $thumbnailPath = $product->thumbnail_url;
             if ($request->hasFile('thumbnail')) {
-                // Delete old thumbnail
-                if ($thumbnailPath) {
+                if ($thumbnailPath && is_string($thumbnailPath) && $thumbnailPath !== '0') {
                     Storage::disk('public')->delete($thumbnailPath);
                 }
                 $thumbnailPath = $request->file('thumbnail')->store('products/thumbnails', 'public');
+                if (!$thumbnailPath || $thumbnailPath === false) {
+                    throw new \Exception('Lỗi lưu thumbnail. Kiểm tra quyền thư mục storage.');
+                }
 
-                // Update main image in product_images
+                // Update main image
                 ProductImage::where('product_id', $product->product_id)
-                    ->where('is_main', true)
-                    ->delete();
+                    ->where('is_main', true)->delete();
 
                 ProductImage::create([
                     'product_id' => $product->product_id,
@@ -386,142 +388,177 @@ class ProductController extends Controller
                     'is_main'    => true,
                     'sort_order' => 0,
                 ]);
+            } else {
+                // Nếu không upload ảnh mới và thumbnail cũ bị lỗi (là "0"), reset về null
+                if ($thumbnailPath === '0' || $thumbnailPath === 0) {
+                    $thumbnailPath = null;
+                }
             }
 
+            // 3. Update product info
             $product->update([
-                'category_id'       => $validated['category_id'],
-                'brand_id'          => $validated['brand_id'] ?? null,
-                'seller_id'         => $validated['seller_id'] ?? null,
-                'name'              => $validated['name'],
-                'slug'              => $validated['slug'],
-                'short_description' => $validated['short_description'] ?? null,
-                'description'       => $validated['description'] ?? null,
+                'category_id'       => $request->category_id,
+                'brand_id'          => $request->brand_id ?: null,
+                'seller_id'         => $request->seller_id ?: null,
+                'name'              => $request->name,
+                'slug'              => $request->slug ?: Str::slug($request->name),
+                'short_description' => $request->short_description,
+                'description'       => $request->description,
                 'thumbnail_url'     => $thumbnailPath,
-                'product_type'      => $validated['product_type'],
-                'status'            => $validated['status'],
-                'is_featured'       => $validated['is_featured'] ?? false,
+                'product_type'      => $request->product_type,
+                'status'            => $request->status,
+                'is_featured'       => $request->boolean('is_featured'),
             ]);
 
-            // Xoá gallery cũ
-            if (!empty($validated['deleted_gallery_ids'])) {
-                $imagesToDelete = ProductImage::whereIn('image_id', $validated['deleted_gallery_ids'])
-                    ->where('product_id', $product->product_id)
-                    ->get();
-                foreach($imagesToDelete as $img) {
+            // 4. Xóa gallery cũ (nếu có)
+            if ($request->filled('deleted_gallery_ids')) {
+                $ids = $request->deleted_gallery_ids;
+                $imagesToDelete = ProductImage::whereIn('image_id', $ids)
+                    ->where('product_id', $product->product_id)->get();
+                foreach ($imagesToDelete as $img) {
                     Storage::disk('public')->delete($img->image_url);
                     $img->delete();
                 }
             }
 
-            // Thêm gallery mới
+            // 5. Thêm gallery mới
             if ($request->hasFile('gallery')) {
-                $maxSortOrder = ProductImage::where('product_id', $product->product_id)->max('sort_order') ?? 0;
+                $maxSort = ProductImage::where('product_id', $product->product_id)->max('sort_order') ?? 0;
                 foreach ($request->file('gallery') as $i => $file) {
                     $path = $file->store('products/gallery', 'public');
+                    if (!$path || $path === false) {
+                        throw new \Exception('Lỗi lưu ảnh gallery. Kiểm tra quyền thư mục storage.');
+                    }
                     ProductImage::create([
                         'product_id' => $product->product_id,
                         'image_url'  => $path,
                         'is_main'    => false,
-                        'sort_order' => $maxSortOrder + $i + 1,
+                        'sort_order' => $maxSort + $i + 1,
                     ]);
                 }
             }
 
-            // Update simple product variant
-            if ($validated['product_type'] === 'simple') {
-                $price = $validated['price'] ?? 0;
-                $stock = $validated['stock'] ?? 0;
+            // 6. Xử lý variants
+            $allPrices = [];
+
+            if ($request->product_type === 'simple') {
+                $price = $request->price ?? 0;
+                $stock = $request->stock ?? 0;
+                $allPrices[] = $price;
 
                 $defaultVariant = $product->variants()->first();
                 if ($defaultVariant) {
                     $defaultVariant->update([
-                        'price' => $price,
-                        'stock' => $stock,
+                        'price'            => $price,
+                        'compare_at_price' => $request->compare_at_price,
+                        'stock'            => $stock,
                     ]);
                 } else {
                     ProductVariant::create([
                         'product_id' => $product->product_id,
-                        'sku'        => Str::slug($validated['slug']) . '-default',
+                        'sku'        => Str::slug($product->name) . '-default',
                         'price'      => $price,
+                        'compare_at_price' => $request->compare_at_price,
                         'stock'      => $stock,
                         'status'     => 'active',
                     ]);
                 }
-
-                $product->update([
-                    'min_price' => $price,
-                    'max_price' => $price,
-                ]);
             } else {
-                $variantsData = $request->input('variants', []);
-                $allPrices = [];
-                
-                foreach ($variantsData as $vKey => $vData) {
-                    if (isset($vData['variant_id'])) {
-                        $variant = ProductVariant::find($vData['variant_id']);
-                        if ($variant && $variant->product_id === $product->product_id) {
-                            $vPrice = $vData['price'] ?? $variant->price;
-                            
-                            $variantUpdates = [
-                                'price' => $vPrice,
-                                'stock' => $vData['stock'] ?? $variant->stock,
-                                'status' => $vData['status'] ?? $variant->status,
-                            ];
+                // Variant product
+                // FE gửi: [{ color, sizes: [{ size, price, stock }], variant_ids: [id1, ...] }, ...]
+                // Xóa tất cả variant cũ và tạo lại (đơn giản, tránh diff phức tạp)
+                $existingVariantIds = $product->variants()->pluck('variant_id')->toArray();
 
-                            // Nếu có upload ảnh mới cho biến thể
-                            $variantFiles = $request->file("variants");
-                            if (!empty($variantFiles) && isset($variantFiles[$vKey]['image'])) {
-                                $vFile = $variantFiles[$vKey]['image'];
-                            } else {
-                                $vFile = null;
+                // Xóa ảnh variant cũ trong product_images
+                ProductImage::where('product_id', $product->product_id)
+                    ->whereNotNull('variant_id')
+                    ->delete();
+
+                // Xóa file ảnh cũ của variant
+                foreach ($product->variants as $oldVariant) {
+                    if ($oldVariant->image_url) {
+                        Storage::disk('public')->delete($oldVariant->image_url);
+                    }
+                }
+
+                // Xóa tất cả variant cũ
+                ProductVariant::where('product_id', $product->product_id)->delete();
+
+                // Tạo lại variant mới
+                $combinations = [];
+                foreach ($variantsData as $vIndex => $vData) {
+                    $color = $vData['color'] ?? null;
+                    $sizes = $vData['sizes'] ?? [];
+
+                    // Upload variant images
+                    $variantImagePaths = [];
+                    if ($request->hasFile("variant_images.{$vIndex}")) {
+                        foreach ($request->file("variant_images.{$vIndex}") as $imgFile) {
+                            $imgPath = $imgFile->store('products/variants', 'public');
+                            if (!$imgPath || $imgPath === false) {
+                                throw new \Exception('Lỗi lưu ảnh biến thể. Kiểm tra quyền thư mục storage.');
                             }
+                            $variantImagePaths[] = $imgPath;
+                        }
+                    }
 
-                            if ($vFile) {
-                                if ($variant->image_url) {
-                                    Storage::disk('public')->delete($variant->image_url);
-                                }
-                                $imgPath = $vFile->store('products/variants', 'public');
-                                $variantUpdates['image_url'] = $imgPath;
-                            } elseif (isset($vData['remove_image']) && $vData['remove_image']) {
-                                if ($variant->image_url) {
-                                    Storage::disk('public')->delete($variant->image_url);
-                                }
-                                $variantUpdates['image_url'] = null;
-                            }
+                    foreach ($sizes as $sData) {
+                        $size = $sData['size'] ?? null;
+                        $combo = strtolower(trim($color ?? '')) . '|' . strtolower(trim($size ?? ''));
 
-                            $variant->update($variantUpdates);
-                            $allPrices[] = $vPrice;
+                        if (in_array($combo, $combinations)) {
+                            throw new \Exception("Biến thể trùng lặp: Màu [{$color}] - Size [{$size}]");
+                        }
+                        $combinations[] = $combo;
+
+                        $vPrice = $sData['price'] ?? 0;
+                        $allPrices[] = $vPrice;
+
+                        $variant = ProductVariant::create([
+                            'product_id' => $product->product_id,
+                            'sku'        => Str::slug($product->name) . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
+                            'color'      => $color,
+                            'size'       => $size,
+                            'price'      => $vPrice,
+                            'stock'      => $sData['stock'] ?? 0,
+                            'image_url'  => $variantImagePaths[0] ?? null,
+                            'status'     => 'active',
+                        ]);
+
+                        foreach ($variantImagePaths as $imgIndex => $imgPath) {
+                            ProductImage::create([
+                                'product_id' => $product->product_id,
+                                'variant_id' => $variant->variant_id,
+                                'image_url'  => $imgPath,
+                                'is_main'    => false,
+                                'sort_order' => $imgIndex + 1,
+                            ]);
                         }
                     }
                 }
-                
-                // Cập nhật lại min max price dựa trên các variant đã cập nhật và các variant còn lại
-                $allCurrentVariants = $product->variants()->get();
-                $allPrices = [];
-                foreach ($allCurrentVariants as $v) {
-                    $allPrices[] = $v->price;
-                }
-                
-                if (count($allPrices) > 0) {
-                    $product->update([
-                        'min_price' => min($allPrices),
-                        'max_price' => max($allPrices),
-                    ]);
-                }
+            }
+
+            // 7. Update min/max price
+            if (count($allPrices) > 0) {
+                $product->update([
+                    'min_price' => min($allPrices),
+                    'max_price' => max($allPrices),
+                ]);
             }
 
             DB::commit();
+
             return response()->json([
-                'status'  => 'success',
-                'message' => 'Product updated successfully',
+                'success' => true,
+                'message' => 'Cập nhật sản phẩm thành công.',
                 'data'    => $product->load('variants', 'images'),
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Failed to update: ' . $e->getMessage(),
+                'success' => false,
+                'message' => 'Cập nhật thất bại: ' . $e->getMessage(),
             ], 500);
         }
     }

@@ -42,7 +42,6 @@ RUN chown -R www-data:www-data /var/www
 # KHÔNG CHẠY DƯỚI QUYỀN NON-ROOT KHI DEV TRÊN WINDOWS
 # Nếu bật USER www-data, trên Windows/WSL2 mount volume sẽ gặp lỗi "Operation not permitted"
 # USER www-data
-
 # EXPOSE port (FPM mặc định chạy 9000, không cần declare nhưng nên để cho rõ ràng)
 EXPOSE 9000
 
