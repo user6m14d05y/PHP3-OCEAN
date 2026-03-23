@@ -85,10 +85,9 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRoute } from 'vue-router';
 import api from '../axios.js';
 
-const router = useRouter();
 const route = useRoute();
 
 const isLoggedIn = ref(false);
