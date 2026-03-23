@@ -26,6 +26,9 @@ class ProductVariant extends Model
         'image_url',
         'status',
     ];
+    protected $casts = [
+        'attributes_json' => 'array',
+    ];
 
     public function product()
     {
