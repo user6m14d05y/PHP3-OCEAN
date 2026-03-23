@@ -16,6 +16,7 @@ import AdminUsers from "../Pages/admin/AdminUsers.vue";
 import AdminCategory from "../Pages/admin/AdminCategory.vue";
 import AdminStaff from "../Pages/admin/AdminStaff.vue";
 import AdminContact from "../Pages/admin/AdminContact.vue";
+import AdminCoupon from "../Pages/admin/AdminCoupon.vue";
 
 import Login from "../Pages/Client/Auth/login.vue";
 import Register from "../Pages/Client/Auth/Register.vue";
@@ -122,7 +123,11 @@ const routes = [
                 name: "admin-contact",
                 component: AdminContact,
             },
-
+            {
+                path: "coupon",
+                name: "admin-coupon",
+                component: AdminCoupon,
+            },
         ],
     },
 ];
@@ -133,6 +138,7 @@ const router = createRouter({
 });
 
 // ==================== Navigation Guard ====================
+
 router.beforeEach((to, from) => {
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user');
