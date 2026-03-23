@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from "vue-router";
 // User
 import Home from "../Pages/Client/Home/Home.vue";
 import Product from "../Pages/Client/Home/Product.vue";
+import ProductDetail from "../Pages/Client/Home/productDetail.vue";
 import ClientLayout from "../layouts/ClientLayout.vue";
 
 // Admin
@@ -10,12 +11,12 @@ import AdminLayout from "../layouts/AdminLayout.vue";
 import AdminHome from "../Pages/Admin/AdminHome.vue";
 import AdminProduct from "../Pages/Admin/AdminProduct.vue";
 import AdminCreateProduct from "../Pages/Admin/AdminCreateProduct.vue";
-import AdminEditProduct from "../Pages/Admin/AdminEditProduct.vue";
 import AdminUsers from "../Pages/Admin/AdminUsers.vue";
 import AdminCategory from "../Pages/Admin/AdminCategory.vue";
 import AdminStaff from "../Pages/Admin/AdminStaff.vue";
 import AdminContact from "../Pages/Admin/AdminContact.vue";
 
+// Auth
 import Login from "../Pages/Client/Auth/login.vue";
 import Register from "../Pages/Client/Auth/Register.vue";
 import Forgot from "../Pages/Client/Auth/Forgot.vue";
@@ -38,6 +39,7 @@ const routes = [
         children: [
             { path: "", name: "home", component: Home },
             { path: "product", name: "product", component: Product },
+            { path: "product/:slug", name: "product-detail", component: ProductDetail },
             { path: "about", name: "brand-story", component: BrandStory },
             { path: "careers", name: "careers", component: Careers },
             { path: "terms", name: "terms", component: Terms },
@@ -96,7 +98,7 @@ const routes = [
             {
                 path: "product/edit/:id",
                 name: "admin-product-edit",
-                component: AdminEditProduct,
+                component: import("../Pages/Admin/AdminEditProduct.vue"),
             },
             {
                 path: "users",
@@ -120,7 +122,6 @@ const routes = [
                 name: "admin-contact",
                 component: AdminContact,
             },
-
         ],
     },
 ];
@@ -131,7 +132,7 @@ const router = createRouter({
 });
 
 // ==================== Navigation Guard ====================
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user');
     const user = userData ? JSON.parse(userData) : null;
@@ -139,14 +140,14 @@ router.beforeEach((to, from, next) => {
     // Route yêu cầu đăng nhập
     if (to.matched.some(record => record.meta.requiresAuth)) {
         if (!token || !user) {
-            return next({ name: 'login', query: { redirect: to.fullPath } });
+            return { name: 'login', query: { redirect: to.fullPath } };
         }
 
         // Kiểm tra role nếu route yêu cầu
         const requiredRoles = to.meta.roles || to.matched.find(r => r.meta.roles)?.meta.roles;
         if (requiredRoles && !requiredRoles.includes(user.role)) {
             // Không có quyền → redirect về trang chủ
-            return next({ name: 'home' });
+            return { name: 'home' };
         }
     }
 
@@ -154,13 +155,11 @@ router.beforeEach((to, from, next) => {
     if (to.matched.some(record => record.meta.guest)) {
         if (token && user) {
             if (user.role === 'admin' || user.role === 'staff') {
-                return next({ name: 'admin' });
+                return { name: 'admin' };
             }
-            return next({ name: 'home' });
+            return { name: 'home' };
         }
     }
-
-    next();
 });
 
 export default router;

@@ -64,10 +64,11 @@ Route::middleware(['auth:admin', 'role:admin,staff'])->prefix('admin')->group(fu
     Route::post('/contacts/{id}/reply', [ContactController::class, 'reply']);
     Route::delete('/contacts/{id}', [ContactController::class, 'destroy']);
 });
-Route::get('products/{id}', [ProductController::class, 'show']);
+Route::get('products/{slug}', [ProductController::class, 'show']);
 // Business routes
 Route::get('products', [ProductController::class, 'index']);
 Route::apiResource('categories', CategoryController::class);
 Route::get('productsAll', [ProductController::class, 'all']);
+Route::get('productsFeatured', [ProductController::class, 'productFeatured']);
 
 Route::get('brands', [BrandController::class, 'index']);

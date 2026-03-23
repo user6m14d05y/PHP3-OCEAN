@@ -8,6 +8,9 @@
       <router-link to="/product" class="logo">
         <span class="action-label">Sản phẩm</span>
       </router-link>
+       <p to="/" class="logo">
+        <span class="action-label">Bộ sưu tập</span>
+      </p>
 
       <!-- Danh mục -->
       <!-- <button class="category-btn">
@@ -123,11 +126,11 @@ const handleLogout = async () => {
   localStorage.removeItem('user');
   isLoggedIn.value = false;
   showDropdown.value = false;
-  
-  // Ở lại trang hiện tại nếu không phải trang cần auth, 
+
+  // Ở lại trang hiện tại nếu không phải trang cần auth,
   // nhưng thực tế trang hiện tại có thể yêu cầu auth nên router guard sẽ tự xử lý.
   // Người dùng yêu cầu: "khi ấn đăng xuất thì vẫn ở lại trang đó chứ ko trả về trang login"
-  window.location.reload(); 
+  window.location.reload();
 };
 
 onMounted(checkAuth);
@@ -144,7 +147,7 @@ watch(() => route.path, checkAuth);
 }
 
 .header-inner {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 24px;
   height: 80px;

@@ -6,7 +6,8 @@ const api = axios.create({
         'Accept': 'application/json',
         'Content-Type': 'application/json',
     },
-    timeout: 10000,
+
+    timeout: 30000,
 });
 
 // Request interceptor: tự động gắn JWT token + fix FormData Content-Type
@@ -39,7 +40,7 @@ api.interceptors.response.use(
       // Xóa token và thông tin user
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
-      
+
       // Redirect về trang login (nếu chưa ở trang login)
       if (window.location.pathname !== '/client/login') {
         window.location.href = '/client/login';
