@@ -30,9 +30,9 @@ import ClientFooter from '../components/ClientFooter.vue';
 
 .site-main {
   flex: 1;
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: 0 24px; /* Chỉ padding hai bên để căn biên với header, các trang tự quản lý padding top/bottom */
   width: 100%;
 }
 </style>
