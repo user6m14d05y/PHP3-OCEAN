@@ -6,16 +6,24 @@ const api = axios.create({
         'Accept': 'application/json',
         'Content-Type': 'application/json',
     },
-    timeout: 5000,
+    timeout: 10000,
 });
 
-// Request interceptor: tự động gắn JWT token
+// Request interceptor: tự động gắn JWT token + fix FormData Content-Type
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("auth_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Quan trọng: Khi gửi FormData, phải XÓA Content-Type
+    // để browser tự set multipart/form-data VỚI boundary.
+    // Nếu không xóa, PHP không parse được $_FILES → hasFile() = false → path = 0
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => {
