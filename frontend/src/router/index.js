@@ -8,14 +8,14 @@ import ClientLayout from "../layouts/ClientLayout.vue";
 
 // Admin
 import AdminLayout from "../layouts/AdminLayout.vue";
-import AdminHome from "../Pages/Admin/AdminHome.vue";
-import AdminProduct from "../Pages/Admin/AdminProduct.vue";
-import AdminCreateProduct from "../Pages/Admin/AdminCreateProduct.vue";
-import AdminEditProduct from "../Pages/Admin/AdminEditProduct.vue";
-import AdminUsers from "../Pages/Admin/AdminUsers.vue";
-import AdminCategory from "../Pages/Admin/AdminCategory.vue";
-import AdminStaff from "../Pages/Admin/AdminStaff.vue";
-import AdminContact from "../Pages/Admin/AdminContact.vue";
+import AdminHome from "../Pages/admin/AdminHome.vue";
+import AdminProduct from "../Pages/admin/AdminProduct.vue";
+import AdminCreateProduct from "../Pages/admin/AdminCreateProduct.vue";
+import AdminEditProduct from "../Pages/admin/AdminEditProduct.vue";
+import AdminUsers from "../Pages/admin/AdminUsers.vue";
+import AdminCategory from "../Pages/admin/AdminCategory.vue";
+import AdminStaff from "../Pages/admin/AdminStaff.vue";
+import AdminContact from "../Pages/admin/AdminContact.vue";
 
 import Login from "../Pages/Client/Auth/login.vue";
 import Register from "../Pages/Client/Auth/Register.vue";
