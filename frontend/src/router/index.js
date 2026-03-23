@@ -11,12 +11,12 @@ import AdminLayout from "../layouts/AdminLayout.vue";
 import AdminHome from "../Pages/Admin/AdminHome.vue";
 import AdminProduct from "../Pages/Admin/AdminProduct.vue";
 import AdminCreateProduct from "../Pages/Admin/AdminCreateProduct.vue";
+import AdminEditProduct from "../Pages/Admin/AdminEditProduct.vue";
 import AdminUsers from "../Pages/Admin/AdminUsers.vue";
 import AdminCategory from "../Pages/Admin/AdminCategory.vue";
 import AdminStaff from "../Pages/Admin/AdminStaff.vue";
 import AdminContact from "../Pages/Admin/AdminContact.vue";
 
-// Auth
 import Login from "../Pages/Client/Auth/login.vue";
 import Register from "../Pages/Client/Auth/Register.vue";
 import Forgot from "../Pages/Client/Auth/Forgot.vue";
@@ -96,6 +96,11 @@ const routes = [
                 component: AdminCreateProduct,
             },
             {
+                path: "product/edit/:id",
+                name: "admin-product-edit",
+                component: AdminEditProduct,
+            },
+            {
                 path: "users",
                 name: "admin-users",
                 component: AdminUsers,
@@ -117,6 +122,7 @@ const routes = [
                 name: "admin-contact",
                 component: AdminContact,
             },
+
         ],
     },
 ];
