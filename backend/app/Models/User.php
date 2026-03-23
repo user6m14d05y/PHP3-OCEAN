@@ -26,6 +26,8 @@ class User extends Authenticatable implements JWTSubject
         'full_name',
         'email',
         'password',
+        'phone',
+        'avatar_url',
         'google_id',
         'role',
     ];
@@ -51,6 +53,14 @@ class User extends Authenticatable implements JWTSubject
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Quan hệ: User có nhiều Address
+     */
+    public function addresses()
+    {
+        return $this->hasMany(\App\Models\Address::class, 'user_id', 'user_id');
     }
 
     // ==================== JWT Methods ====================
