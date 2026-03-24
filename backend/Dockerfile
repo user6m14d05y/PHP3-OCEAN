@@ -50,7 +50,7 @@ pm.min_spare_servers = 3\n\
 pm.max_spare_servers = 10\n\
 pm.max_requests = 500\n\
 pm.process_idle_timeout = 10s\n\
-request_terminate_timeout = 60s\n\
+request_terminate_timeout = 60\n\
 " > /usr/local/etc/php-fpm.d/zz-tuning.conf
 
 # Lấy Composer version mới nhất

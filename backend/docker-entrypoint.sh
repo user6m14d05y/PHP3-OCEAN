@@ -74,16 +74,13 @@ echo "[5/7] Running database migrations..."
 php artisan migrate --force
 
 # -----------------------------------------------
-# 6. Xóa cache (Quan trọng cho môi trường Dev)
+# 6. Khởi động PHP-FPM
 # -----------------------------------------------
-echo "[6/7] Clearing Laravel caches for development..."
-php artisan config:clear
-php artisan route:clear
-php artisan view:clear
-echo "  Laravel caches cleared successfully!"
+echo "[6/6] Starting PHP-FPM..."
+# Xóa cache cũ đi phòng trường hợp config cache đang làm crash app
+php artisan cache:clear || true
+php artisan config:clear || true
+php artisan route:clear || true
+php artisan view:clear || true
 
-# -----------------------------------------------
-# 7. Khởi động PHP-FPM
-# -----------------------------------------------
-echo "[7/7] Starting PHP-FPM..."
 exec php-fpm
