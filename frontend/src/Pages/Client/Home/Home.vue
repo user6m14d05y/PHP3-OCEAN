@@ -1,7 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import api from '../../../axios.js';
-import { useRouter } from 'vue-router';
 
 const Products = ref([]);
 const Categories = ref([]);
@@ -14,7 +13,8 @@ const fetchProducts = async () => {
             name: item.name,
             price: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.min_price),
             image: item.thumbnail_url !== "0" ? item.thumbnail_url : 'https://placehold.co/400x500?text=No+Image',
-            badge: item.is_featured ? 'Hot' : null
+            badge: item.is_featured ? 'Hot' : null,
+            slug: item.slug
         }));
     } catch (error) {
         console.error('Error fetching products:', error);
@@ -67,7 +67,7 @@ onMounted(() => {
 
             <div class="products-grid">
                 <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
-                    <router-link :to="{ name: 'product-detail', params: { id: product.id } }"
+                    <router-link :to="{ name: 'product-detail', params: { slug: product.slug } }"
                         class="text-decoration-none">
                         <div class="product-img-wrapper">
                             <!-- <span class="product-badge" v-if="product.badge" :class="{'badge-hot': product.badge === 'Hot'}">{{ product.badge }}</span> -->
@@ -117,7 +117,7 @@ onMounted(() => {
 
             <div class="products-grid">
                 <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
-                    <router-link :to="{ name: 'product-detail', params: { id: product.id } }"
+                    <router-link :to="{ name: 'product-detail', params: { slug: product.slug } }"
                         class="text-decoration-none">
                         <div class="product-img-wrapper">
                             <span class="product-badge" v-if="product.badge"
