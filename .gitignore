@@ -27,8 +27,14 @@ Thumbs.db
 /frontend/node_modules
 /backend/public/build
 /backend/public/hot
-/backend/public/storage
 /backend/storage/*.key
 /backend/storage/pail
 /frontend/dist
 /backend/.env
+/backend/public/storage
+
+# Cho phép push ảnh mẫu (không bị block bởi root gitignore)
+!/backend/storage/app/public/products/
+!/backend/storage/app/public/products/**
+!/backend/storage/app/public/banners/
+!/backend/storage/app/public/banners/**

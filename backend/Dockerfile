@@ -10,18 +10,48 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     libzip-dev \
-    # Thêm default-mysql-client để dùng trong script verify DB connection
     default-mysql-client
 
 # Xóa cache apt
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Cài đặt các PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd sockets zip
+# Cài đặt các PHP extensions + OPcache
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd sockets zip opcache
 
-# Config PHP cho phép upload file nặng
-RUN echo "upload_max_filesize = 50M" > /usr/local/etc/php/conf.d/uploads.ini \
-    && echo "post_max_size = 50M" >> /usr/local/etc/php/conf.d/uploads.ini
+# ==================== PHP PERFORMANCE CONFIG ====================
+RUN echo "\
+upload_max_filesize = 50M\n\
+post_max_size = 50M\n\
+memory_limit = 256M\n\
+max_execution_time = 60\n\
+\n\
+; === OPcache - Cache compiled PHP files ===\n\
+opcache.enable=1\n\
+opcache.memory_consumption=128\n\
+opcache.interned_strings_buffer=16\n\
+opcache.max_accelerated_files=10000\n\
+opcache.validate_timestamps=1\n\
+opcache.revalidate_freq=2\n\
+opcache.save_comments=1\n\
+opcache.enable_file_override=1\n\
+\n\
+; === Realpath cache ===\n\
+realpath_cache_size=4096K\n\
+realpath_cache_ttl=600\n\
+" > /usr/local/etc/php/conf.d/custom.ini
+
+# ==================== PHP-FPM TUNING ====================
+RUN echo "\
+[www]\n\
+pm = dynamic\n\
+pm.max_children = 20\n\
+pm.start_servers = 5\n\
+pm.min_spare_servers = 3\n\
+pm.max_spare_servers = 10\n\
+pm.max_requests = 500\n\
+pm.process_idle_timeout = 10s\n\
+request_terminate_timeout = 60\n\
+" > /usr/local/etc/php-fpm.d/zz-tuning.conf
 
 # Lấy Composer version mới nhất
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -33,20 +63,14 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 WORKDIR /var/www
 
 # Copy toàn bộ src code (Bắt buộc cho Production)
-# Ở môi trường dev, volume mount trong docker-compose sẽ ghi đè đè lên thư mục này.
 COPY . .
 
-# Phân quyền cho www-data TRƯỚC khi mount volume (khi dev volume sẽ đè lên)
+# Phân quyền cho www-data TRƯỚC khi mount volume
 RUN chown -R www-data:www-data /var/www
 
-# KHÔNG CHẠY DƯỚI QUYỀN NON-ROOT KHI DEV TRÊN WINDOWS
-# Nếu bật USER www-data, trên Windows/WSL2 mount volume sẽ gặp lỗi "Operation not permitted"
-# USER www-data
-# EXPOSE port (FPM mặc định chạy 9000, không cần declare nhưng nên để cho rõ ràng)
 EXPOSE 9000
 
-# Đảm bảo file script entrypoint có quyền thực thi (tránh lỗi Permission denied)
+# Đảm bảo entrypoint có quyền thực thi
 RUN chmod +x /var/www/docker-entrypoint.sh
 
-# Entrypoint script xử lý migrate & start FPM
 ENTRYPOINT ["/var/www/docker-entrypoint.sh"]

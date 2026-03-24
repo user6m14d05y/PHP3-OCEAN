@@ -12,7 +12,8 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-root}
     volumes:
       - mysql_data:/var/lib/mysql
-    # Thêm Healthcheck để các service khác biết DB đã thực sự sẵn sàng
+      # Custom MySQL config để tối ưu performance
+      - ./mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-root}"]
       interval: 10s
@@ -26,22 +27,21 @@ services:
       dockerfile: Dockerfile
     container_name: ocean_backend
     restart: always
-    # Không expose port 8383 ra ngoài nữa, vì web server (nginx) sẽ đứng trước
     expose:
       - "9000"
     env_file:
       - .env
-    # Giữ nguyên volume để Dev dùng hot-reload
+    environment:
+      # Dùng file cache thay vì database cache → nhanh hơn
+      CACHE_STORE: file
     volumes:
       - ./backend:/var/www
       - ./.env:/var/www/.env
-    # Bắt buộc đợi DB healthcheck xong mới start
     depends_on:
       db:
         condition: service_healthy
 
   # NGINX (WEB SERVER CHO BACKEND)
-  # Đóng vai trò Reverse Proxy (FastCGI) gọi đến backend:9000
   nginx_backend:
     image: nginx:alpine
     container_name: ocean_nginx_backend
@@ -49,9 +49,7 @@ services:
     ports:
       - "8383:8383"
     volumes:
-      # Map config Nginx
       - ./nginx/backend.conf:/etc/nginx/conf.d/default.conf:ro
-      # Nginx cũng cần thấy thư mục public của Laravel để check static file
       - ./backend:/var/www:ro
     depends_on:
       - backend
@@ -61,7 +59,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      # Target build cho MÔI TRƯỜNG DEV (Bỏ qua Nginx stage, giữ nguyên luồng cũ)
       target: build-stage
     container_name: ocean_frontend
     restart: always
@@ -71,11 +68,9 @@ services:
       - .env
     volumes:
       - ./frontend:/app
-      # Ẩn node_modules host, ép container dùng node_modules của chính nó
       - /app/node_modules
       - ./.env:/app/.env
     working_dir: /app
-    # Ghi đè CMD của Dockerfile để chạy Dev server thay vì Nginx
     command: npm run dev -- --host 0.0.0.0 --port 3302
 
 volumes:
