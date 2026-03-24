@@ -1,74 +1,21 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-
+import api from '@/axios';
 // Kỹ thuật cơ bản: 
 // Lấy ID từ URL (nếu có API, ta sẽ dùng ID này để fetch() dữ liệu)
 const route = useRoute();
-const productId = route.params.id;
+const slug = route.params.slug;
+const product = ref(null);
 
-// Dữ liệu mẫu (Mock Data) - sau này thay bằng dữ liệu thật từ API
-const product = ref({
-  id: productId || 1,
-  name: "Áo Sơ Mi Nam Tay Dài Vải Oxford Thấm Hút Mồ Hôi Ocean",
-  price: 350000,
-  originalPrice: 450000,
-  category: "Áo sơ mi",
-  rating: 4.8,
-  reviewsCount: 256,
-  shortDescription: "Áo sơ mi Oxford mang đến sự lịch lãm nhưng vẫn thoải mái nhờ chất liệu cotton thoáng mát, thấm hút mồ hôi cực tốt. Thiết kế form slim-fit ôm vừa vặn cơ thể, tôn dáng và dễ dàng phối cùng quần âu hoặc jeans.",
-  longDescription: `
-    <article>
-        <p><strong>Chất liệu cao cấp:</strong> 100% Cotton Oxford dày dặn nhưng vô cùng mềm mại. Đặc biệt có khả năng chống nhăn nhẹ, giúp bạn luôn giữ được vẻ ngoài chỉn chu suốt cả ngày dài.</p>
-        <p><strong>Thiết kế tinh tế:</strong></p>
-        <ul>
-            <li>Cổ chóp đứng form, phù hợp để thắt cà vạt hoặc mặc thả nút phong trần.</li>
-            <li>Đường may mật độ cao (16 mũi/inch) chắc chắn, không lo bục chỉ.</li>
-            <li>Nút áo ngọc trai sang trọng, được may đính kèm kỹ lưỡng.</li>
-            <li>Tay áo lỡ dễ xắn, phù hợp với thời tiết giao mùa.</li>
-        </ul>
-        <p><strong>Hướng dẫn bảo quản:</strong></p>
-        <ul>
-            <li>Giặt máy ở nhiệt độ bình thường.</li>
-            <li>Không dùng hóa chất tẩy.</li>
-            <li>Ủi ở nhiệt độ thích hợp cho cotton (dưới 150 độ C).</li>
-        </ul>
-        <p>Sản phẩm cực kỳ đa năng, giúp bạn tự tin trong các buổi họp quan trọng cũng như năng động khi dạo phố cùng bạn bè.</p>
-    </article>
-  `,
-  images: [
-    "https://images.unsplash.com/photo-1596755094514-f87e32f85e23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1626497764746-6dc36546b388?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1588622154564-9a896690558a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1603252109303-2751441dd157?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-  ],
-  reviews: [
-    {
-        id: 1,
-        user: "Thành Đạt",
-        avatar: "https://i.pravatar.cc/150?u=1",
-        rating: 5,
-        date: "20/03/2026",
-        content: "Áo form chuẩn, chất lượng rất tốt so với tầm giá. Mình mặc đi làm ai cũng khen. Sẽ ủng hộ shop thêm vài chiếc nữa."
-    },
-    {
-        id: 2,
-        user: "Minh Quân",
-        avatar: "https://i.pravatar.cc/150?u=2",
-        rating: 4,
-        date: "15/03/2026",
-        content: "Chất vải mát, đóng gói cẩn thận. Tuy nhiên giao hàng hơi lâu một chút do mình ở xa. Tổng thể vẫn rất ok."
-    },
-    {
-        id: 3,
-        user: "Hoàng Oanh",
-        avatar: "https://i.pravatar.cc/150?u=3",
-        rating: 5,
-        date: "10/03/2026",
-        content: "Mua cho người yêu mặc vừa y. Cảm ơn shop vì đã tư vấn size rất nhiệt tình nhé!"
+const fetchProduct = async () => {
+    try {
+        const response = await api.get(`/products/${slug}`);
+        product.value = response.data;
+    } catch (error) {
+        console.error("Error fetching product:", error);
     }
-  ]
-});
+};
 
 const isDescriptionExpanded = ref(false);
 const activeImageIndex = ref(0);
@@ -80,6 +27,9 @@ const formatPrice = (price) => {
 
 const increaseQuantity = () => quantity.value++;
 const decreaseQuantity = () => { if (quantity.value > 1) quantity.value-- };
+onMounted(() => {
+    fetchProduct();
+});
 
 </script>
 
@@ -120,7 +70,7 @@ const decreaseQuantity = () => { if (quantity.value > 1) quantity.value-- };
 
       <!-- Cột Phải: Thông tin sản phẩm -->
       <div class="product-info-box">
-        <div class="category-badge">{{ product.category }}</div>
+        <div class="category-badge">{{ product.category.name }}</div>
         <h1 class="product-title">{{ product.name }}</h1>
         
         <!-- Đánh giá sao -->
@@ -128,12 +78,12 @@ const decreaseQuantity = () => { if (quantity.value > 1) quantity.value-- };
           <div class="stars">
             <i class="fas fa-star" v-for="i in 5" :key="i" :class="{'active': i <= Math.round(product.rating)}"></i>
           </div>
-          <span class="rating-text">{{ product.rating }} <span class="reviews-count">({{ product.reviewsCount }} đánh giá)</span></span>
+          <span class="rating-text">{{ product.rating  ?? 0}} <span class="reviews-count">({{ product.reviewsCount }} đánh giá)</span></span>
         </div>
 
         <!-- Giá tiền -->
         <div class="product-pricing">
-          <span class="current-price">{{ formatPrice(product.price) }}</span>
+          <span class="current-price">{{ formatPrice(product.min_price) }}</span>
           <span class="original-price" v-if="product.originalPrice">{{ formatPrice(product.originalPrice) }}</span>
           <span class="discount-badge" v-if="product.originalPrice">
             -{{ Math.round((1 - product.price / product.originalPrice) * 100) }}%
@@ -141,8 +91,7 @@ const decreaseQuantity = () => { if (quantity.value > 1) quantity.value-- };
         </div>
 
         <!-- Mô tả ngắn (Kỹ thuật) -->
-        <div class="short-description">
-          <p>{{ product.shortDescription }}</p>
+        <div class="short-description" v-html="product.short_description">
         </div>
 
         <!-- Chức năng Số lượng & Mua hàng -->
@@ -173,7 +122,7 @@ const decreaseQuantity = () => { if (quantity.value > 1) quantity.value-- };
       <div class="content-box description-section ocean-card">
         <h2 class="section-title">Chi tiết sản phẩm</h2>
         <div class="long-description" :class="{ 'expanded': isDescriptionExpanded }">
-          <div v-html="product.longDescription"></div>
+          <div v-html="product.description"></div>
           <div class="fade-overlay" v-if="!isDescriptionExpanded"></div>
         </div>
         <button class="btn-outline toggle-desc-btn" @click="isDescriptionExpanded = !isDescriptionExpanded">
