@@ -1,0 +1,45 @@
+*.log
+.DS_Store
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+Homestead.json
+Homestead.yaml
+Thumbs.db
+
+/backend/vendor
+/frontend/node_modules
+/backend/public/build
+/backend/public/hot
+/backend/storage/*.key
+/backend/storage/pail
+/frontend/dist
+/backend/.env
+/backend/public/storage
+
+# Ignore storage symlinks and cache (gây lỗi trên Windows)
+/backend/storage/app/public/public
+/backend/storage/framework/
+/backend/storage/logs/
+
+# MySQL data volume
+/mysql_data/
+
+# Docker volumes
+backend_logs.txt

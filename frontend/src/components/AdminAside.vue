@@ -1,0 +1,358 @@
+<template>
+  <aside class="sidebar">
+    <!-- Brand -->
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <h2 class="brand-title">Admin</h2>
+    </div>
+
+    <!-- Nav -->
+    <nav class="sidebar-nav">
+      <router-link to="/admin" class="nav-item" exact-active-class="nav-item--active">
+        <div class="nav-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+        </div>
+        <span>Dashboard</span>
+      </router-link>
+
+      <router-link to="/admin/order" class="nav-item" active-class="nav-item--active">
+        <div class="nav-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+          </svg>
+        </div>
+        <span>Đơn hàng</span>
+      </router-link>
+
+      <router-link to="/admin/staff" class="nav-item" active-class="nav-item--active">
+        <div class="nav-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+          </svg>
+        </div>
+        <span>Nhân sự</span>
+      </router-link>
+
+      <div class="nav-item" @click="isStoreMenuOpen = !isStoreMenuOpen" :class="{ 'nav-item--open': isStoreMenuOpen }">
+        <div class="nav-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <span>Quản lý cửa hàng</span>
+        <svg class="dropdown-arrow" :class="{ 'dropdown-arrow--open': isStoreMenuOpen }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+
+      <!-- Store Submenu -->
+      <transition name="slide-fade">
+        <div v-if="isStoreMenuOpen" class="nav-submenu">
+          <router-link to="/admin/product" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Sản phẩm</span>
+          </router-link>
+          <router-link to="/admin/category" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Danh mục</span>
+          </router-link>
+          <router-link to="/admin/users" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Khách hàng</span>
+          </router-link>
+          <router-link to="/admin/shipping" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Phí vận chuyển</span>
+          </router-link>
+          <router-link to="/admin/coupon" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Mã giảm giá</span>
+          </router-link>
+          <router-link to="/admin/post" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Bài viết</span>
+          </router-link>
+          <router-link to="/admin/review" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Đánh giá</span>
+          </router-link>
+          <router-link to="/admin/stats" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Thống kê</span>
+          </router-link>
+        </div>
+      </transition>
+
+      <router-link to="/admin/contact" class="nav-item" active-class="nav-item--active">
+        <div class="nav-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
+          </svg>
+        </div>
+        <span>Liên hệ</span>
+      </router-link>
+    </nav>
+
+    <!-- Footer (User Profile) -->
+    <div class="sidebar-footer">
+      <div class="user-profile">
+        <div class="user-avatar-circle">{{ userName[0].toUpperCase() }}</div>
+        <div class="user-details" @click="handleLogout" style="cursor: pointer;" title="Nhấn để đăng xuất">
+          <span class="user-name-bold">{{ userName }}</span>
+          <span class="user-email-text">{{ userEmail || 'admin123@gmail.com' }}</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+const userName = ref('Admin');
+const userEmail = ref('');
+const userRole = ref('Manager');
+const isStoreMenuOpen = ref(true); // Mặc định mở theo ảnh mẫu
+
+onMounted(() => {
+  const userData = localStorage.getItem('user');
+  if (userData) {
+    try {
+      const user = JSON.parse(userData);
+      userName.value = user.name || 'Admin';
+      userEmail.value = user.email || '';
+      userRole.value = user.role === 'admin' ? 'Super Admin' : (user.role === 'staff' ? 'Staff' : 'Manager');
+    } catch (e) {
+      console.error("Failed to parse user data", e);
+    }
+  }
+});
+
+const handleLogout = () => {
+  if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    router.push('/client/login');
+  }
+};
+</script>
+
+<style scoped>
+.sidebar {
+  width: 250px;
+  min-height: 100vh;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-right: 1px solid #eee;
+}
+
+/* Brand */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 22px;
+  height: 70px;
+  border-bottom: 1px solid #eee;
+  flex-shrink: 0;
+}
+
+.brand-icon {
+  width: 40px;
+  height: 40px;
+  background: #1d4ed8;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+.brand-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #000;
+  letter-spacing: -0.5px;
+}
+
+/* Nav */
+.sidebar-nav {
+  flex: 1;
+  padding: 20px 14px;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  color: #666;
+  text-decoration: none;
+  font-size: 0.925rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.dropdown-arrow {
+  margin-left: auto;
+  opacity: 0.5;
+}
+
+.nav-item:hover {
+  background: #f3f4f6;
+  color: #1a1a1a;
+}
+
+.nav-item--active {
+  background: #1d4ed8 !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.nav-item--active .nav-icon {
+  opacity: 1;
+}
+
+.nav-item--open {
+  background: #f8f9fa;
+  color: #1a1a1a;
+}
+
+.dropdown-arrow {
+  margin-left: auto;
+  opacity: 0.5;
+  transition: transform 0.2s;
+}
+
+.dropdown-arrow--open {
+  transform: rotate(180deg);
+}
+
+/* Submenu */
+.nav-submenu {
+  padding-left: 12px;
+  margin-bottom: 8px;
+}
+
+.submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  color: #64748b;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  border-radius: 8px;
+}
+
+.submenu-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  transition: background 0.2s;
+}
+
+.submenu-item:hover {
+  color: #1d4ed8;
+}
+
+.submenu-item:hover .submenu-dot {
+  background: #1d4ed8;
+}
+
+.submenu-item--active {
+  color: #1d4ed8 !important;
+  font-weight: 600;
+}
+
+.submenu-item--active .submenu-dot {
+  background: #1d4ed8 !important;
+}
+
+/* Transitions */
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+.slide-fade-leave-active {
+  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+/* Footer */
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid #eee;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px;
+}
+
+.user-avatar-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #1d4ed8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.user-name-bold {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.2;
+}
+
+.user-email-text {
+  font-size: 0.8rem;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+</style>
