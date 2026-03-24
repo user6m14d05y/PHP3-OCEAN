@@ -5,15 +5,94 @@
       <router-link to="/" class="logo">
         <span class="logo-text">Ocean</span>
       </router-link>
-      <router-link to="/product" class="logo">
-        <span class="action-label">Sản phẩm</span>
-      </router-link>
+      <!-- Danh mục Mega Dropdown -->
+      <div class="category-dropdown" @mouseenter="showCategoryMenu = true" @mouseleave="showCategoryMenu = false">
+        <button class="category-btn" :class="{ 'is-open': showCategoryMenu }">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Danh mục
+        </button>
 
-      <!-- Danh mục -->
-      <!-- <button class="category-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        Danh mục
-      </button> -->
+        <div class="mega-menu" v-show="showCategoryMenu">
+          <div class="mega-menu-inner">
+            <!-- Cột trái: Sidebar danh mục -->
+            <div class="mega-sidebar">
+              <div class="mega-sidebar-scroll">
+                <!-- Danh mục động -->
+                <router-link
+                  v-for="cat in categories"
+                  :key="cat.category_id"
+                  :to="'/product?category=' + cat.category_id"
+                  class="mega-sidebar-item"
+                  :class="{ active: hoveredCategory === cat.category_id }"
+                  @mouseenter="hoveredCategory = cat.category_id"
+                  @click="showCategoryMenu = false"
+                >
+                  <span class="mega-sidebar-label">{{ cat.name }}</span>
+                  <svg v-if="cat.children && cat.children.length" class="mega-sidebar-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </router-link>
+
+                <!-- Divider -->
+                <div class="mega-sidebar-divider"></div>
+
+                <!-- Links tĩnh -->
+                <router-link to="/product" class="mega-sidebar-item mega-static-link" @click="showCategoryMenu = false">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                  <span class="mega-sidebar-label">Tất cả sản phẩm</span>
+                </router-link>
+                <router-link to="/contact" class="mega-sidebar-item mega-static-link" @click="showCategoryMenu = false">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                  <span class="mega-sidebar-label">Liên hệ</span>
+                </router-link>
+                <router-link to="/about" class="mega-sidebar-item mega-static-link" @click="showCategoryMenu = false">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                  <span class="mega-sidebar-label">Giới thiệu</span>
+                </router-link>
+              </div>
+            </div>
+
+            <!-- Cột phải: Danh mục con multi-column -->
+            <div class="mega-content">
+              <template v-for="cat in categories" :key="cat.category_id">
+                <div v-if="hoveredCategory === cat.category_id" class="mega-content-body">
+                  <div v-if="cat.children && cat.children.length" class="mega-columns">
+                    <div v-for="child in cat.children" :key="child.category_id" class="mega-column">
+                      <router-link :to="'/product?category=' + child.category_id" class="mega-column-title" @click="showCategoryMenu = false">
+                        {{ child.name }}
+                      </router-link>
+                      <template v-if="child.children && child.children.length">
+                        <router-link
+                          v-for="sub in child.children"
+                          :key="sub.category_id"
+                          :to="'/product?category=' + sub.category_id"
+                          class="mega-column-item"
+                          @click="showCategoryMenu = false"
+                        >
+                          {{ sub.name }}
+                        </router-link>
+                      </template>
+                      <router-link :to="'/product?category=' + child.category_id" class="mega-column-viewall" @click="showCategoryMenu = false">
+                        Xem tất cả ›
+                      </router-link>
+                    </div>
+                  </div>
+                  <div v-else class="mega-empty">
+                    <p>Chưa có danh mục con</p>
+                    <router-link :to="'/product?category=' + cat.category_id" class="mega-column-viewall" @click="showCategoryMenu = false">
+                      Xem tất cả sản phẩm ›
+                    </router-link>
+                  </div>
+                </div>
+              </template>
+              <div v-if="hoveredCategory === null" class="mega-content-body">
+                <div class="mega-welcome">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#c7d2fe" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                  <p>Di chuột vào danh mục để xem chi tiết</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Search -->
       <div class="search-box">
@@ -99,6 +178,23 @@ const userName = ref('');
 const userEmail = ref('');
 const isAdmin = ref(false);
 const showDropdown = ref(false);
+const showCategoryMenu = ref(false);
+const categories = ref([]);
+const hoveredCategory = ref(null);
+
+const fetchCategories = async () => {
+  try {
+    const response = await api.get('/categories');
+    categories.value = response.data.data;
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+  }
+};
+
+// Đóng mega menu khi chuyển trang
+watch(() => route.path, () => {
+  showCategoryMenu.value = false;
+});
 
 const checkAuth = () => {
   const userData = localStorage.getItem('user');
@@ -133,7 +229,10 @@ const handleLogout = async () => {
   window.location.reload(); 
 };
 
-onMounted(checkAuth);
+onMounted(() => {
+  checkAuth();
+  fetchCategories();
+});
 watch(() => route.path, checkAuth);
 </script>
 
@@ -171,24 +270,125 @@ watch(() => route.path, checkAuth);
   letter-spacing: -0.3px;
 }
 
+/* ====== Category Mega Dropdown ====== */
+.category-dropdown { position: relative; }
+
 .category-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  gap: 8px;
+  padding: 9px 20px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
   background: #fff;
   font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 600;
   color: #333;
   cursor: pointer;
   font-family: inherit;
   flex-shrink: 0;
-  transition: background 0.15s;
+  transition: all 0.2s;
 }
 
-.category-btn:hover { background: #f9fafb; }
+.category-btn:hover,
+.category-btn.is-open {
+  background: #1a56db;
+  color: #fff;
+  border-color: #1a56db;
+}
+.category-btn:hover svg,
+.category-btn.is-open svg { stroke: #fff; }
+
+.mega-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  padding-top: 10px;
+  z-index: 300;
+}
+
+.mega-menu-inner {
+  display: flex;
+  background: #fff;
+  border: 1px solid #e2e5ea;
+  border-radius: 16px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.10),
+    0 4px 16px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  min-height: 360px;
+}
+
+.mega-sidebar {
+  width: 230px;
+  background: #fff;
+  border-right: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.mega-sidebar-scroll { padding: 8px 0; }
+
+.mega-sidebar-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  margin: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.93rem;
+  font-weight: 500;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  gap: 8px;
+}
+
+.mega-sidebar-item:hover { background: #f3f4f6; color: #1a56db; }
+.mega-sidebar-item.active { background: #1a56db; color: #fff; }
+.mega-sidebar-item.active .mega-sidebar-arrow { stroke: #fff; }
+
+.mega-sidebar-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mega-sidebar-arrow { flex-shrink: 0; transition: stroke 0.15s; }
+.mega-sidebar-divider { height: 1px; background: #f0f0f0; margin: 6px 16px; }
+
+.mega-static-link { gap: 10px; justify-content: flex-start; }
+.mega-static-link svg { flex-shrink: 0; color: #9ca3af; }
+.mega-static-link:hover svg { color: #1a56db; }
+
+.mega-content { flex: 1; min-width: 460px; background: #fafbfc; }
+.mega-content-body { padding: 28px 32px; }
+
+.mega-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px 36px; }
+.mega-column { display: flex; flex-direction: column; gap: 6px; }
+
+.mega-column-title {
+  font-size: 1rem; font-weight: 700; color: #111827;
+  text-decoration: none; margin-bottom: 4px; transition: color 0.15s;
+}
+.mega-column-title:hover { color: #1a56db; }
+
+.mega-column-item {
+  font-size: 0.88rem; color: #6b7280; text-decoration: none;
+  padding: 3px 0; transition: color 0.15s; font-weight: 450;
+}
+.mega-column-item:hover { color: #1a56db; }
+
+.mega-column-viewall {
+  font-size: 0.85rem; font-weight: 600; color: #1a56db;
+  text-decoration: none; margin-top: 4px; transition: color 0.15s;
+}
+.mega-column-viewall:hover { color: #1648b8; text-decoration: underline; }
+
+.mega-empty {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100%; gap: 12px; color: #9ca3af; font-size: 0.95rem;
+}
+
+.mega-welcome {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 280px; gap: 16px; color: #b0b8c9; font-size: 0.95rem;
+}
 
 .search-box {
   flex: 1;
