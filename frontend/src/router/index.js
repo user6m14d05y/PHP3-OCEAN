@@ -36,14 +36,14 @@ const ShoppingGuide = () => import("../Pages/Client/Static/ShoppingGuide.vue");
 
 // Admin (lazy load toàn bộ - chỉ tải khi admin truy cập)
 const AdminLayout = () => import("../layouts/AdminLayout.vue");
-const AdminHome = () => import("../Pages/Admin/AdminHome.vue");
-const AdminProduct = () => import("../Pages/Admin/AdminProduct.vue");
-const AdminCreateProduct = () => import("../Pages/Admin/AdminCreateProduct.vue");
-const AdminUsers = () => import("../Pages/Admin/AdminUsers.vue");
-const AdminCategory = () => import("../Pages/Admin/AdminCategory.vue");
-const AdminStaff = () => import("../Pages/Admin/AdminStaff.vue");
-const AdminContact = () => import("../Pages/Admin/AdminContact.vue");
-const AdminCoupon = () => import("../Pages/Admin/AdminCoupon.vue");
+const AdminHome = () => import("../Pages/admin/AdminHome.vue");
+const AdminProduct = () => import("../Pages/admin/AdminProduct.vue");
+const AdminCreateProduct = () => import("../Pages/admin/AdminCreateProduct.vue");
+const AdminUsers = () => import("../Pages/admin/AdminUsers.vue");
+const AdminCategory = () => import("../Pages/admin/AdminCategory.vue");
+const AdminStaff = () => import("../Pages/admin/AdminStaff.vue");
+const AdminContact = () => import("../Pages/admin/AdminContact.vue");
+const AdminCoupon = () => import("../Pages/admin/AdminCoupon.vue");
 
 const routes = [
     {
@@ -127,7 +127,7 @@ const routes = [
             {
                 path: "product/edit/:id",
                 name: "admin-product-edit",
-                component: () => import("../Pages/Admin/AdminEditProduct.vue"),
+                component: () => import("../Pages/admin/AdminEditProduct.vue"),
                 meta: { title: 'Sửa sản phẩm' },
             },
             {

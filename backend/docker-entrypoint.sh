@@ -7,14 +7,16 @@ echo "======================================="
 
 # -----------------------------------------------
 # 0. Fix quyền cho các thư mục cần ghi (chạy dưới root)
+#    Dùng chmod 777 để đảm bảo www-data luôn ghi được
+#    kể cả khi volume mount từ host với UID khác.
 # -----------------------------------------------
 echo "[0/7] Fixing file permissions..."
 chown -R www-data:www-data /var/www/vendor 2>/dev/null || true
 chown -R www-data:www-data /var/www/storage 2>/dev/null || true
 chown -R www-data:www-data /var/www/bootstrap/cache 2>/dev/null || true
 chmod -R 775 /var/www/vendor 2>/dev/null || true
-chmod -R 775 /var/www/storage 2>/dev/null || true
-chmod -R 775 /var/www/bootstrap/cache 2>/dev/null || true
+chmod -R 777 /var/www/storage 2>/dev/null || true
+chmod -R 777 /var/www/bootstrap/cache 2>/dev/null || true
 
 # -----------------------------------------------
 # 1. Chờ MySQL sẵn sàng (retry loop)
