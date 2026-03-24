@@ -10,6 +10,8 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminStaffController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ForgotPasswordController;
+use App\Http\Controllers\LocationController;
+use App\Http\Controllers\AddressController;
 use App\Http\Controllers\CouponController;
 
 // Add this line to run the route: http://localhost:8000/api
@@ -47,7 +49,16 @@ Route::middleware('auth:api,admin')->group(function () {
     Route::get('products/edit/{id}', [ProductController::class, 'edit']);
 });
 
-Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->group(function () {
+// Customer Profile routes (Protected - cần JWT token user/admin)
+Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
+    Route::get('/addresses', [AddressController::class, 'index']);
+    Route::post('/addresses', [AddressController::class, 'store']);
+    Route::put('/addresses/{id}', [AddressController::class, 'update']);
+    Route::delete('/addresses/{id}', [AddressController::class, 'destroy']);
+    Route::put('/addresses/{id}/default', [AddressController::class, 'setDefault']);
+});
+
+Route::middleware(['auth:admin', 'role:admin,staff'])->prefix('admin')->group(function () {
     // Quản lý Khách hàng (bảng users)
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::put('/users/{id}/role', [AdminUserController::class, 'updateRole']);
@@ -79,3 +90,11 @@ Route::apiResource('categories', CategoryController::class);
 Route::get('productsAll', [ProductController::class, 'all']);
 
 Route::get('brands', [BrandController::class, 'index']);
+
+// API Địa chỉ Việt Nam (Public)
+Route::prefix('location')->group(function () {
+    Route::get('/provinces', [LocationController::class, 'getProvinces']);
+    Route::get('/districts/{provinceCode}', [LocationController::class, 'getDistricts']);
+    Route::get('/wards/{districtCode}', [LocationController::class, 'getWards']);
+    Route::get('/search', [LocationController::class, 'search']);
+});
