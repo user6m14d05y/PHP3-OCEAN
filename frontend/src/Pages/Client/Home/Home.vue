@@ -12,6 +12,7 @@ const fetchProducts = async () => {
     Products.value = response.data.data.map(item => ({
       id: item.product_id,
       name: item.name,
+      slug: item.slug,
       price: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.min_price),
       image: item.thumbnail_url !== "0" ? item.thumbnail_url : 'https://placehold.co/400x500?text=No+Image',
       badge: item.is_featured ? 'Hot' : null
@@ -69,7 +70,7 @@ onMounted(() => {
 
       <div class="products-grid">
         <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
-          <router-link :to="{ name: 'product-detail', params: { id: product.id } }" class="text-decoration-none">
+          <router-link :to="'/product/' + product.slug" class="text-decoration-none">
             <div class="product-img-wrapper">
               <!-- <span class="product-badge" v-if="product.badge" :class="{'badge-hot': product.badge === 'Hot'}">{{ product.badge }}</span> -->
               <img :src="product.image" :alt="product.name" class="product-img" />
@@ -117,7 +118,7 @@ onMounted(() => {
 
       <div class="products-grid">
         <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
-          <router-link :to="{ name: 'product-detail', params: { id: product.id } }" class="text-decoration-none">
+          <router-link :to="'/product/' + product.slug" class="text-decoration-none">
             <div class="product-img-wrapper">
               <span class="product-badge" v-if="product.badge" :class="{ 'badge-hot': product.badge === 'Hot' }">{{
                 product.badge }}</span>

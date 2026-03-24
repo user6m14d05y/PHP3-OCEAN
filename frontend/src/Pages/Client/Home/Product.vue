@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import api from '../../../axios.js';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
+const route = useRoute();
 const Products = ref([]);
 const Categories = ref([]);
 
@@ -32,8 +33,9 @@ const fetchProducts = async () => {
             formatted_price: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.min_price || 0), // Giá hiển thị
             image: item.thumbnail_url !== "0" ? item.thumbnail_url : 'https://placehold.co/400x500?text=No+Image',
             badge: item.is_featured ? 'Hot' : null,
-            category_id: item.category_id, // Lưu category_id để lọc
-            date: item.created_at // Thêm trường thời gian để sắp xếp theo mới nhất
+            slug: item.slug,
+            category_id: item.category_id,
+            date: item.created_at
         }));
     } catch (error) {
         console.error('Error fetching products:', error);
@@ -53,9 +55,59 @@ const gotoDetail = (id) => {
     router.push({ name: 'product-detail', params: { id: id } });
 }
 
+// Đọc query param "category" từ URL và set bộ lọc tương ứng
+const skipCategoryWatch = ref(false);
+
+const applyCategoryFromURL = () => {
+    const catId = route.query.category;
+    if (!catId) {
+        selectedCategory.value = 'All';
+        selectedSubcategory.value = 'All';
+        return;
+    }
+
+    const numId = Number(catId);
+
+    // Kiểm tra xem catId có phải là danh mục cha không
+    const isParent = Categories.value.find(c => c.category_id === numId);
+    if (isParent) {
+        selectedCategory.value = numId;
+        selectedSubcategory.value = 'All';
+        return;
+    }
+
+    // Kiểm tra xem catId có phải là danh mục con không
+    for (const parent of Categories.value) {
+        if (parent.children) {
+            const child = parent.children.find(c => c.category_id === numId);
+            if (child) {
+                skipCategoryWatch.value = true;
+                selectedCategory.value = parent.category_id;
+                selectedSubcategory.value = numId;
+                return;
+            }
+        }
+    }
+
+    // Fallback
+    selectedCategory.value = numId;
+    selectedSubcategory.value = 'All';
+};
+
 // Theo dõi khi danh mục cha thay đổi thì reset danh mục con
 watch(selectedCategory, () => {
+    if (skipCategoryWatch.value) {
+        skipCategoryWatch.value = false;
+        return;
+    }
     selectedSubcategory.value = 'All';
+});
+
+// Theo dõi khi URL query thay đổi (navigate từ mega dropdown)
+watch(() => route.query.category, () => {
+    if (Categories.value.length > 0) {
+        applyCategoryFromURL();
+    }
 });
 
 // Tính toán danh sách danh mục con tùy thuộc vào danh mục cha được chọn
@@ -110,9 +162,9 @@ const filteredProducts = computed(() => {
     return result;
 });
 
-onMounted(() => {
-    fetchProducts();
-    fetchCategories();
+onMounted(async () => {
+    await Promise.all([fetchProducts(), fetchCategories()]);
+    applyCategoryFromURL();
 });
 </script>
 
