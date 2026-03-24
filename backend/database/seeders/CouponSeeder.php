@@ -90,6 +90,6 @@ class CouponSeeder extends Seeder
         ]);
 
         // 2. Tạo thêm 10 coupons ngẫu nhiên bằng Factory
-        Coupon::factory(10)->create();
+        Coupon::factory(16)->create();
     }
 }
