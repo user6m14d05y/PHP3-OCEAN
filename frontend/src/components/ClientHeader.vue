@@ -105,12 +105,35 @@
       <!-- Right icons -->
       <div class="header-actions">
         <!-- Săn Voucher -->
-        <a href="#" class="action-item voucher-item">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 00-2 2c0 1.1.9 2 2 2h4v-4h-4z"/>
-          </svg>
-          <span class="action-label" style="color: #dc2626;">Săn Voucher</span>
-        </a>
+        <div class="account-dropdown" @mouseenter="showVoucherDropdown = true" @mouseleave="showVoucherDropdown = false">
+          <router-link to="/coupon" class="action-item voucher-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 00-2 2c0 1.1.9 2 2 2h4v-4h-4z"/>
+            </svg>
+            <span class="action-label" style="color: #dc2626;">Săn Voucher</span>
+          </router-link>
+          
+          <div class="account-menu" v-show="showVoucherDropdown">
+            <div class="account-menu-inner voucher-menu">
+              <div class="dropdown-header">
+                <span class="dropdown-title">Mã giảm giá mới nhất</span>
+                <router-link to="/coupon" class="view-all">Tất cả</router-link>
+              </div>
+              <div class="dropdown-divider"></div>
+              <div v-if="publicCoupons.length === 0" class="empty-voucher">
+                Không có voucher hot nào
+              </div>
+              <div v-else class="voucher-list">
+                <div v-for="cp in publicCoupons.slice(0, 4)" :key="cp.id" class="voucher-mini-card">
+                  <div class="cp-code">{{ cp.code }}</div>
+                  <div class="cp-info">
+                    {{ cp.type === 'percent' ? `Giảm ${cp.value}%` : `Giảm ${formatCurrency(cp.value)}` }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Giỏ hàng -->
         <router-link to="#" class="action-item">
@@ -178,8 +201,10 @@ const userName = ref('');
 const userEmail = ref('');
 const isAdmin = ref(false);
 const showDropdown = ref(false);
+const showVoucherDropdown = ref(false);
 const showCategoryMenu = ref(false);
 const categories = ref([]);
+const publicCoupons = ref([]);
 const hoveredCategory = ref(null);
 
 const fetchCategories = async () => {
@@ -189,6 +214,19 @@ const fetchCategories = async () => {
   } catch (error) {
     console.error('Error fetching categories:', error);
   }
+};
+
+const fetchPublicCoupons = async () => {
+  try {
+    const response = await api.get('/coupons/public');
+    publicCoupons.value = response.data.data;
+  } catch (error) {
+    console.error('Error fetching vouchers:', error);
+  }
+};
+
+const formatCurrency = (val) => {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 };
 
 // Đóng mega menu khi chuyển trang
@@ -232,6 +270,7 @@ const handleLogout = async () => {
 onMounted(() => {
   checkAuth();
   fetchCategories();
+  fetchPublicCoupons();
 });
 watch(() => route.path, checkAuth);
 </script>
@@ -519,6 +558,18 @@ watch(() => route.path, checkAuth);
 .account-menu-item:hover { background: #f3f4f6; }
 .account-logout { color: #dc2626; }
 .account-logout:hover { background: #fff0f0; }
+
+/* Voucher Dropdown Style */
+.voucher-menu { min-width: 280px; }
+.dropdown-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; }
+.dropdown-title { font-size: 0.85rem; font-weight: 700; color: #111; }
+.view-all { font-size: 0.75rem; color: #1a56db; text-decoration: none; font-weight: 600; }
+.view-all:hover { text-decoration: underline; }
+.empty-voucher { padding: 20px; text-align: center; font-size: 0.85rem; color: #888; }
+.voucher-list { padding: 4px; display: flex; flex-direction: column; gap: 4px; }
+.voucher-mini-card { padding: 10px 12px; border-radius: 8px; background: #fff5f5; border: 1px dashed #fecaca; }
+.cp-code { font-size: 0.85rem; font-weight: 700; color: #dc2626; margin-bottom: 2px; }
+.cp-info { font-size: 0.75rem; color: #666; font-weight: 500; }
 
 @media (max-width: 768px) {
   .search-box { display: none; }
