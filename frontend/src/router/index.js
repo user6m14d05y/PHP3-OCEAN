@@ -12,11 +12,13 @@ import Home from "../Pages/Client/Home/Home.vue";
 // Client pages
 const Product = () => import("../Pages/Client/Home/Product.vue");
 const ProductDetail = () => import("../Pages/Client/Home/productDetail.vue");
+const Coupon = () => import("../Pages/Client/Home/Coupon.vue")
 
 // Profile
 const ProfileLayout = () => import("../Pages/Client/Profile/ProfileLayout.vue");
 const ProfileInfo = () => import("../Pages/Client/Profile/ProfileInfo.vue");
 const ProfileAddress = () => import("../Pages/Client/Profile/ProfileAddress.vue");
+const ProfileCoupon = () => import("../Pages/Client/Profile/ProfileCoupon.vue");
 
 // Auth
 const Login = () => import("../Pages/Client/Auth/login.vue");
@@ -59,8 +61,8 @@ const routes = [
             { path: "privacy", name: "privacy", component: Privacy, meta: { title: 'Chính sách bảo mật' } },
             { path: "faq", name: "faq", component: FAQ, meta: { title: 'Câu hỏi thường gặp' } },
             { path: "return-policy", name: "return-policy", component: ReturnPolicy, meta: { title: 'Chính sách đổi trả' } },
-            { path: "contact", name: "contact", component: Contact, meta: { title: 'Liên hệ' } },
             { path: "shopping-guide", name: "shopping-guide", component: ShoppingGuide, meta: { title: 'Hướng dẫn mua hàng' } },
+            { path: "coupon", name: "coupon", component: Coupon, meta: { title: 'Mã giảm giá' } },
             // Profile routes (nested layout)
             {
                 path: "profile",
@@ -72,6 +74,7 @@ const routes = [
                     { path: "orders", name: "profile-orders", component: ProfileInfo }, // placeholder
                     { path: "wishlist", name: "profile-wishlist", component: ProfileInfo }, // placeholder
                     { path: "change-password", name: "profile-change-password", component: ProfileInfo }, // placeholder
+                    { path: "coupon", name: "profile-coupon", component: ProfileCoupon },
                 ],
             },
         ],
@@ -99,6 +102,12 @@ const routes = [
         path: "/api/auth/google/callback",
         name: "google-callback",
         component: GoogleCallback,
+    },
+    {
+        path: "/contact",
+        name: "contact",
+        component: Contact,
+        meta: { title: 'Liên hệ' },
     },
     // Admin routes
     {
