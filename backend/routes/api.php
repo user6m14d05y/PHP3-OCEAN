@@ -56,9 +56,14 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     Route::put('/addresses/{id}', [AddressController::class, 'update']);
     Route::delete('/addresses/{id}', [AddressController::class, 'destroy']);
     Route::put('/addresses/{id}/default', [AddressController::class, 'setDefault']);
+    
+    // Coupons (Lưu và xem mã giảm giá của tôi)
+    Route::get('/coupons', [CouponController::class, 'getUserCoupons']);
+    Route::post('/coupons/save', [CouponController::class, 'saveCoupon']);
 });
 
-Route::middleware(['auth:admin', 'role:admin,staff'])->prefix('admin')->group(function () {
+// Nhóm các route yêu cầu quyền admin/staff (hỗ trợ cả guard api và admin)
+Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->group(function () {
     // Quản lý Khách hàng (bảng users)
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::put('/users/{id}/role', [AdminUserController::class, 'updateRole']);
@@ -83,13 +88,32 @@ Route::middleware(['auth:admin', 'role:admin,staff'])->prefix('admin')->group(fu
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
     
 });
-Route::get('products/{id}', [ProductController::class, 'show']);
 // Business routes
+// Public resources (Chỉ cho phép GET public, các thao tác khác cần admin)
+Route::get('categories', [CategoryController::class, 'index']);
+Route::get('categories/{id}', [CategoryController::class, 'show']);
 Route::get('products', [ProductController::class, 'index']);
-Route::apiResource('categories', CategoryController::class);
+Route::get('products/{id}', [ProductController::class, 'show']);
+Route::get('products/slug/{slug}', [ProductController::class, 'show']);
+Route::get('productFeatured', [ProductController::class, 'productFeatured']);
+
+// Admin/Staff only for modification
+Route::middleware(['auth:api,admin', 'role:admin,staff'])->group(function () {
+    Route::post('categories', [CategoryController::class, 'store']);
+    Route::put('categories/{id}', [CategoryController::class, 'update']);
+    Route::delete('categories/{id}', [CategoryController::class, 'destroy']);
+    
+    Route::post('products', [ProductController::class, 'store']);
+    Route::post('products/{id}', [ProductController::class, 'update']); // Use POST for multipart/form-data with _method=PUT
+    Route::delete('products/{id}', [ProductController::class, 'destroy']);
+});
+
 Route::get('productsAll', [ProductController::class, 'all']);
 
 Route::get('brands', [BrandController::class, 'index']);
+
+// Coupons (Công khai)
+Route::get('coupons/public', [CouponController::class, 'getPublicCoupons']);
 
 // API Địa chỉ Việt Nam (Public)
 Route::prefix('location')->group(function () {
