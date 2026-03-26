@@ -7,7 +7,7 @@ const Categories = ref([]);
 
 const fetchProducts = async () => {
     try {
-        const response = await api.get('/productsFeatured');
+        const response = await api.get('/products');
         Products.value = response.data.data.map(item => ({
             id: item.product_id,
             name: item.name,
