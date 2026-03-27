@@ -37,6 +37,7 @@ services:
     volumes:
       - ./backend:/var/www
       - ./.env:/var/www/.env
+      - /var/www/vendor          # Tránh dùng vendor từ Windows host → dùng vendor Linux trong container
     depends_on:
       db:
         condition: service_healthy

@@ -136,8 +136,11 @@
         </div>
 
         <!-- Giỏ hàng -->
-        <router-link to="#" class="action-item">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+        <router-link to="/cart" class="action-item cart-action">
+          <div class="cart-icon-wrapper">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+            <span v-if="cartCount > 0" class="cart-badge">{{ cartCount > 99 ? '99+' : cartCount }}</span>
+          </div>
           <span class="action-label">Giỏ hàng</span>
         </router-link>
 
@@ -206,6 +209,7 @@ const showCategoryMenu = ref(false);
 const categories = ref([]);
 const publicCoupons = ref([]);
 const hoveredCategory = ref(null);
+const cartCount = ref(0);
 
 const fetchCategories = async () => {
   try {
@@ -267,12 +271,22 @@ const handleLogout = async () => {
   window.location.reload(); 
 };
 
+const fetchCartCount = async () => {
+  const token = localStorage.getItem('auth_token');
+  if (!token) { cartCount.value = 0; return; }
+  try {
+    const response = await api.get('/cart/count');
+    cartCount.value = response.data.count || 0;
+  } catch (e) { cartCount.value = 0; }
+};
+
 onMounted(() => {
   checkAuth();
   fetchCategories();
   fetchPublicCoupons();
+  fetchCartCount();
 });
-watch(() => route.path, checkAuth);
+watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 </script>
 
 <style scoped>
@@ -570,6 +584,33 @@ watch(() => route.path, checkAuth);
 .voucher-mini-card { padding: 10px 12px; border-radius: 8px; background: #fff5f5; border: 1px dashed #fecaca; }
 .cp-code { font-size: 0.85rem; font-weight: 700; color: #dc2626; margin-bottom: 2px; }
 .cp-info { font-size: 0.75rem; color: #666; font-weight: 500; }
+
+/* Cart Badge */
+.cart-icon-wrapper { position: relative; }
+.cart-badge {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+  border: 2px solid #fff;
+  animation: badgePop 0.3s ease;
+}
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
 
 @media (max-width: 768px) {
   .search-box { display: none; }

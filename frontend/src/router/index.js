@@ -13,12 +13,14 @@ import Home from "../Pages/Client/Home/Home.vue";
 const Product = () => import("../Pages/Client/Home/Product.vue");
 const ProductDetail = () => import("../Pages/Client/Home/productDetail.vue");
 const Coupon = () => import("../Pages/Client/Home/Coupon.vue")
+const Cart = () => import("../Pages/Client/Cart/Index.vue")
 
 // Profile
 const ProfileLayout = () => import("../Pages/Client/Profile/ProfileLayout.vue");
 const ProfileInfo = () => import("../Pages/Client/Profile/ProfileInfo.vue");
 const ProfileAddress = () => import("../Pages/Client/Profile/ProfileAddress.vue");
 const ProfileCoupon = () => import("../Pages/Client/Profile/ProfileCoupon.vue");
+const ProfileChangePassword = () => import("../Pages/Client/Profile/ProfileChangePassword.vue");
 
 // Auth
 const Login = () => import("../Pages/Client/Auth/login.vue");
@@ -63,6 +65,7 @@ const routes = [
             { path: "return-policy", name: "return-policy", component: ReturnPolicy, meta: { title: 'Chính sách đổi trả' } },
             { path: "shopping-guide", name: "shopping-guide", component: ShoppingGuide, meta: { title: 'Hướng dẫn mua hàng' } },
             { path: "coupon", name: "coupon", component: Coupon, meta: { title: 'Mã giảm giá' } },
+            { path: "cart", name: "cart", component: Cart, meta: { requiresAuth: true, title: 'Giỏ hàng' } },
             // Profile routes (nested layout)
             {
                 path: "profile",
@@ -73,7 +76,7 @@ const routes = [
                     { path: "addresses", name: "profile-addresses", component: ProfileAddress },
                     { path: "orders", name: "profile-orders", component: ProfileInfo }, // placeholder
                     { path: "wishlist", name: "profile-wishlist", component: ProfileInfo }, // placeholder
-                    { path: "change-password", name: "profile-change-password", component: ProfileInfo }, // placeholder
+                    { path: "change-password", name: "profile-change-password", component: ProfileChangePassword }, 
                     { path: "coupon", name: "profile-coupon", component: ProfileCoupon },
                 ],
             },
