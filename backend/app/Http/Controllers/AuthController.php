@@ -312,4 +312,8 @@ class AuthController extends Controller
             ], 500);
         }
     }
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/binhbc
 }

@@ -1,7 +1,12 @@
 <template>
+<<<<<<< HEAD
   <ClientHeader/>
   <div class="static-page">
         <section class="page-hero">
+=======
+  <div class="static-page">
+    <section class="page-hero">
+>>>>>>> origin/binhbc
       <div class="container">
         <h1>Liên Hệ Hỗ Trợ</h1>
         <p class="hero-sub">Chúng tôi luôn sẵn sàng lắng nghe bạn</p>
@@ -76,14 +81,20 @@
       </div>
     </section>
   </div>
+<<<<<<< HEAD
   <Footer_client />
+=======
+>>>>>>> origin/binhbc
 </template>
 
 <script setup>
 import { reactive, ref } from 'vue';
 import axios from 'axios';
+<<<<<<< HEAD
 import ClientHeader from '@/components/ClientHeader.vue';
 import Footer_client from '@/Pages/Includes/Layouts/Footer_client.vue';
+=======
+>>>>>>> origin/binhbc
 
 const form = reactive({ name: '', email: '', subject: '', message: '' });
 const isSubmitting = ref(false);

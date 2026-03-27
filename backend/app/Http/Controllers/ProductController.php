@@ -36,7 +36,11 @@ class ProductController extends Controller
         ]);
 
         if ($search) {
+<<<<<<< HEAD
             $query->where(function ($q) use ($search)
+=======
+            $query->where(function ($q) use ($search) 
+>>>>>>> origin/binhbc
             {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('slug', 'like', "%{$search}%");
@@ -60,6 +64,7 @@ class ProductController extends Controller
             'limit' => (int) $limit,
         ]);
     }
+<<<<<<< HEAD
     public function productFeatured(Request $request)
     {
         $query = Product::with([
@@ -83,6 +88,8 @@ class ProductController extends Controller
             'data' => $products
         ]);
     }
+=======
+>>>>>>> origin/binhbc
 
     /**
      * Chi tiết sản phẩm theo slug (client)
@@ -101,6 +108,31 @@ class ProductController extends Controller
     }
 
     /**
+<<<<<<< HEAD
+=======
+     * Danh sách sản phẩm nổi bật
+     */
+    public function featured()
+    {
+        $products = Product::with([
+            'mainImage' => function ($q) {
+                $q->select('image_id', 'image_url', 'product_id');
+            },
+            'lowestPriceVariant' => function ($q) {
+                $q->select('variant_id', 'price', 'stock', 'product_id');
+            }
+        ])
+            ->where('status', 'active')
+            ->where('is_featured', true)
+            ->get();
+        return response()->json([
+            'status' => 'success',
+            'data' => $products
+        ]);
+    }
+
+    /**
+>>>>>>> origin/binhbc
      * Danh sách tất cả sản phẩm (public, phân trang)
      */
     public function all(Request $request)
@@ -163,6 +195,7 @@ class ProductController extends Controller
         DB::beginTransaction();
 
         try {
+<<<<<<< HEAD
             // 0. Đảm bảo thư mục storage tồn tại
             $storageDisk = Storage::disk('public');
             foreach (['products/thumbnails', 'products/gallery', 'products/variants'] as $dir) {
@@ -170,6 +203,9 @@ class ProductController extends Controller
                     $storageDisk->makeDirectory($dir);
                 }
             }
+=======
+            // Thư mục sẽ được tự động tạo bởi hàm store() nếu chưa tồn tại
+>>>>>>> origin/binhbc
 
             // 1. Parse variants JSON (FE gửi dạng JSON string)
             $variantsData = [];
@@ -197,7 +233,12 @@ class ProductController extends Controller
                 Log::info('[ProductStore] store() returned: ' . var_export($thumbnailPath, true));
 
                 if (!$thumbnailPath || $thumbnailPath === false) {
+<<<<<<< HEAD
                     throw new \Exception('Lỗi lưu thumbnail. Kiểm tra quyền thư mục storage. store() returned: ' . var_export($thumbnailPath, true));
+=======
+                    $reason = !$file->isValid() ? $file->getErrorMessage() : 'Kiểm tra quyền ghi thư mục storage.';
+                    throw new \Exception('Lỗi lưu thumbnail: ' . $reason);
+>>>>>>> origin/binhbc
                 }
             }
 
@@ -234,7 +275,12 @@ class ProductController extends Controller
                 foreach ($request->file('gallery') as $i => $file) {
                     $path = $file->store('products/gallery', 'public');
                     if (!$path || $path === false) {
+<<<<<<< HEAD
                         throw new \Exception('Lỗi lưu ảnh gallery. Kiểm tra quyền thư mục storage.');
+=======
+                        $reason = !$file->isValid() ? $file->getErrorMessage() : 'Kiểm tra quyền ghi thư mục storage.';
+                        throw new \Exception('Lỗi lưu ảnh gallery: ' . $reason);
+>>>>>>> origin/binhbc
                     }
                     ProductImage::create([
                         'product_id' => $product->product_id,
@@ -274,7 +320,12 @@ class ProductController extends Controller
                         foreach ($request->file("variant_images.{$vIndex}") as $imgFile) {
                             $imgPath = $imgFile->store('products/variants', 'public');
                             if (!$imgPath || $imgPath === false) {
+<<<<<<< HEAD
                                 throw new \Exception('Lỗi lưu ảnh biến thể. Kiểm tra quyền thư mục storage.');
+=======
+                                $reason = !$imgFile->isValid() ? $imgFile->getErrorMessage() : 'Kiểm tra quyền ghi thư mục storage.';
+                                throw new \Exception('Lỗi lưu ảnh biến thể: ' . $reason);
+>>>>>>> origin/binhbc
                             }
                             $variantImagePaths[] = $imgPath;
                         }
@@ -373,6 +424,7 @@ class ProductController extends Controller
         DB::beginTransaction();
 
         try {
+<<<<<<< HEAD
             // 0. Đảm bảo thư mục storage tồn tại
             $storageDisk = Storage::disk('public');
             foreach (['products/thumbnails', 'products/gallery', 'products/variants'] as $dir) {
@@ -380,6 +432,9 @@ class ProductController extends Controller
                     $storageDisk->makeDirectory($dir);
                 }
             }
+=======
+            // Thư mục sẽ được tự động tạo bởi hàm store() nếu chưa tồn tại
+>>>>>>> origin/binhbc
 
             // 1. Parse variants JSON
             $variantsData = [];
@@ -398,7 +453,13 @@ class ProductController extends Controller
                 }
                 $thumbnailPath = $request->file('thumbnail')->store('products/thumbnails', 'public');
                 if (!$thumbnailPath || $thumbnailPath === false) {
+<<<<<<< HEAD
                     throw new \Exception('Lỗi lưu thumbnail. Kiểm tra quyền thư mục storage.' . $thumbnailPath);
+=======
+                    $file = $request->file('thumbnail');
+                    $reason = !$file->isValid() ? $file->getErrorMessage() : 'Kiểm tra quyền ghi thư mục storage.';
+                    throw new \Exception('Lỗi lưu thumbnail: ' . $reason);
+>>>>>>> origin/binhbc
                 }
 
                 // Update main image
@@ -450,7 +511,12 @@ class ProductController extends Controller
                 foreach ($request->file('gallery') as $i => $file) {
                     $path = $file->store('products/gallery', 'public');
                     if (!$path || $path === false) {
+<<<<<<< HEAD
                         throw new \Exception('Lỗi lưu ảnh gallery. Kiểm tra quyền thư mục storage.' . $path);
+=======
+                        $reason = !$file->isValid() ? $file->getErrorMessage() : 'Kiểm tra quyền ghi thư mục storage.';
+                        throw new \Exception('Lỗi lưu ảnh gallery: ' . $reason);
+>>>>>>> origin/binhbc
                     }
                     ProductImage::create([
                         'product_id' => $product->product_id,
@@ -519,7 +585,12 @@ class ProductController extends Controller
                         foreach ($request->file("variant_images.{$vIndex}") as $imgFile) {
                             $imgPath = $imgFile->store('products/variants', 'public');
                             if (!$imgPath || $imgPath === false) {
+<<<<<<< HEAD
                                 throw new \Exception('Lỗi lưu ảnh biến thể. Kiểm tra quyền thư mục storage.' . $imgPath);
+=======
+                                $reason = !$imgFile->isValid() ? $imgFile->getErrorMessage() : 'Kiểm tra quyền ghi thư mục storage.';
+                                throw new \Exception('Lỗi lưu ảnh biến thể: ' . $reason);
+>>>>>>> origin/binhbc
                             }
                             $variantImagePaths[] = $imgPath;
                         }

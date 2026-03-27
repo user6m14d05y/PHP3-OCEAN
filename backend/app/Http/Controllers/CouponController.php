@@ -3,9 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Coupon;
+<<<<<<< HEAD
 use App\Models\UserCoupon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+=======
+use Illuminate\Http\Request;
+>>>>>>> origin/binhbc
 
 class CouponController extends Controller
 {
@@ -133,6 +137,7 @@ class CouponController extends Controller
             'message' => 'Đã xóa mã giảm giá thành công!'
         ]);
     }
+<<<<<<< HEAD
 
     /**
      * Lấy danh sách mã giảm giá công khai cho khách hàng
@@ -231,4 +236,6 @@ class CouponController extends Controller
             'data' => $userCoupons->pluck('coupon')
         ]);
     }
+=======
+>>>>>>> origin/binhbc
 }
