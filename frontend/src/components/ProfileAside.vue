@@ -70,6 +70,22 @@
       </router-link>
 
       <router-link
+<<<<<<< HEAD
+        to="/profile/coupon"
+        class="aside-nav-item"
+        active-class="aside-nav-item--active"
+      >
+        <div class="aside-nav-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 00-2 2c0 1.1.9 2 2 2h4v-4h-4z"/>
+          </svg>
+        </div>
+        <span>Mã giảm giá của tôi</span>
+      </router-link>
+
+      <router-link
+=======
+>>>>>>> origin/binhbc
         to="/profile/change-password"
         class="aside-nav-item"
         active-class="aside-nav-item--active"

@@ -7,7 +7,11 @@ const Categories = ref([]);
 
 const fetchProducts = async () => {
     try {
+<<<<<<< HEAD
+        const response = await api.get('/products');
+=======
         const response = await api.get('/productsFeatured');
+>>>>>>> origin/binhbc
         Products.value = response.data.data.map(item => ({
             id: item.product_id,
             name: item.name,

@@ -3,7 +3,10 @@ import { createRouter, createWebHistory } from "vue-router";
 // ==================== CORE LAYOUTS (eager load) ====================
 import ClientLayout from "../layouts/ClientLayout.vue";
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> origin/binhbc
 // ==================== HOME PAGES (eager load - trang chính) ====================
 import Home from "../Pages/Client/Home/Home.vue";
 
@@ -13,11 +16,19 @@ import Home from "../Pages/Client/Home/Home.vue";
 // Client pages
 const Product = () => import("../Pages/Client/Home/Product.vue");
 const ProductDetail = () => import("../Pages/Client/Home/productDetail.vue");
+<<<<<<< HEAD
+const Coupon = () => import("../Pages/Client/Home/Coupon.vue")
+=======
+>>>>>>> origin/binhbc
 
 // Profile
 const ProfileLayout = () => import("../Pages/Client/Profile/ProfileLayout.vue");
 const ProfileInfo = () => import("../Pages/Client/Profile/ProfileInfo.vue");
 const ProfileAddress = () => import("../Pages/Client/Profile/ProfileAddress.vue");
+<<<<<<< HEAD
+const ProfileCoupon = () => import("../Pages/Client/Profile/ProfileCoupon.vue");
+=======
+>>>>>>> origin/binhbc
 
 // Auth
 const Login = () => import("../Pages/Client/Auth/login.vue");
@@ -45,10 +56,13 @@ const AdminCategory = () => import("../Pages/admin/AdminCategory.vue");
 const AdminStaff = () => import("../Pages/admin/AdminStaff.vue");
 const AdminContact = () => import("../Pages/admin/AdminContact.vue");
 const AdminCoupon = () => import("../Pages/admin/AdminCoupon.vue");
+<<<<<<< HEAD
+=======
 const AdminPost = () => import("../Pages/admin/AdminPost.vue");
 const AdminPostCategory = () => import("../Pages/admin/AdminPostCategory.vue");
 const AdminCreatePost = () => import("../Pages/admin/AdminCreatePost.vue");
 const AdminCreatePostCategory = () => import("../Pages/admin/AdminCreatePostCategory.vue");
+>>>>>>> origin/binhbc
 
 const routes = [
     {
@@ -64,8 +78,13 @@ const routes = [
             { path: "privacy", name: "privacy", component: Privacy, meta: { title: 'Chính sách bảo mật' } },
             { path: "faq", name: "faq", component: FAQ, meta: { title: 'Câu hỏi thường gặp' } },
             { path: "return-policy", name: "return-policy", component: ReturnPolicy, meta: { title: 'Chính sách đổi trả' } },
+<<<<<<< HEAD
+            { path: "shopping-guide", name: "shopping-guide", component: ShoppingGuide, meta: { title: 'Hướng dẫn mua hàng' } },
+            { path: "coupon", name: "coupon", component: Coupon, meta: { title: 'Mã giảm giá' } },
+=======
             { path: "contact", name: "contact", component: Contact, meta: { title: 'Liên hệ' } },
             { path: "shopping-guide", name: "shopping-guide", component: ShoppingGuide, meta: { title: 'Hướng dẫn mua hàng' } },
+>>>>>>> origin/binhbc
             // Profile routes (nested layout)
             {
                 path: "profile",
@@ -77,6 +96,10 @@ const routes = [
                     { path: "orders", name: "profile-orders", component: ProfileInfo }, // placeholder
                     { path: "wishlist", name: "profile-wishlist", component: ProfileInfo }, // placeholder
                     { path: "change-password", name: "profile-change-password", component: ProfileInfo }, // placeholder
+<<<<<<< HEAD
+                    { path: "coupon", name: "profile-coupon", component: ProfileCoupon },
+=======
+>>>>>>> origin/binhbc
                 ],
             },
         ],
@@ -105,6 +128,15 @@ const routes = [
         name: "google-callback",
         component: GoogleCallback,
     },
+<<<<<<< HEAD
+    {
+        path: "/contact",
+        name: "contact",
+        component: Contact,
+        meta: { title: 'Liên hệ' },
+    },
+=======
+>>>>>>> origin/binhbc
     // Admin routes
     {
         path: "/admin",
@@ -165,6 +197,8 @@ const routes = [
                 component: AdminCoupon,
                 meta: { title: 'Quản lý mã giảm giá' },
             },
+<<<<<<< HEAD
+=======
             {
                 path: "post",
                 name: "admin-post",
@@ -195,6 +229,7 @@ const routes = [
                 component: AdminCreatePostCategory,
                 meta: { title: 'Thêm danh mục bài viết' },
             }
+>>>>>>> origin/binhbc
         ],
     },
 ];
