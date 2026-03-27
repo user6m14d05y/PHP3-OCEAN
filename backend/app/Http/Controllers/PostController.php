@@ -85,7 +85,7 @@ class PostController extends Controller
     public function uploadImage(Request $request)
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:5120',
         ]);
 
         $path = $request->file('image')->store('uploads/posts', 'public');
@@ -120,8 +120,8 @@ class PostController extends Controller
             'post_category_id' => 'required|exists:post_categories,post_category_id',
             'post_type' => 'nullable|string',
             'status' => 'nullable|string',
-            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'banner' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'banner' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         $data = $request->all();
@@ -139,18 +139,16 @@ class PostController extends Controller
         $data['is_featured'] = filter_var($request->is_featured ?? false, FILTER_VALIDATE_BOOLEAN);
 
         if ($request->hasFile('thumbnail')) {
-            $oldThumb = $post->getRawOriginal('thumbnail_url');
-            if ($oldThumb && Str::startsWith($oldThumb, 'storage/')) {
-                Storage::disk('public')->delete(str_replace('storage/', '', $oldThumb));
+            if ($post->thumbnail_url && Str::startsWith($post->thumbnail_url, 'storage/')) {
+                Storage::disk('public')->delete(str_replace('storage/', '', $post->thumbnail_url));
             }
             $thumbnailPath = $request->file('thumbnail')->store('uploads/posts', 'public');
             $data['thumbnail_url'] = 'storage/' . $thumbnailPath;
         }
 
         if ($request->hasFile('banner')) {
-            $oldBanner = $post->getRawOriginal('banner_url');
-            if ($oldBanner && Str::startsWith($oldBanner, 'storage/')) {
-                Storage::disk('public')->delete(str_replace('storage/', '', $oldBanner));
+            if ($post->banner_url && Str::startsWith($post->banner_url, 'storage/')) {
+                Storage::disk('public')->delete(str_replace('storage/', '', $post->banner_url));
             }
             $bannerPath = $request->file('banner')->store('uploads/posts', 'public');
             $data['banner_url'] = 'storage/' . $bannerPath;
