@@ -11,7 +11,12 @@ const Categories = ref([]);
 const selectedCategory = ref("All");
 const selectedSubcategory = ref("All"); // Thêm state cho sub category
 const selectedPriceRange = ref("All");
-const sortBy = ref("newest"); // 'newest', 'oldest', 'price-asc', 'price-desc'
+const sortBy = ref("newest");
+const expandedCategories = ref({});  // track danh mục cha nào đang mở
+
+const toggleCategory = (catId) => {
+    expandedCategories.value[catId] = !expandedCategories.value[catId];
+};
 
 // Dữ liệu Các khoảng giá
 const priceRanges = ref([
@@ -144,73 +149,44 @@ onMounted(() => {
             <div class="layout-grid">
                 <!-- Cột trái: Bộ lọc Sidebar Nhỏ hơn -->
                 <aside class="sidebar animate-in" style="animation-delay: 0.1s">
-                    <!-- LỌC DANH MỤC -->
-                    <div class="filter-box" style="font-size: 13px">
-                        <h3 class="filter-title">Danh Mục</h3>
-                        <ul class="category-list">
-                            <!-- Active tất cả -->
-                            <li
-                                :class="{ active: selectedCategory === 'All' }"
-                                @click="selectedCategory = 'All'"
-                            >
-                                <div class="category-item-content">
-                                    <span class="category-name">Tất cả</span>
-                                    <span
-                                        class="category-arrow"
-                                        v-if="selectedCategory === 'All'"
-                                        >✓</span
-                                    >
-                                </div>
-                            </li>
-                            <li
-                                v-for="cat in Categories"
-                                :key="cat.category_id"
-                                :class="{
-                                    active:
-                                        selectedCategory === cat.category_id,
-                                }"
-                                @click="selectedCategory = cat.category_id"
-                            >
-                                <div class="category-item-content">
-                                    <span class="category-name">{{
-                                        cat.name
-                                    }}</span>
-                                    <span
-                                        class="category-arrow"
-                                        v-if="
-                                            selectedCategory === cat.category_id
-                                        "
-                                        >✓</span
-                                    >
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
+                    <div class="sidebar-panel">
+                        <!-- Header -->
+                        <div class="sidebar-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                            <span>Nhóm sản phẩm</span>
+                        </div>
 
-                    <!-- LỌC KHOẢNG GIÁ BIỂN (Nhỏ gọn) -->
-                    <div class="filter-box mt-4" style="font-size: 13px">
-                        <h3 class="filter-title">Mức Giá</h3>
-                        <ul class="price-list">
-                            <li
-                                v-for="price in priceRanges"
-                                :key="price.id"
-                                class="price-item"
-                                :class="{
-                                    active: selectedPriceRange === price.id,
-                                }"
-                                @click="selectedPriceRange = price.id"
-                            >
-                                <div class="custom-radio">
-                                    <div
-                                        class="radio-inner"
-                                        v-if="selectedPriceRange === price.id"
-                                    ></div>
+                        <!-- Tất cả sản phẩm -->
+                        <div class="tree-item" :class="{ active: selectedCategory === 'All' }" @click="selectedCategory = 'All'">
+                            <span class="tree-label">Tất cả sản phẩm</span>
+                        </div>
+
+                        <!-- Danh mục cha + con -->
+                        <div v-for="cat in Categories" :key="cat.category_id" class="tree-group">
+                            <div class="tree-item tree-parent" :class="{ active: selectedCategory === cat.category_id && selectedSubcategory === 'All' }" @click="selectedCategory = cat.category_id; selectedSubcategory = 'All'; if (cat.children && cat.children.length) toggleCategory(cat.category_id)">
+                                <span class="tree-label">{{ cat.name }}</span>
+                                <svg v-if="cat.children && cat.children.length" class="tree-chevron" :class="{ open: expandedCategories[cat.category_id] }" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+
+                            <!-- Danh mục con -->
+                            <div class="tree-children" v-if="cat.children && cat.children.length" :class="{ expanded: expandedCategories[cat.category_id] }">
+                                <div v-for="child in cat.children" :key="child.category_id" class="tree-item tree-child" :class="{ active: selectedSubcategory === child.category_id }" @click="selectedCategory = cat.category_id; selectedSubcategory = child.category_id">
+                                    <span class="tree-label">{{ child.name }}</span>
                                 </div>
-                                <span class="price-label">{{
-                                    price.label
-                                }}</span>
-                            </li>
-                        </ul>
+                            </div>
+                        </div>
+
+                        <!-- Phân cách -->
+                        <div class="sidebar-divider"></div>
+
+                        <!-- Mức giá -->
+                        <div class="sidebar-subheader">Mức Giá</div>
+                        <div v-for="price in priceRanges" :key="price.id" class="tree-item tree-price" :class="{ active: selectedPriceRange === price.id }" @click="selectedPriceRange = price.id">
+                            <div class="custom-radio">
+                                <div class="radio-inner" v-if="selectedPriceRange === price.id"></div>
+                            </div>
+                            <span class="tree-label">{{ price.label }}</span>
+                        </div>
                     </div>
                 </aside>
 
@@ -248,30 +224,7 @@ onMounted(() => {
                         </div>
                     </div>
 
-                    <div
-                        class="subcategories-bar mb-3"
-                        v-if="subcategories.length > 0"
-                    >
-                        <button
-                            class="btn btn-outline-primary"
-                            :class="{ active: selectedSubcategory === 'All' }"
-                            @click="selectedSubcategory = 'All'"
-                        >
-                            Tất cả
-                        </button>
-                        <button
-                            class="btn btn-outline-primary ms-2"
-                            v-for="subcat in subcategories"
-                            :key="subcat.category_id"
-                            :class="{
-                                active:
-                                    selectedSubcategory === subcat.category_id,
-                            }"
-                            @click="selectedSubcategory = subcat.category_id"
-                        >
-                            {{ subcat.name }}
-                        </button>
-                    </div>
+
 
                     <div
                         class="products-grid"
@@ -414,102 +367,136 @@ onMounted(() => {
     top: 40px;
 }
 
-.mt-4 {
-    margin-top: 24px;
+/* ====== Tree-View Sidebar ====== */
+.sidebar-panel {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e8ecf1;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
 }
 
-.filter-box {
-    background: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
-    border: 1px solid var(--border-color, #d9e8f0);
-}
-
-.filter-title {
-    font-size: 1.15rem;
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 18px 20px;
+    font-size: 1.05rem;
     font-weight: 800;
-    margin-bottom: 16px;
-    color: var(--text-main);
-    border-bottom: 2px solid var(--ocean-light, #e1f5fe);
-    padding-bottom: 10px;
+    color: #1a2b4a;
+    border-bottom: 1px solid #f0f2f5;
+    background: #fafbfd;
 }
 
-/* Category Filter Style */
-.category-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.category-list li {
-    margin-bottom: 4px;
-    cursor: pointer;
-}
-
-.category-item-content {
+.tree-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 10px 12px;
-    border-radius: 8px;
-    transition: all 0.2s;
-    color: var(--text-muted, #627d98);
+    gap: 8px;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 0.92rem;
     font-weight: 500;
+    color: #5a6b82;
+    transition: all 0.18s ease;
+    border-left: 3px solid transparent;
+}
+
+.tree-item:hover {
+    background: #f5f8fb;
+    color: #0369a1;
+}
+
+.tree-item.active {
+    background: linear-gradient(90deg, rgba(3, 105, 161, 0.08), rgba(3, 105, 161, 0.02));
+    color: #0369a1;
+    font-weight: 700;
+    border-left-color: #0369a1;
+}
+
+.tree-parent {
+    justify-content: space-between;
+}
+
+.tree-parent .tree-label {
+    flex: 1;
+}
+
+.tree-chevron {
+    color: #b0b8c9;
+    transition: transform 0.3s ease, color 0.2s;
+    flex-shrink: 0;
+}
+
+.tree-item:hover .tree-chevron {
+    color: #0369a1;
+}
+
+.tree-chevron.open {
+    transform: rotate(180deg);
+    color: #0369a1;
+}
+
+.tree-children {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    background: #fafbfd;
+}
+
+.tree-children.expanded {
+    max-height: 400px;
+}
+
+.tree-child {
+    padding: 10px 20px 10px 38px;
+    font-size: 0.88rem;
+    color: #6b7f96;
+    border-left: 3px solid transparent;
+}
+
+.tree-child:hover {
+    color: #0369a1;
+    background: #eef4f9;
+}
+
+.tree-child.active {
+    color: #0369a1;
+    font-weight: 700;
+    background: rgba(3, 105, 161, 0.06);
+    border-left-color: #0369a1;
+}
+
+.sidebar-divider {
+    height: 1px;
+    background: #eef0f4;
+    margin: 6px 16px;
+}
+
+.sidebar-subheader {
+    padding: 14px 20px 6px;
     font-size: 0.95rem;
+    font-weight: 800;
+    color: #1a2b4a;
 }
 
-.category-list li:hover .category-item-content {
-    background: var(--ocean-light, #e1f5fe);
-    color: var(--ocean-blue, #0288d1);
-}
-
-.category-list li.active .category-item-content {
-    background: var(--ocean-blue, #0288d1);
-    color: white;
-    font-weight: 700;
-    box-shadow: 0 2px 8px rgba(2, 136, 209, 0.2);
-}
-
-/* Price Range Filter Style */
-.price-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.price-item {
-    display: flex;
-    align-items: center;
+.tree-price {
     gap: 12px;
-    padding: 10px 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: var(--text-muted);
-}
-
-.price-item:hover {
-    color: var(--ocean-blue);
-}
-
-.price-item.active {
-    color: var(--text-main);
-    font-weight: 700;
 }
 
 .custom-radio {
-    width: 18px;
-    height: 18px;
-    border: 2px solid #ccc;
+    width: 17px;
+    height: 17px;
+    border: 2px solid #c8ced8;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
+    flex-shrink: 0;
 }
 
-.price-item.active .custom-radio {
-    border-color: var(--ocean-blue);
+.tree-price.active .custom-radio {
+    border-color: #0369a1;
 }
 
 .radio-inner {

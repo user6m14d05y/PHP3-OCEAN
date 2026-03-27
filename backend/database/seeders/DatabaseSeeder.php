@@ -29,5 +29,10 @@ class DatabaseSeeder extends Seeder
         } else {
             echo "ℹ️ Super Admin already exists, skipping.\n";
         }
+
+        // Gọi thêm CouponSeeder
+        $this->call([
+            CouponSeeder::class,
+        ]);
     }
 }
