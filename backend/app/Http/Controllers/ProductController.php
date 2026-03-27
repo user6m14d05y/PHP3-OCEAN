@@ -36,7 +36,7 @@ class ProductController extends Controller
         ]);
 
         if ($search) {
-            $query->where(function ($q) use ($search) 
+            $query->where(function ($q) use ($search)
             {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('slug', 'like', "%{$search}%");
@@ -61,6 +61,31 @@ class ProductController extends Controller
         ]);
     }
 
+    public function productFeatured(Request $request)
+    {
+        $query = Product::with([
+            'mainImage' => function ($q) {
+                $q->select('image_id', 'image_url', 'product_id');
+            },
+            'lowestPriceVariant' => function ($q) {
+                $q->select('variant_id', 'price', 'stock', 'product_id');
+            },
+            'category:category_id,name',
+            'brand:brand_id,name',
+        ]);
+        $products = $query->orderBy('product_id', 'desc')
+            ->where('is_featured', true)
+            ->where('status', 'active')
+            ->limit(4)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'data' => $products
+        ]);
+    }
+
+
     /**
      * Chi tiết sản phẩm theo slug (client)
      */
@@ -78,6 +103,7 @@ class ProductController extends Controller
     }
 
     /**
+
      * Danh sách sản phẩm nổi bật
      */
     public function featured()
@@ -100,6 +126,7 @@ class ProductController extends Controller
     }
 
     /**
+
      * Danh sách tất cả sản phẩm (public, phân trang)
      */
     public function all(Request $request)
@@ -162,7 +189,13 @@ class ProductController extends Controller
         DB::beginTransaction();
 
         try {
-            // Thư mục sẽ được tự động tạo bởi hàm store() nếu chưa tồn tại
+            // 0. Đảm bảo thư mục storage tồn tại
+            $storageDisk = Storage::disk('public');
+            foreach (['products/thumbnails', 'products/gallery', 'products/variants'] as $dir) {
+                if (!$storageDisk->exists($dir)) {
+                    $storageDisk->makeDirectory($dir);
+                }
+            }
 
             // 1. Parse variants JSON (FE gửi dạng JSON string)
             $variantsData = [];
@@ -369,7 +402,13 @@ class ProductController extends Controller
         DB::beginTransaction();
 
         try {
-            // Thư mục sẽ được tự động tạo bởi hàm store() nếu chưa tồn tại
+            // 0. Đảm bảo thư mục storage tồn tại
+            $storageDisk = Storage::disk('public');
+            foreach (['products/thumbnails', 'products/gallery', 'products/variants'] as $dir) {
+                if (!$storageDisk->exists($dir)) {
+                    $storageDisk->makeDirectory($dir);
+                }
+            }
 
             // 1. Parse variants JSON
             $variantsData = [];

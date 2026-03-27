@@ -1,5 +1,9 @@
 services:
+<<<<<<< HEAD
+  # CƠ SỞ DỮ LIỆU
+=======
   # DATABASE
+>>>>>>> origin/binhbc
   db:
     image: mysql:8.0
     container_name: ocean_mysql
@@ -12,6 +16,10 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-root}
     volumes:
       - mysql_data:/var/lib/mysql
+<<<<<<< HEAD
+      # Custom MySQL config để tối ưu performance
+=======
+>>>>>>> origin/binhbc
       - ./mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-root}"]
@@ -31,6 +39,10 @@ services:
     env_file:
       - .env
     environment:
+<<<<<<< HEAD
+      # Dùng file cache thay vì database cache → nhanh hơn
+=======
+>>>>>>> origin/binhbc
       CACHE_STORE: file
     volumes:
       - ./backend:/var/www
@@ -39,7 +51,11 @@ services:
       db:
         condition: service_healthy
 
+<<<<<<< HEAD
+  # NGINX (WEB SERVER CHO BACKEND)
+=======
   # NGINX FOR BACKEND
+>>>>>>> origin/binhbc
   nginx_backend:
     image: nginx:alpine
     container_name: ocean_nginx_backend

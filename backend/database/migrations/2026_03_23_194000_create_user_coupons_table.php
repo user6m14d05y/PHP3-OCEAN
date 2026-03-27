@@ -16,8 +16,8 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('coupon_id');
-            $table->integer('used_count')->default(0); 
-            $table->boolean('is_saved')->default(true); 
+            $table->integer('used_count')->default(0);
+            $table->boolean('is_saved')->default(true);
             $table->timestamps();
             $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
             $table->foreign('coupon_id')->references('id')->on('coupons')->onDelete('cascade');
