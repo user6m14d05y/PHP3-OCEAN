@@ -6,7 +6,11 @@ const api = axios.create({
         'Accept': 'application/json',
         'Content-Type': 'application/json',
     },
+<<<<<<< HEAD
     timeout: 30000,
+=======
+    timeout: 30000, 
+>>>>>>> origin/binhbc
 });
 
 // Request interceptor: tự động gắn JWT token + fix FormData Content-Type

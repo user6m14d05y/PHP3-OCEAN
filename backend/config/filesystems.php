@@ -42,7 +42,10 @@ return [
             'driver' => 'local',
             'root' => storage_path('app/public'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+<<<<<<< HEAD
             'visibility' => 'public',
+=======
+>>>>>>> origin/binhbc
             'throw' => false,
             'report' => false,
         ],

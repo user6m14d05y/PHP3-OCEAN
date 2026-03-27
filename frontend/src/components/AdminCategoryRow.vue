@@ -20,7 +20,11 @@ const emit = defineEmits(['edit', 'delete']);
                 <span v-if="category.children?.length" class="child-badge">{{ category.children.length }}</span>
             </div>
         </td>
+<<<<<<< HEAD
         <td><span class="badge-id">#{{ category.category_id }}</span></td>
+=======
+        <td><span class="badge-id">#{{ category.category_id || category.post_category_id }}</span></td>
+>>>>>>> origin/binhbc
         <td>
             <span class="badge-status" :class="category.is_active ? 'active' : 'inactive'">
                 {{ category.is_active ? 'Hiển thị' : 'Đang ẩn' }}
@@ -32,7 +36,11 @@ const emit = defineEmits(['edit', 'delete']);
                 <button class="btn-icon edit" @click="emit('edit', category)" title="Chỉnh sửa">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
+<<<<<<< HEAD
                 <button class="btn-icon del" @click="emit('delete', category.category_id)" title="Xóa">
+=======
+                <button class="btn-icon del" @click="emit('delete', category.category_id || category.post_category_id)" title="Xóa">
+>>>>>>> origin/binhbc
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                 </button>
             </div>
@@ -41,7 +49,11 @@ const emit = defineEmits(['edit', 'delete']);
     <template v-if="category.children?.length">
         <AdminCategoryRow
             v-for="child in category.children"
+<<<<<<< HEAD
             :key="child.category_id"
+=======
+            :key="child.category_id || child.post_category_id"
+>>>>>>> origin/binhbc
             :category="child"
             :level="level + 1"
             @edit="emit('edit', $event)"
