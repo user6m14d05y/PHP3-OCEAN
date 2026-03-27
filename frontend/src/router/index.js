@@ -12,11 +12,13 @@ import Home from "../Pages/Client/Home/Home.vue";
 // Client pages
 const Product = () => import("../Pages/Client/Home/Product.vue");
 const ProductDetail = () => import("../Pages/Client/Home/productDetail.vue");
+const Coupon = () => import("../Pages/Client/Home/Coupon.vue")
 
 // Profile
 const ProfileLayout = () => import("../Pages/Client/Profile/ProfileLayout.vue");
 const ProfileInfo = () => import("../Pages/Client/Profile/ProfileInfo.vue");
 const ProfileAddress = () => import("../Pages/Client/Profile/ProfileAddress.vue");
+const ProfileCoupon = () => import("../Pages/Client/Profile/ProfileCoupon.vue");
 
 // Auth
 const Login = () => import("../Pages/Client/Auth/login.vue");
@@ -36,30 +38,31 @@ const ShoppingGuide = () => import("../Pages/Client/Static/ShoppingGuide.vue");
 
 // Admin (lazy load toàn bộ - chỉ tải khi admin truy cập)
 const AdminLayout = () => import("../layouts/AdminLayout.vue");
-const AdminHome = () => import("../Pages/Admin/AdminHome.vue");
-const AdminProduct = () => import("../Pages/Admin/AdminProduct.vue");
-const AdminCreateProduct = () => import("../Pages/Admin/AdminCreateProduct.vue");
-const AdminUsers = () => import("../Pages/Admin/AdminUsers.vue");
-const AdminCategory = () => import("../Pages/Admin/AdminCategory.vue");
-const AdminStaff = () => import("../Pages/Admin/AdminStaff.vue");
-const AdminContact = () => import("../Pages/Admin/AdminContact.vue");
+const AdminHome = () => import("../Pages/admin/AdminHome.vue");
+const AdminProduct = () => import("../Pages/admin/AdminProduct.vue");
+const AdminCreateProduct = () => import("../Pages/admin/AdminCreateProduct.vue");
+const AdminUsers = () => import("../Pages/admin/AdminUsers.vue");
+const AdminCategory = () => import("../Pages/admin/AdminCategory.vue");
+const AdminStaff = () => import("../Pages/admin/AdminStaff.vue");
+const AdminContact = () => import("../Pages/admin/AdminContact.vue");
+const AdminCoupon = () => import("../Pages/admin/AdminCoupon.vue");
 
 const routes = [
     {
         path: "/",
         component: ClientLayout,
         children: [
-            { path: "", name: "home", component: Home },
-            { path: "product", name: "product", component: Product },
-            { path: "product/:slug", name: "product-detail", component: ProductDetail },
-            { path: "about", name: "brand-story", component: BrandStory },
-            { path: "careers", name: "careers", component: Careers },
-            { path: "terms", name: "terms", component: Terms },
-            { path: "privacy", name: "privacy", component: Privacy },
-            { path: "faq", name: "faq", component: FAQ },
-            { path: "return-policy", name: "return-policy", component: ReturnPolicy },
-            { path: "contact", name: "contact", component: Contact },
-            { path: "shopping-guide", name: "shopping-guide", component: ShoppingGuide },
+            { path: "", name: "home", component: Home, meta: { title: 'Trang chủ' } },
+            { path: "product", name: "product", component: Product, meta: { title: 'Sản phẩm' } },
+            { path: "product/:slug", name: "product-detail", component: ProductDetail, meta: { title: 'Chi tiết sản phẩm' } },
+            { path: "about", name: "brand-story", component: BrandStory, meta: { title: 'Câu chuyện thương hiệu' } },
+            { path: "careers", name: "careers", component: Careers, meta: { title: 'Tuyển dụng' } },
+            { path: "terms", name: "terms", component: Terms, meta: { title: 'Điều khoản sử dụng' } },
+            { path: "privacy", name: "privacy", component: Privacy, meta: { title: 'Chính sách bảo mật' } },
+            { path: "faq", name: "faq", component: FAQ, meta: { title: 'Câu hỏi thường gặp' } },
+            { path: "return-policy", name: "return-policy", component: ReturnPolicy, meta: { title: 'Chính sách đổi trả' } },
+            { path: "shopping-guide", name: "shopping-guide", component: ShoppingGuide, meta: { title: 'Hướng dẫn mua hàng' } },
+            { path: "coupon", name: "coupon", component: Coupon, meta: { title: 'Mã giảm giá' } },
             // Profile routes (nested layout)
             {
                 path: "profile",
@@ -71,6 +74,7 @@ const routes = [
                     { path: "orders", name: "profile-orders", component: ProfileInfo }, // placeholder
                     { path: "wishlist", name: "profile-wishlist", component: ProfileInfo }, // placeholder
                     { path: "change-password", name: "profile-change-password", component: ProfileInfo }, // placeholder
+                    { path: "coupon", name: "profile-coupon", component: ProfileCoupon },
                 ],
             },
         ],
@@ -80,24 +84,30 @@ const routes = [
         path: "/client/login",
         name: "login",
         component: Login,
-        meta: { guest: true },
+        meta: { guest: true, title: 'Đăng nhập' },
     },
     {
         path: "/client/register",
         name: "register",
         component: Register,
-        meta: { guest: true },
+        meta: { guest: true, title: 'Đăng ký' },
     },
     {
         path: "/client/forgot",
         name: "forgot",
         component: Forgot,
-        meta: { guest: true },
+        meta: { guest: true, title: 'Quên mật khẩu' },
     },
     {
         path: "/api/auth/google/callback",
         name: "google-callback",
         component: GoogleCallback,
+    },
+    {
+        path: "/contact",
+        name: "contact",
+        component: Contact,
+        meta: { title: 'Liên hệ' },
     },
     // Admin routes
     {
@@ -109,43 +119,55 @@ const routes = [
                 path: "",
                 name: "admin",
                 component: AdminHome,
+                meta: { title: 'Tổng quan' },
             },
             {
                 path: "product",
                 name: "admin-product",
                 component: AdminProduct,
+                meta: { title: 'Quản lý sản phẩm' },
             },
             {
                 path: "product/create",
                 name: "admin-product-create",
                 component: AdminCreateProduct,
+                meta: { title: 'Thêm sản phẩm' },
             },
             {
                 path: "product/edit/:id",
                 name: "admin-product-edit",
-                component: () => import("../Pages/Admin/AdminEditProduct.vue"),
+                component: () => import("../Pages/admin/AdminEditProduct.vue"),
+                meta: { title: 'Sửa sản phẩm' },
             },
             {
                 path: "users",
                 name: "admin-users",
                 component: AdminUsers,
-                meta: { roles: ['admin'] },
+                meta: { roles: ['admin'], title: 'Quản lý khách hàng' },
             },
             {
                 path: "category",
                 name: "admin-category",
                 component: AdminCategory,
+                meta: { title: 'Quản lý danh mục' },
             },
             {
                 path: "staff",
                 name: "admin-staff",
                 component: AdminStaff,
-                meta: { roles: ['admin'] },
+                meta: { roles: ['admin'], title: 'Quản lý nhân sự' },
             },
             {
                 path: "contact",
                 name: "admin-contact",
                 component: AdminContact,
+                meta: { title: 'Quản lý liên hệ' },
+            },
+            {
+                path: "coupon",
+                name: "admin-coupon",
+                component: AdminCoupon,
+                meta: { title: 'Quản lý mã giảm giá' },
             },
         ],
     },
@@ -162,6 +184,7 @@ const router = createRouter({
 });
 
 // ==================== Navigation Guard ====================
+
 router.beforeEach((to, from) => {
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user');
@@ -188,6 +211,18 @@ router.beforeEach((to, from) => {
             }
             return { name: 'home' };
         }
+    }
+});
+
+// ==================== Dynamic Page Title ====================
+router.afterEach((to) => {
+    const title = to.meta.title;
+    const isAdmin = to.matched.some(record => record.path === '/admin');
+
+    if (title) {
+        document.title = isAdmin ? `${title} | Ocean Admin` : `${title} | Ocean`;
+    } else {
+        document.title = 'Ocean';
     }
 });
 

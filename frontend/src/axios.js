@@ -6,7 +6,6 @@ const api = axios.create({
         'Accept': 'application/json',
         'Content-Type': 'application/json',
     },
-
     timeout: 30000,
 });
 
@@ -40,7 +39,7 @@ api.interceptors.response.use(
       // Xóa token và thông tin user
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
-
+      
       // Redirect về trang login (nếu chưa ở trang login)
       if (window.location.pathname !== '/client/login') {
         window.location.href = '/client/login';
