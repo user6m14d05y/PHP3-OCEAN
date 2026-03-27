@@ -1,0 +1,96 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\UpdateProfileRequest;
+use App\Http\Requests\ChangePasswordRequest;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Hash;
+
+class ProfileController extends Controller
+{
+    /**
+     * Lấy người dùng hiện tại từ JWT guard (khách hàng hoặc admin)
+     */
+    private function currentUser()
+    {
+        return auth('api')->user() ?? auth('admin')->user();
+    }
+
+    /**
+     * Cập nhật thông tin profile của user (có thể bao gồm Avatar)
+     */
+    public function update(UpdateProfileRequest $request)
+    {
+        /** @var \App\Models\User|\App\Models\Admin $user */
+        $user = $this->currentUser();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $validated = $request->validated();
+
+        $user->full_name = $validated['full_name'];
+
+        // Chỉ User (khách hàng) mới có cột phone & avatar_url
+        if ($user instanceof \App\Models\User) {
+            // Cho phép xóa số điện thoại bằng cách gửi chuỗi rỗng
+            $user->phone = isset($validated['phone']) ? ($validated['phone'] ?: null) : $user->phone;
+
+            // Xử lý upload ảnh nếu có
+            if ($request->hasFile('avatar')) {
+                // Xoá ảnh cũ nếu là ảnh nội bộ (không phải URL Google/bên ngoài)
+                if ($user->avatar_url && !str_starts_with($user->avatar_url, 'http')) {
+                    $oldPath = ltrim(str_replace('/storage', '', $user->avatar_url), '/');
+                    Storage::disk('public')->delete($oldPath);
+                }
+                $path = $request->file('avatar')->store('avatars', 'public');
+                $user->avatar_url = '/storage/' . $path;
+            }
+        }
+
+        $user->saveQuietly();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Cập nhật tài khoản thành công.',
+            'data'    => $user->fresh(),
+        ], 200);
+    }
+
+    /**
+     * Cập nhật mật khẩu cho user.
+     *
+     * QUAN TRỌNG: Model User/Admin có cast 'password' => 'hashed'.
+     * Nếu dùng $user->password = Hash::make($new) thì bị hash 2 lần (double hashing).
+     * Giải pháp: dùng forceFill() để bypass cast, kết hợp saveQuietly().
+     */
+    public function changePassword(ChangePasswordRequest $request)
+    {
+        /** @var \App\Models\User|\App\Models\Admin $user */
+        $user = $this->currentUser();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $validated = $request->validated();
+
+        // Vì cast 'hashed', $user->password vẫn lưu đúng dạng bcrypt hash
+        // nên Hash::check() vẫn hoạt động bình thường
+        if (!Hash::check($validated['current_password'], $user->password)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Mật khẩu hiện tại không đúng.',
+            ], 400);
+        }
+
+        // forceFill(['password' => bcrypt_string]) bypass cast 'hashed'
+        // → password được lưu đúng 1 lần hash, không bị hash 2 lần
+        $user->forceFill(['password' => Hash::make($validated['new_password'])])->saveQuietly();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Đổi mật khẩu thành công.',
+        ], 200);
+    }
+}
