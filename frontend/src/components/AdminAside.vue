@@ -81,6 +81,10 @@
             <span class="submenu-dot"></span>
             <span>Bài viết</span>
           </router-link>
+          <router-link to="/admin/post-category" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Danh mục bài viết</span>
+          </router-link>
           <router-link to="/admin/review" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
             <span>Đánh giá</span>
@@ -91,7 +95,6 @@
           </router-link>
         </div>
       </transition>
-
       <router-link to="/admin/contact" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -124,6 +127,8 @@ const userName = ref('Admin');
 const userEmail = ref('');
 const userRole = ref('Manager');
 const isStoreMenuOpen = ref(true); // Mặc định mở theo ảnh mẫu
+const isPostMenuOpen = ref(true); // Mặc định mở theo ảnh mẫu
+
 
 onMounted(() => {
   const userData = localStorage.getItem('user');

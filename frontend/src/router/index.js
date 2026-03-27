@@ -45,6 +45,10 @@ const AdminCategory = () => import("../Pages/admin/AdminCategory.vue");
 const AdminStaff = () => import("../Pages/admin/AdminStaff.vue");
 const AdminContact = () => import("../Pages/admin/AdminContact.vue");
 const AdminCoupon = () => import("../Pages/admin/AdminCoupon.vue");
+const AdminPost = () => import("../Pages/admin/AdminPost.vue");
+const AdminPostCategory = () => import("../Pages/admin/AdminPostCategory.vue");
+const AdminCreatePost = () => import("../Pages/admin/AdminCreatePost.vue");
+const AdminCreatePostCategory = () => import("../Pages/admin/AdminCreatePostCategory.vue");
 
 const routes = [
     {
@@ -161,6 +165,36 @@ const routes = [
                 component: AdminCoupon,
                 meta: { title: 'Quản lý mã giảm giá' },
             },
+            {
+                path: "post",
+                name: "admin-post",
+                component: AdminPost,
+                meta: { title: 'Quản lý bài viết' },
+            },
+            {
+                path: "post-category",
+                name: "admin-post-category",
+                component: AdminPostCategory,
+                meta: { title: 'Quản lý danh mục bài viết' },
+            },
+            {
+                path: "post/create",
+                name: "admin-post-create",
+                component: AdminCreatePost,
+                meta: { title: 'Thêm bài viết' },
+            },
+            {
+                path: "post/edit/:id",
+                name: "admin-post-edit",
+                component: () => import("../Pages/admin/AdminEditPost.vue"),
+                meta: { title: 'Sửa bài viết' },
+            },
+            {
+                path: "post-category/create",
+                name: "admin-post-category-create",
+                component: AdminCreatePostCategory,
+                meta: { title: 'Thêm danh mục bài viết' },
+            }
         ],
     },
 ];

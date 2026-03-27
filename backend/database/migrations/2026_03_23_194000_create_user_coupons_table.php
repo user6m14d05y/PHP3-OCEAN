@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::dropIfExists('user_coupons');
         Schema::create('user_coupons', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
@@ -18,7 +19,7 @@ return new class extends Migration
             $table->integer('used_count')->default(0); 
             $table->boolean('is_saved')->default(true); 
             $table->timestamps();
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
             $table->foreign('coupon_id')->references('id')->on('coupons')->onDelete('cascade');
             $table->unique(['user_id', 'coupon_id']);
         });

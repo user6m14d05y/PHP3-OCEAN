@@ -5,41 +5,24 @@ echo " Ocean Backend - Entrypoint Script"
 echo "======================================="
 
 # -----------------------------------------------
-# 0. Create required directories & fix permissions
+# 1. Khởi tạo cấu trúc thư mục cơ bản
 # -----------------------------------------------
-echo "[1/7] Setting up directories and permissions..."
+echo "[1/7] Preparing directory structure..."
+mkdir -p /var/www/storage/app/public/thumbnails
 mkdir -p /var/www/storage/framework/cache/data
 mkdir -p /var/www/storage/framework/sessions
 mkdir -p /var/www/storage/framework/views
 mkdir -p /var/www/storage/logs
-mkdir -p /var/www/storage/app/public
 mkdir -p /var/www/bootstrap/cache
 
-chown -R www-data:www-data /var/www/storage 2>/dev/null || true
-chown -R www-data:www-data /var/www/bootstrap/cache 2>/dev/null || true
-chmod -R 777 /var/www/storage 2>/dev/null || true
-chmod -R 777 /var/www/bootstrap/cache 2>/dev/null || true
-
 # -----------------------------------------------
-# 1. Wait for MySQL using PHP PDO (no SSL issues)
+# 2. Đợi MySQL (Giữ nguyên logic PHP PDO của bạn)
 # -----------------------------------------------
 echo "[2/7] Waiting for MySQL..."
 MAX_TRIES=30
 COUNT=0
 while [ "$COUNT" -lt "$MAX_TRIES" ]; do
-    if php -r "
-        try {
-            new PDO(
-                'mysql:host=' . getenv('DB_HOST') . ';port=' . (getenv('DB_PORT') ?: '3306'),
-                getenv('DB_USERNAME'),
-                getenv('DB_PASSWORD'),
-                [PDO::ATTR_TIMEOUT => 3]
-            );
-            echo 'OK';
-        } catch (Exception \$e) {
-            exit(1);
-        }
-    " 2>/dev/null; then
+    if php -r "try { new PDO('mysql:host='.getenv('DB_HOST').';port='.(getenv('DB_PORT')?:'3306'), getenv('DB_USERNAME'), getenv('DB_PASSWORD'), [PDO::ATTR_TIMEOUT=>3]); echo 'OK'; } catch (Exception \$e) { exit(1); }" 2>/dev/null; then
         echo "  MySQL is ready!"
         break
     fi
@@ -48,50 +31,48 @@ while [ "$COUNT" -lt "$MAX_TRIES" ]; do
     sleep 2
 done
 
-if [ "$COUNT" -ge "$MAX_TRIES" ]; then
-    echo "ERROR: MySQL not ready after ${MAX_TRIES} retries."
-    exit 1
-fi
-
 # -----------------------------------------------
-# 2. Composer install
+# 3. Composer install
 # -----------------------------------------------
 echo "[3/7] Installing Composer dependencies..."
 cd /var/www
-composer install --no-interaction --prefer-dist --optimize-autoloader 2>&1
-chown -R www-data:www-data /var/www/vendor 2>/dev/null || true
+# Chạy composer với tư cách root để tránh lỗi permission lúc ghi vendor
+composer install --no-interaction --prefer-dist --optimize-autoloader
 
 # -----------------------------------------------
-# 3. Generate APP_KEY if needed
+# 4. FIX QUYỀN TRIỆT ĐỂ (QUAN TRỌNG NHẤT)
 # -----------------------------------------------
-echo "[4/7] Checking APP_KEY..."
+echo "[4/7] Fixing permissions for Storage & Cache..."
+# Đảm bảo www-data sở hữu toàn bộ code để tránh xung đột với máy host
+chown -R www-data:www-data /var/www/storage
+chown -R www-data:www-data /var/www/bootstrap/cache
+chown -R www-data:www-data /var/www/vendor
+
+# Cấp quyền 775 để cả owner (www-data) và group đều có quyền ghi
+find /var/www/storage -type d -exec chmod 775 {} +
+find /var/www/storage -type f -exec chmod 664 {} +
+find /var/www/bootstrap/cache -type d -exec chmod 775 {} +
+
+# -----------------------------------------------
+# 5. Laravel Setup (Key, Link, Cache)
+# -----------------------------------------------
+echo "[5/7] Laravel setup tasks..."
 if [ -z "$APP_KEY" ] || [ "$APP_KEY" = "base64:CHANGE_ME" ]; then
-    echo "  Generating new APP_KEY..."
     php artisan key:generate --force
-else
-    echo "  APP_KEY already set."
 fi
 
-# -----------------------------------------------
-# 4. Storage symlink
-# -----------------------------------------------
-echo "[5/7] Creating storage link..."
-rm -f /var/www/public/storage
-ln -sf /var/www/storage/app/public /var/www/public/storage
+# Link storage (Xóa link cũ nếu sai và tạo lại)
+php artisan storage:link --force || true
+
+# Clear cache để nhận diện permission mới
+php artisan config:clear
+php artisan cache:clear
 
 # -----------------------------------------------
-# 5. Clear ALL caches before migration
+# 6. Database migration
 # -----------------------------------------------
-echo "[6/7] Clearing caches & running migrations..."
-php artisan config:clear 2>&1 || true
-php artisan cache:clear 2>&1 || true
-php artisan route:clear 2>&1 || true
-php artisan view:clear 2>&1 || true
-
-# -----------------------------------------------
-# 6. Database migration (non-fatal)
-# -----------------------------------------------
-php artisan migrate --force 2>&1 || echo "WARNING: Migration had errors, continuing..."
+echo "[6/7] Running migrations..."
+php artisan migrate --force --no-interaction || echo "WARNING: Migration failed."
 
 # -----------------------------------------------
 # 7. Start PHP-FPM
@@ -101,4 +82,5 @@ echo "======================================="
 echo " Backend READY on port 9000"
 echo "======================================="
 
+# Thực thi PHP-FPM
 exec php-fpm
