@@ -6,83 +6,101 @@ echo " Ocean Backend - Entrypoint Script"
 echo "======================================="
 
 # -----------------------------------------------
-# 0. Fix quyền cho các thư mục cần ghi (chạy dưới root)
-#    Dùng chmod 777 để đảm bảo www-data luôn ghi được
-#    kể cả khi volume mount từ host với UID khác.
+# 1. Khởi tạo cấu trúc thư mục cơ bản
 # -----------------------------------------------
-echo "[0/7] Fixing file permissions..."
-chown -R www-data:www-data /var/www/vendor 2>/dev/null || true
-chown -R www-data:www-data /var/www/storage 2>/dev/null || true
-chown -R www-data:www-data /var/www/bootstrap/cache 2>/dev/null || true
-chmod -R 775 /var/www/vendor 2>/dev/null || true
-chmod -R 777 /var/www/storage 2>/dev/null || true
-chmod -R 777 /var/www/bootstrap/cache 2>/dev/null || true
+echo "[1/7] Preparing directory structure..."
+mkdir -p /var/www/storage/app/public/thumbnails
+mkdir -p /var/www/storage/framework/cache/data
+mkdir -p /var/www/storage/framework/sessions
+mkdir -p /var/www/storage/framework/views
+mkdir -p /var/www/storage/logs
+mkdir -p /var/www/bootstrap/cache
 
 # -----------------------------------------------
-# 1. Chờ MySQL sẵn sàng (retry loop)
+# 2. Đợi MySQL (Giữ nguyên logic PHP PDO của bạn)
 # -----------------------------------------------
-echo "[1/7] Waiting for MySQL to be ready..."
+echo "[2/7] Waiting for MySQL..."
 MAX_TRIES=30
 COUNT=0
-until php -r "
-    try {
-        \$pdo = new PDO(
-            'mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT', '3306'),
-            getenv('DB_USERNAME'),
-            getenv('DB_PASSWORD')
-        );
-        echo 'DB connected';
-    } catch (Exception \$e) {
-        exit(1);
-    }
-" 2>/dev/null; do
-    COUNT=$((COUNT + 1))
-    if [ "$COUNT" -ge "$MAX_TRIES" ]; then
-        echo "ERROR: MySQL is not ready after ${MAX_TRIES} retries. Aborting."
-        exit 1
+MYSQL_READY=false
+while [ "$COUNT" -lt "$MAX_TRIES" ]; do
+    if php -r "try { new PDO('mysql:host='.getenv('DB_HOST').';port='.(getenv('DB_PORT')?:'3306'), getenv('DB_USERNAME'), getenv('DB_PASSWORD'), [PDO::ATTR_TIMEOUT=>3]); echo 'OK'; } catch (Exception \$e) { exit(1); }" 2>/dev/null; then
+        echo "  MySQL is ready!"
+        MYSQL_READY=true
+        break
     fi
-    echo "  MySQL not ready yet... retrying ($COUNT/$MAX_TRIES)"
+    COUNT=$((COUNT + 1))
+    echo "  Retrying ($COUNT/$MAX_TRIES)..."
     sleep 2
 done
-echo "  MySQL is ready!"
 
-# -----------------------------------------------
-# 2. Cài đặt Composer dependencies
-# -----------------------------------------------
-echo "[2/7] Installing Composer dependencies..."
-composer install --no-interaction --prefer-dist --optimize-autoloader
-
-# -----------------------------------------------
-# 3. Generate APP_KEY nếu chưa có
-# -----------------------------------------------
-echo "[3/7] Checking APP_KEY..."
-if [ -z "$APP_KEY" ] || [ "$APP_KEY" = "base64:CHANGE_ME" ]; then
-    echo "  Generating new APP_KEY..."
-    php artisan key:generate --force
-else
-    echo "  APP_KEY already set. Skipping."
+if [ "$MYSQL_READY" = false ]; then
+    echo "ERROR: MySQL not ready after $MAX_TRIES attempts. Exiting."
+    exit 1
 fi
 
 # -----------------------------------------------
-# 4. Tạo Storage Symlink (public/storage -> storage/app/public)
+# 3. Composer install
 # -----------------------------------------------
-echo "[4/7] Creating storage link..."
-ln -sf /var/www/storage/app/public /var/www/public/storage
+echo "[3/7] Installing Composer dependencies..."
+cd /var/www
+
+# Chạy composer với tư cách root để tránh lỗi permission lúc ghi vendor
+if ! composer install --no-interaction --prefer-dist --optimize-autoloader; then
+    echo "ERROR: Composer install failed! Exiting."
+    exit 1
+fi
+
+# Kiểm tra autoload tồn tại
+if [ ! -f /var/www/vendor/autoload.php ]; then
+    echo "ERROR: vendor/autoload.php not found after composer install! Exiting."
+    exit 1
+fi
 
 # -----------------------------------------------
-# 5. Chạy Database Migration
+# 4. FIX QUYỀN TRIỆT ĐỂ (QUAN TRỌNG NHẤT)
 # -----------------------------------------------
-echo "[5/7] Running database migrations..."
-php artisan migrate --force
+echo "[4/7] Fixing permissions for Storage & Cache..."
+# Đảm bảo www-data sở hữu toàn bộ code để tránh xung đột với máy host
+chown -R www-data:www-data /var/www/storage
+chown -R www-data:www-data /var/www/bootstrap/cache
+chown -R www-data:www-data /var/www/vendor
+
+# Cấp quyền 775 để cả owner (www-data) và group đều có quyền ghi
+find /var/www/storage -type d -exec chmod 775 {} +
+find /var/www/storage -type f -exec chmod 664 {} +
+find /var/www/bootstrap/cache -type d -exec chmod 775 {} +
 
 # -----------------------------------------------
-# 6. Khởi động PHP-FPM
+# 5. Laravel Setup (Key, Link, Cache)
 # -----------------------------------------------
-echo "[6/6] Starting PHP-FPM..."
-# Xóa cache cũ đi phòng trường hợp config cache đang làm crash app
-php artisan cache:clear || true
-php artisan config:clear || true
-php artisan route:clear || true
-php artisan view:clear || true
+echo "[5/7] Laravel setup tasks..."
+if [ -z "$APP_KEY" ] || [ "$APP_KEY" = "base64:CHANGE_ME" ]; then
+    php artisan key:generate --force
+fi
 
+# Link storage (Xóa link cũ nếu sai và tạo lại)
+php artisan storage:link --force || true
+
+# Clear cache để nhận diện permission mới
+php artisan config:clear
+php artisan cache:clear
+
+# -----------------------------------------------
+# 6. Database migration
+# -----------------------------------------------
+echo "[6/7] Running migrations..."
+if ! php artisan migrate --force --no-interaction; then
+    echo "WARNING: Migration failed, but continuing to start PHP-FPM..."
+fi
+
+# -----------------------------------------------
+# 7. Start PHP-FPM
+# -----------------------------------------------
+echo "[7/7] Starting PHP-FPM..."
+echo "======================================="
+echo " Backend READY on port 9000"
+echo "======================================="
+
+# Thực thi PHP-FPM
 exec php-fpm
