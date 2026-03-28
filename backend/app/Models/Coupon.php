@@ -26,4 +26,20 @@ class Coupon extends Model
         'end_date',
         'is_active',
     ];
+
+    /**
+     * Danh mục áp dụng (nếu trống = áp dụng tất cả sản phẩm)
+     */
+    public function categories()
+    {
+        return $this->belongsToMany(Category::class, 'coupon_categories', 'coupon_id', 'category_id');
+    }
+
+    /**
+     * Danh sách user đã lưu/dùng coupon này
+     */
+    public function userCoupons()
+    {
+        return $this->hasMany(UserCoupon::class);
+    }
 }

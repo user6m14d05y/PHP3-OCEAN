@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/axios';
 const route = useRoute();
@@ -7,17 +7,59 @@ const router = useRouter();
 const slug = route.params.slug;
 const product = ref(null);
 const selectedVariant = ref(null);
+const selectedColor = ref(null);
+const selectedSize = ref(null);
 const addingToCart = ref(false);
 const toast = ref({ show: false, message: '', type: 'success' });
+const showSizeGuide = ref(false);
+
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
+const getImageUrl = (path) => {
+    if (!path || path === '0') return 'https://placehold.co/600x600?text=No+Image';
+    if (path.startsWith('http')) return path;
+    return `${BASE_URL}/storage/${path}`;
+};
+
+const allImages = computed(() => {
+    if (!product.value) return [];
+    const imgs = product.value.images || [];
+    const variants = product.value.variants || [];
+    const hasVariants = variants.length > 0;
+
+    // Sản phẩm biến thể + đã chọn màu → hiện ảnh của variant màu đó
+    if (hasVariants && selectedColor.value) {
+        const colorVariants = variants.filter(v => v.color === selectedColor.value);
+        const variantIds = colorVariants.map(v => v.variant_id);
+
+        const variantImgs = imgs.filter(img => img.variant_id && variantIds.includes(img.variant_id));
+        if (variantImgs.length > 0) return variantImgs;
+
+        const directImgs = colorVariants
+            .filter(v => v.image_url)
+            .map(v => ({ image_url: v.image_url, variant_id: v.variant_id }));
+        if (directImgs.length > 0) return directImgs;
+    }
+
+    // Sản phẩm biến thể + chưa chọn màu → chỉ hiện thumbnail
+    if (hasVariants && !selectedColor.value) {
+        if (product.value.thumbnail_url && product.value.thumbnail_url !== '0') {
+            return [{ image_url: product.value.thumbnail_url }];
+        }
+        return [{ image_url: null }];
+    }
+
+    // Sản phẩm đơn giản → hiện tất cả ảnh
+    if (imgs.length > 0) return imgs;
+    if (product.value.thumbnail_url && product.value.thumbnail_url !== '0') {
+        return [{ image_url: product.value.thumbnail_url }];
+    }
+    return [{ image_url: null }];
+});
 
 const fetchProduct = async () => {
     try {
         const response = await api.get(`/products/${slug}`);
         product.value = response.data;
-        // Auto-select variant đầu tiên (nếu có)
-        if (product.value?.variants?.length > 0) {
-            selectedVariant.value = product.value.variants[0];
-        }
     } catch (error) {
         console.error("Error fetching product:", error);
     }
@@ -26,6 +68,76 @@ const fetchProduct = async () => {
 const isDescriptionExpanded = ref(false);
 const activeImageIndex = ref(0);
 const quantity = ref(1);
+
+// Lấy danh sách màu duy nhất
+const uniqueColors = computed(() => {
+    if (!product.value?.variants) return [];
+    const colors = [...new Set(product.value.variants.map(v => v.color).filter(Boolean))];
+    return colors;
+});
+
+// Lấy danh sách size khả dụng — luôn hiện tất cả size, đánh dấu disabled theo màu đã chọn
+const availableSizes = computed(() => {
+    if (!product.value?.variants) return [];
+    const variants = product.value.variants;
+
+    // Lấy tất cả sizes duy nhất
+    const allSizes = [...new Set(variants.map(v => v.size).filter(Boolean))];
+
+    return allSizes.map(size => {
+        // Nếu đã chọn màu, kiểm tra variant (color + size) có tồn tại và khả dụng không
+        if (selectedColor.value) {
+            const match = variants.find(v => v.color === selectedColor.value && v.size === size);
+            return {
+                size,
+                stock: match?.stock ?? 0,
+                status: match?.status ?? 'inactive',
+                variant_id: match?.variant_id ?? null,
+                available: !!match && match.status === 'active' && match.stock > 0,
+            };
+        }
+        // Chưa chọn màu → kiểm tra có BẤT KỲ variant nào có size này khả dụng không
+        const anyAvailable = variants.some(v => v.size === size && v.status === 'active' && v.stock > 0);
+        const first = variants.find(v => v.size === size);
+        return {
+            size,
+            stock: first?.stock ?? 0,
+            status: first?.status ?? 'inactive',
+            variant_id: first?.variant_id ?? null,
+            available: anyAvailable,
+        };
+    });
+});
+
+// Khi chọn màu → reset size + reset gallery, auto-select nếu chỉ có 1 size
+watch(selectedColor, (newColor) => {
+    selectedSize.value = null;
+    selectedVariant.value = null;
+    activeImageIndex.value = 0;
+    if (newColor) {
+        const sizes = product.value?.variants?.filter(v => v.color === newColor) || [];
+        if (sizes.length === 1) {
+            selectedSize.value = sizes[0].size;
+            selectedVariant.value = sizes[0];
+        }
+    }
+});
+
+// Khi chọn size → tìm variant đúng
+watch(selectedSize, (newSize) => {
+    if (newSize && selectedColor.value && product.value?.variants) {
+        const match = product.value.variants.find(
+            v => v.color === selectedColor.value && v.size === newSize
+        );
+        selectedVariant.value = match || null;
+    }
+});
+const mainImageUrl = computed(() => {
+    const imgs = allImages.value;
+    if (imgs.length === 0) return getImageUrl(null);
+    const idx = activeImageIndex.value < imgs.length ? activeImageIndex.value : 0;
+    return getImageUrl(imgs[idx]?.image_url);
+});
 
 const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
@@ -96,19 +208,19 @@ onMounted(() => {
       <div class="product-gallery">
         <!-- Ảnh chính -->
         <div class="main-image-container ocean-card">
-          <img :src="'http://localhost:8383/storage/' + product.images[activeImageIndex].image_url" :alt="product.name" class="main-image animate-fade-in" :key="activeImageIndex" />
+          <img :src="mainImageUrl" :alt="product.name" class="main-image animate-fade-in" :key="activeImageIndex" />
         </div>
         
         <!-- Danh sách Ảnh nhỏ (Thumbnails) -->
-        <div class="thumbnail-list">
+        <div class="thumbnail-list" v-if="allImages.length > 1">
           <div 
-            v-for="(img, index) in product.images" 
+            v-for="(img, index) in allImages" 
             :key="index"
             class="thumbnail-item"
             :class="{ 'active': activeImageIndex === index }"
             @click="activeImageIndex = index"
           >
-            <img :src=" 'http://localhost:8383/storage/' + img.image_url" :alt="`${product.name} - ảnh ${index + 1}`" />
+            <img :src="getImageUrl(img.image_url)" :alt="`${product.name} - ảnh ${index + 1}`" />
           </div>
         </div>
       </div>
@@ -139,21 +251,43 @@ onMounted(() => {
         <div class="short-description" v-html="product.short_description">
         </div>
 
-        <!-- Chọn Variant -->
-        <div class="variant-selector" v-if="product.variants && product.variants.length > 0">
-          <h4 class="variant-label">Phân loại:</h4>
+        <!-- Chọn Màu sắc -->
+        <div class="variant-selector" v-if="uniqueColors.length > 0">
+          <h4 class="variant-label">Màu sắc:</h4>
           <div class="variant-options">
             <button
-              v-for="v in product.variants"
-              :key="v.variant_id"
+              v-for="color in uniqueColors"
+              :key="color"
               class="variant-btn"
-              :class="{ active: selectedVariant?.variant_id === v.variant_id, disabled: v.status !== 'active' || v.stock <= 0 }"
-              @click="v.status === 'active' && v.stock > 0 && (selectedVariant = v)"
-              :disabled="v.status !== 'active' || v.stock <= 0"
+              :class="{ active: selectedColor === color }"
+              @click="selectedColor = selectedColor === color ? null : color"
             >
-              <span>{{ v.variant_name || [v.color, v.size].filter(Boolean).join(' / ') || 'Mặc định' }}</span>
-              <span class="variant-stock" v-if="v.stock <= 5 && v.stock > 0">(còn {{ v.stock }})</span>
-              <span class="variant-stock out" v-if="v.stock <= 0">Hết hàng</span>
+              <span>{{ color }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chọn Kích cỡ -->
+        <div class="variant-selector" v-if="availableSizes.length > 0">
+          <div class="variant-header-row">
+            <h4 class="variant-label">Kích cỡ:</h4>
+            <button class="btn-text size-guide-trigger" @click="showSizeGuide = true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19V5a2 2 0 00-2-2H4a2 2 0 00-2 2v14a2 2 0 002 2h16a2 2 0 002-2z"/><line x1="6" y1="3" x2="6" y2="7"/><line x1="10" y1="3" x2="10" y2="7"/><line x1="14" y1="3" x2="14" y2="7"/><line x1="18" y1="3" x2="18" y2="7"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+              Bảng size chuẩn
+            </button>
+          </div>
+          <div class="variant-options">
+            <button
+              v-for="s in availableSizes"
+              :key="s.size"
+              class="variant-btn"
+              :class="{ active: selectedSize === s.size, disabled: !s.available }"
+              @click="s.available && (selectedSize = selectedSize === s.size ? null : s.size)"
+              :disabled="!s.available"
+            >
+              <span>{{ s.size || 'Mặc định' }}</span>
+              <span class="variant-stock" v-if="selectedColor && s.stock <= 5 && s.stock > 0">(còn {{ s.stock }})</span>
+              <span class="variant-stock out" v-if="selectedColor && s.stock <= 0">Hết hàng</span>
             </button>
           </div>
         </div>
@@ -232,6 +366,80 @@ onMounted(() => {
       <span>{{ toast.message }}</span>
     </div>
   </Transition>
+
+  <!-- Modal Bảng Size -->
+  <teleport to="body">
+    <transition name="modal-fade">
+      <div v-if="showSizeGuide" class="modal-overlay" @click.self="showSizeGuide = false">
+        <div class="modal-content size-modal">
+          <div class="modal-header">
+            <h2 class="modal-title">Bảng size tham khảo (Vóc dáng người Việt)</h2>
+            <button class="modal-close" @click="showSizeGuide = false">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <p class="size-desc">Bảng tính mặc định được thiết kế dựa trên số đo chuẩn của người Việt Nam. Nếu bạn có số đo nằm giữa 2 size, lời khuyên là nên chọn size lớn hơn để có sự thoải mái nhất.</p>
+            
+            <div class="table-responsive">
+              <table class="size-table">
+                <thead>
+                  <tr>
+                    <th>Size</th>
+                    <th>Cân nặng (kg)</th>
+                    <th>Chiều cao (cm)</th>
+                    <th>Gợi ý form dáng</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>S</strong></td>
+                    <td>45 - 52 kg</td>
+                    <td>Dưới 1m60</td>
+                    <td>Ôm gọn, tôn dáng</td>
+                  </tr>
+                  <tr>
+                    <td><strong>M</strong></td>
+                    <td>53 - 59 kg</td>
+                    <td>1m60 - 1m65</td>
+                    <td>Vừa vặn, thoải mái</td>
+                  </tr>
+                  <tr>
+                    <td><strong>L</strong></td>
+                    <td>60 - 68 kg</td>
+                    <td>1m66 - 1m72</td>
+                    <td>Thoải mái vận động</td>
+                  </tr>
+                  <tr>
+                    <td><strong>XL</strong></td>
+                    <td>69 - 76 kg</td>
+                    <td>1m73 - 1m78</td>
+                    <td>Rộng rãi, che khuyết điểm</td>
+                  </tr>
+                  <tr>
+                    <td><strong>XXL</strong></td>
+                    <td>Trên 76 kg</td>
+                    <td>Trên 1m78</td>
+                    <td>Oversize trần viền rộng rãi</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="size-tips">
+              <div class="tip-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="tip-icon" stroke="#0288d1" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>Sản phẩm có độ co giãn nhẹ khoảng 2-3cm ở vòng bụng.</span>
+              </div>
+              <div class="tip-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="tip-icon" stroke="#0288d1" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>Màu sắc thực tế có thể chênh lệch 3-5% do độ phân giải và ánh sáng màn hình.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+  </teleport>
 </template>
 
 <style scoped>
@@ -260,7 +468,7 @@ onMounted(() => {
 /* Grid Layout */
 .product-main-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 5fr 7fr;
   gap: 40px;
   margin-bottom: 40px;
 }
@@ -273,7 +481,7 @@ onMounted(() => {
 }
 .main-image-container {
   width: 100%;
-  aspect-ratio: 4/5;
+  aspect-ratio: 1/1;
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border-color, #d9e8f0);
@@ -282,7 +490,7 @@ onMounted(() => {
 .main-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .thumbnail-list {
   display: flex;
@@ -377,6 +585,54 @@ onMounted(() => {
   color: #486581;
   margin-bottom: 30px;
 }
+
+/* Variant Header Row */
+.variant-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.size-guide-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #0288d1;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: opacity 0.2s;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.size-guide-trigger:hover {
+  opacity: 0.8;
+}
+
+/* Modal Bảng Size */
+.modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(3px); display: flex; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
+.size-modal { background: #fff; border-radius: 16px; width: 100%; max-width: 650px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; font-family: var(--font-inter, 'Inter', sans-serif); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.modal-title { font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0; }
+.modal-close { background: none; border: none; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; transition: all 0.2s; }
+.modal-close:hover { background: #e2e8f0; color: #0f172a; }
+.modal-body { padding: 24px; }
+.size-desc { font-size: 0.95rem; color: #475569; line-height: 1.6; margin-bottom: 20px; }
+.table-responsive { overflow-x: auto; margin-bottom: 24px; border-radius: 12px; border: 1px solid #e2e8f0; }
+.size-table { width: 100%; border-collapse: collapse; text-align: left; }
+.size-table th { background: #f1f5f9; color: #334155; font-weight: 700; padding: 14px 16px; font-size: 0.95rem; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+.size-table td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; color: #475569; font-size: 0.95rem; }
+.size-table tbody tr:hover { background: #f8fafc; }
+.size-table td strong { color: #0f172a; font-size: 1.1rem; }
+.size-tips { display: flex; flex-direction: column; gap: 10px; background: #f0f9ff; border: 1px dashed #bae6fd; padding: 16px; border-radius: 12px; }
+.tip-item { display: flex; align-items: flex-start; gap: 10px; }
+.tip-icon { flex-shrink: 0; margin-top: 2px; }
+.tip-item span { font-size: 0.9rem; color: #0369a1; line-height: 1.5; font-weight: 500; }
+
+.modal-fade-enter-active, .modal-fade-leave-active { transition: all 0.3s ease; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; transform: scale(0.95); }
 
 /* Actions */
 .purchase-actions {

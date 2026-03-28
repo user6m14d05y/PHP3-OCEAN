@@ -75,6 +75,7 @@ const product = reactive({
     galleryPreviews: [],
     existing_gallery: [],
     deleted_gallery_ids: [],
+    deleted_variant_image_ids: [],
 });
 
 const storageUrl = import.meta.env.VITE_API_STORAGE || "http://localhost:8383/storage";
@@ -134,22 +135,29 @@ const fetchProduct = async () => {
                         images: [],
                         imagePreviews: [],
                         existingImages: [],
+                        _variantIds: [], // thu thập tất cả variant_id cùng màu
                     };
-                    // Collect variant images for this color
-                    const variantImgs = (p.images || []).filter(
-                        (img) => img.variant_id === v.variant_id
-                    );
-                    colorMap[c].existingImages = variantImgs.map((img) => ({
-                        image_id: img.image_id,
-                        url: `${storageUrl}/${img.image_url}`,
-                    }));
                 }
+                colorMap[c]._variantIds.push(v.variant_id);
                 colorMap[c].sizes.push({
                     size: v.size || "",
                     price: v.price || 0,
                     stock: v.stock || 0,
                 });
             });
+
+            // Thu thập ảnh từ TẤT CẢ variants cùng màu (không chỉ variant đầu tiên)
+            Object.values(colorMap).forEach((group) => {
+                const seenIds = new Set();
+                const variantImgs = (p.images || []).filter(
+                    (img) => img.variant_id && group._variantIds.includes(img.variant_id)
+                );
+                group.existingImages = variantImgs
+                    .filter((img) => { if (seenIds.has(img.image_id)) return false; seenIds.add(img.image_id); return true; })
+                    .map((img) => ({ image_id: img.image_id, url: `${storageUrl}/${img.image_url}` }));
+                delete group._variantIds; // dọn dẹp
+            });
+
             product.variants = Object.values(colorMap);
         }
     } catch (e) {
@@ -192,7 +200,12 @@ const handleVariantImageChange = (e, vi) => {
     e.target.value = "";
 };
 const removeVariantImage = (vi, ii) => { product.variants[vi].images.splice(ii, 1); product.variants[vi].imagePreviews.splice(ii, 1); };
-const removeExistingVariantImage = (vi, ii) => { product.variants[vi].existingImages.splice(ii, 1); };
+const removeExistingVariantImage = (vi, ii) => {
+    const removed = product.variants[vi].existingImages.splice(ii, 1);
+    if (removed[0]?.image_id) {
+        product.deleted_variant_image_ids.push(removed[0].image_id);
+    }
+};
 
 // ===== Validate =====
 const validateForm = () => {
@@ -223,8 +236,7 @@ const validateForm = () => {
                     const sizeSet = new Set();
                     v.sizes.forEach((s, si) => {
                         const se = {};
-                        if (!s.size) { se.size = "Kích cỡ là bắt buộc"; ok = false; }
-                        else {
+                        if (s.size) {
                             const sk = s.size.trim().toLowerCase();
                             if (sizeSet.has(sk)) { se.size = `Size "${s.size}" bị trùng`; ok = false; }
                             else sizeSet.add(sk);
@@ -276,6 +288,10 @@ const handleSubmit = async () => {
         product.variants.forEach((v, vi) => {
             v.images.forEach((f, ii) => fd.append(`variant_images[${vi}][${ii}]`, f));
         });
+        // Gửi danh sách ảnh biến thể bị xóa bởi user
+        product.deleted_variant_image_ids.forEach((id, i) => {
+            fd.append(`deleted_variant_image_ids[${i}]`, id);
+        });
     }
 
     try {
@@ -301,7 +317,7 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
             <p>Đang tải thông tin sản phẩm...</p>
         </div>
 
-        <form v-else @submit.prevent="handleSubmit" enctype="multipart/form-data">
+        <form v-else @submit.prevent="handleSubmit" novalidate enctype="multipart/form-data">
             <div class="page-header animate-in">
                 <div class="header-info">
                     <div class="back-link">
@@ -336,8 +352,8 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
                         <h3 class="card-title">Thông Tin Cơ Bản</h3>
                         <div class="form-group">
                             <label>Tên Sản Phẩm <span class="required">*</span></label>
-                            <input type="text" v-model="product.name" class="form-control" placeholder="Ví dụ: Đồng Hồ Xanh Đại Dương" />
-                            <div v-if="errors.name" class="error-message">{{ errors.name }}</div>
+                            <input type="text" v-model="product.name" class="form-control" :class="{'is-invalid': errors.name}" placeholder="Ví dụ: Đồng Hồ Xanh Đại Dương" />
+                            <span v-if="errors.name" class="field-error">{{ errors.name }}</span>
                         </div>
                         <div class="form-group">
                             <label>Mô Tả Ngắn</label>
@@ -360,9 +376,9 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
                                 <label>Giá Bán <span class="required">*</span></label>
                                 <div class="input-with-prefix">
                                     <span class="prefix">₫</span>
-                                    <input type="number" v-model="product.price" class="form-control" placeholder="0" />
+                                    <input type="number" v-model="product.price" class="form-control" :class="{'is-invalid': errors.price}" placeholder="0" />
                                 </div>
-                                <div v-if="errors.price" class="error-message">{{ errors.price }}</div>
+                                <span v-if="errors.price" class="field-error">{{ errors.price }}</span>
                             </div>
                             <div class="form-group">
                                 <label>Giá Gốc Trước Giảm</label>
@@ -373,8 +389,8 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
                             </div>
                             <div class="form-group" style="grid-column: span 2">
                                 <label>Số Lượng Kho <span class="required">*</span></label>
-                                <input type="number" v-model="product.stock" class="form-control" placeholder="0" />
-                                <div v-if="errors.stock" class="error-message">{{ errors.stock }}</div>
+                                <input type="number" v-model="product.stock" class="form-control" :class="{'is-invalid': errors.stock}" placeholder="0" />
+                                <span v-if="errors.stock" class="field-error">{{ errors.stock }}</span>
                             </div>
                         </div>
                     </div>
@@ -401,8 +417,8 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
                             <div class="variant-body">
                                 <div class="form-group">
                                     <label>Tên Màu Sắc / Kiểu Dáng</label>
-                                    <input type="text" v-model="variant.color" class="form-control" placeholder="Ví dụ: Xanh Đại Dương" />
-                                    <div v-if="errors.variants && errors.variants[vIndex]?.color" class="error-message">{{ errors.variants[vIndex].color }}</div>
+                                    <input type="text" v-model="variant.color" class="form-control" :class="{'is-invalid': errors.variants && errors.variants[vIndex]?.color}" placeholder="Ví dụ: Xanh Đại Dương" />
+                                    <span v-if="errors.variants && errors.variants[vIndex]?.color" class="field-error">{{ errors.variants[vIndex].color }}</span>
                                 </div>
                                 <div class="form-group">
                                     <label>Hình Ảnh Biến Thể</label>
@@ -428,13 +444,22 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
                                 <div class="sizes-section">
                                     <label>Kích Cỡ / Số Lượng</label>
                                     <table class="sizes-table">
-                                        <thead><tr><th>Size</th><th>Kho</th><th>Giá (₫)</th><th></th></tr></thead>
+                                        <thead><tr><th>Size (tùy chọn)</th><th>Kho</th><th>Giá (₫)</th><th></th></tr></thead>
                                         <tbody>
                                             <template v-for="(s, sIndex) in variant.sizes" :key="sIndex">
                                                 <tr>
-                                                    <td><input type="text" v-model="s.size" class="form-control input-sm" :class="{ 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.size }" placeholder="S, M, L..." /></td>
-                                                    <td><input type="number" v-model="s.stock" class="form-control input-sm" :class="{ 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.stock }" placeholder="0" /></td>
-                                                    <td><input type="number" v-model="s.price" class="form-control input-sm" :class="{ 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.price }" placeholder="0" /></td>
+                                                    <td>
+                                                        <input type="text" v-model="s.size" class="form-control input-sm" :class="{ 'is-invalid': errors.variants?.[vIndex]?.sizes?.[sIndex]?.size, 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.size }" placeholder="Để trống nếu không cần" />
+                                                        <span v-if="errors.variants?.[vIndex]?.sizes?.[sIndex]?.size" class="field-error">{{ errors.variants[vIndex].sizes[sIndex].size }}</span>
+                                                    </td>
+                                                    <td>
+                                                        <input type="number" v-model="s.stock" class="form-control input-sm" :class="{ 'is-invalid': errors.variants?.[vIndex]?.sizes?.[sIndex]?.stock, 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.stock }" placeholder="0" />
+                                                        <span v-if="errors.variants?.[vIndex]?.sizes?.[sIndex]?.stock" class="field-error">{{ errors.variants[vIndex].sizes[sIndex].stock }}</span>
+                                                    </td>
+                                                    <td>
+                                                        <input type="number" v-model="s.price" class="form-control input-sm" :class="{ 'is-invalid': errors.variants?.[vIndex]?.sizes?.[sIndex]?.price, 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.price }" placeholder="0" />
+                                                        <span v-if="errors.variants?.[vIndex]?.sizes?.[sIndex]?.price" class="field-error">{{ errors.variants[vIndex].sizes[sIndex].price }}</span>
+                                                    </td>
                                                     <td>
                                                         <button class="btn-icon-danger square" type="button" @click.prevent="removeSize(vIndex, sIndex)">
                                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -444,19 +469,16 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
                                                         </button>
                                                     </td>
                                                 </tr>
-                                                <tr v-if="errors.variants?.[vIndex]?.sizes?.[sIndex] && Object.keys(errors.variants[vIndex].sizes[sIndex]).length > 0" class="error-row">
-                                                    <td colspan="4" style="padding-top: 0">
-                                                        <div v-if="errors.variants[vIndex].sizes[sIndex]?.size" class="error-message">{{ errors.variants[vIndex].sizes[sIndex].size }}</div>
-                                                        <div v-if="errors.variants[vIndex].sizes[sIndex]?.price" class="error-message">{{ errors.variants[vIndex].sizes[sIndex].price }}</div>
-                                                        <div v-if="errors.variants[vIndex].sizes[sIndex]?.stock" class="error-message">{{ errors.variants[vIndex].sizes[sIndex].stock }}</div>
-                                                        <div v-if="errors.variants[vIndex].sizes[sIndex]?.duplicate" class="error-message" style="color: #c62828; font-weight: 700">⚠ {{ errors.variants[vIndex].sizes[sIndex].duplicate }}</div>
+                                                <tr v-if="errors.variants?.[vIndex]?.sizes?.[sIndex]?.duplicate">
+                                                    <td colspan="4" style="padding: 0 10px 10px;">
+                                                        <span class="field-error" style="color: #c62828; margin-top: 0;">⚠ {{ errors.variants[vIndex].sizes[sIndex].duplicate }}</span>
                                                     </td>
                                                 </tr>
                                             </template>
                                         </tbody>
                                     </table>
                                     <button class="btn-text-link mt-2" type="button" @click.prevent="addSize(vIndex)">+ Thêm Kích Cỡ</button>
-                                    <div v-if="errors.variants?.[vIndex]?.sizes_global" class="error-message">{{ errors.variants[vIndex].sizes_global }}</div>
+                                    <span v-if="errors.variants?.[vIndex]?.sizes_global" class="field-error" style="display: block; margin-top: 10px;">{{ errors.variants[vIndex].sizes_global }}</span>
                                 </div>
                             </div>
                         </div>
@@ -512,11 +534,11 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
                         <h3 class="card-title">Thông Tin Phân Loại</h3>
                         <div class="form-group">
                             <label>Danh Mục <span class="required">*</span></label>
-                            <select v-model="product.category_id" class="form-control form-select">
+                            <select v-model="product.category_id" class="form-control form-select" :class="{'is-invalid': errors.category_id}">
                                 <option value="">Chọn danh mục</option>
                                 <AdminCategoryFormTree :categories="categories" />
                             </select>
-                            <div v-if="errors.category_id" class="error-message">{{ errors.category_id }}</div>
+                            <span v-if="errors.category_id" class="field-error">{{ errors.category_id }}</span>
                         </div>
                         <div class="form-group">
                             <label>Thương Hiệu</label>
@@ -558,6 +580,26 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
 </template>
 
 <style scoped>
+/* Validation Styles */
+.field-error {
+    color: #e53935;
+    font-size: 0.8rem;
+    margin-top: 4px;
+    display: block;
+}
+.is-invalid {
+    border-color: #e53935 !important;
+    background-color: #fff2f2 !important;
+}
+.form-error-box {
+    background-color: #fff2f2;
+    border: 1px solid #e53935;
+    color: #c62828;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
 .create-product-page { font-family: var(--font-inter); padding-bottom: 40px; }
 .loading-state { text-align: center; padding: 80px 20px; color: var(--text-muted); font-weight: 600; }
 .spinner { width: 30px; height: 30px; border: 3px solid var(--border-color); border-top-color: var(--ocean-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
