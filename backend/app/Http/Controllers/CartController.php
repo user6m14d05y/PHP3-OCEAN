@@ -18,13 +18,28 @@ class CartController extends Controller
     }
 
     /**
+     * Lấy user_id đúng (hỗ trợ cả guard api và admin)
+     */
+    private function getUserId()
+    {
+        $user = auth('api')->user();
+        if ($user) return $user->user_id;
+
+        if (auth('admin')->check()) {
+            return auth('admin')->user()->getKey();
+        }
+
+        return null;
+    }
+
+    /**
      * Lấy hoặc tạo giỏ hàng active cho user
      */
-    private function getOrCreateCart($user)
+    private function getOrCreateCart($userId)
     {
         return Cart::firstOrCreate(
-            ['user_id' => $user->user_id, 'status' => 'active'],
-            ['user_id' => $user->user_id, 'status' => 'active']
+            ['user_id' => $userId, 'status' => 'active'],
+            ['user_id' => $userId, 'status' => 'active']
         );
     }
 
@@ -33,16 +48,16 @@ class CartController extends Controller
      */
     public function getCart()
     {
-        $user = $this->getUser();
+        $userId = $this->getUserId();
 
-        if (!$user) {
+        if (!$userId) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Bạn cần đăng nhập để xem giỏ hàng!'
             ], 401);
         }
 
-        $cart = Cart::where('user_id', $user->user_id)
+        $cart = Cart::where('user_id', $userId)
             ->where('status', 'active')
             ->first();
 
@@ -113,9 +128,9 @@ class CartController extends Controller
      */
     public function addItem(Request $request)
     {
-        $user = $this->getUser();
+        $userId = $this->getUserId();
 
-        if (!$user) {
+        if (!$userId) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Bạn cần đăng nhập để thêm vào giỏ hàng!'
@@ -145,7 +160,7 @@ class CartController extends Controller
         }
 
         // Lấy hoặc tạo giỏ hàng
-        $cart = $this->getOrCreateCart($user);
+        $cart = $this->getOrCreateCart($userId);
 
         // Kiểm tra xem variant đã có trong giỏ chưa
         $existingItem = CartItem::where('cart_id', $cart->cart_id)
@@ -193,9 +208,9 @@ class CartController extends Controller
      */
     public function updateItem(Request $request, $id)
     {
-        $user = $this->getUser();
+        $userId = $this->getUserId();
 
-        if (!$user) {
+        if (!$userId) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Bạn cần đăng nhập!'
@@ -213,8 +228,8 @@ class CartController extends Controller
 
         // Tìm cart item và kiểm tra quyền sở hữu
         $cartItem = CartItem::where('cart_item_id', $id)
-            ->whereHas('cart', function ($query) use ($user) {
-                $query->where('user_id', $user->user_id)->where('status', 'active');
+            ->whereHas('cart', function ($query) use ($userId) {
+                $query->where('user_id', $userId)->where('status', 'active');
             })
             ->first();
 
@@ -250,9 +265,9 @@ class CartController extends Controller
      */
     public function removeItem($id)
     {
-        $user = $this->getUser();
+        $userId = $this->getUserId();
 
-        if (!$user) {
+        if (!$userId) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Bạn cần đăng nhập!'
@@ -260,8 +275,8 @@ class CartController extends Controller
         }
 
         $cartItem = CartItem::where('cart_item_id', $id)
-            ->whereHas('cart', function ($query) use ($user) {
-                $query->where('user_id', $user->user_id)->where('status', 'active');
+            ->whereHas('cart', function ($query) use ($userId) {
+                $query->where('user_id', $userId)->where('status', 'active');
             })
             ->first();
 
@@ -285,16 +300,16 @@ class CartController extends Controller
      */
     public function clearCart()
     {
-        $user = $this->getUser();
+        $userId = $this->getUserId();
 
-        if (!$user) {
+        if (!$userId) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Bạn cần đăng nhập!'
             ], 401);
         }
 
-        $cart = Cart::where('user_id', $user->user_id)
+        $cart = Cart::where('user_id', $userId)
             ->where('status', 'active')
             ->first();
 
@@ -313,13 +328,13 @@ class CartController extends Controller
      */
     public function getCount()
     {
-        $user = $this->getUser();
+        $userId = $this->getUserId();
 
-        if (!$user) {
+        if (!$userId) {
             return response()->json(['count' => 0]);
         }
 
-        $cart = Cart::where('user_id', $user->user_id)
+        $cart = Cart::where('user_id', $userId)
             ->where('status', 'active')
             ->first();
 

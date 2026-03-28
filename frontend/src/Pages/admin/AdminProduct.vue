@@ -240,11 +240,11 @@ const qvTotalStock = computed(() => {
                             </td>
                             <td>
                                 <span class="badge-stock" :class="{ 
-                                    'good': (p.lowest_price_variant?.stock || 0) > 20, 
-                                    'low': (p.lowest_price_variant?.stock || 0) <= 20 && (p.lowest_price_variant?.stock || 0) > 0, 
-                                    'out': (p.lowest_price_variant?.stock || 0) === 0 
+                                    'good': (p.variants_sum_stock || 0) > 20, 
+                                    'low': (p.variants_sum_stock || 0) <= 20 && (p.variants_sum_stock || 0) > 0, 
+                                    'out': (p.variants_sum_stock || 0) === 0 
                                 }">
-                                    {{ p.lowest_price_variant?.stock ?? 0 }}
+                                    {{ p.variants_sum_stock ?? 0 }}
                                 </span>
                             </td>
                             <td><span class="badge-status" :class="p.status">{{ getStatusLabel(p.status) }}</span></td>

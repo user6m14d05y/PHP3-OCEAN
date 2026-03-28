@@ -1,12 +1,59 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import api from '@/axios';
-// Kỹ thuật cơ bản: 
-// Lấy ID từ URL (nếu có API, ta sẽ dùng ID này để fetch() dữ liệu)
 const route = useRoute();
+const router = useRouter();
 const slug = route.params.slug;
 const product = ref(null);
+const selectedVariant = ref(null);
+const selectedColor = ref(null);
+const selectedSize = ref(null);
+const addingToCart = ref(false);
+const toast = ref({ show: false, message: '', type: 'success' });
+
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
+const getImageUrl = (path) => {
+    if (!path || path === '0') return 'https://placehold.co/600x600?text=No+Image';
+    if (path.startsWith('http')) return path;
+    return `${BASE_URL}/storage/${path}`;
+};
+
+const allImages = computed(() => {
+    if (!product.value) return [];
+    const imgs = product.value.images || [];
+    const variants = product.value.variants || [];
+    const hasVariants = variants.length > 0;
+
+    // Sản phẩm biến thể + đã chọn màu → hiện ảnh của variant màu đó
+    if (hasVariants && selectedColor.value) {
+        const colorVariants = variants.filter(v => v.color === selectedColor.value);
+        const variantIds = colorVariants.map(v => v.variant_id);
+
+        const variantImgs = imgs.filter(img => img.variant_id && variantIds.includes(img.variant_id));
+        if (variantImgs.length > 0) return variantImgs;
+
+        const directImgs = colorVariants
+            .filter(v => v.image_url)
+            .map(v => ({ image_url: v.image_url, variant_id: v.variant_id }));
+        if (directImgs.length > 0) return directImgs;
+    }
+
+    // Sản phẩm biến thể + chưa chọn màu → chỉ hiện thumbnail
+    if (hasVariants && !selectedColor.value) {
+        if (product.value.thumbnail_url && product.value.thumbnail_url !== '0') {
+            return [{ image_url: product.value.thumbnail_url }];
+        }
+        return [{ image_url: null }];
+    }
+
+    // Sản phẩm đơn giản → hiện tất cả ảnh
+    if (imgs.length > 0) return imgs;
+    if (product.value.thumbnail_url && product.value.thumbnail_url !== '0') {
+        return [{ image_url: product.value.thumbnail_url }];
+    }
+    return [{ image_url: null }];
+});
 
 const fetchProduct = async () => {
     try {
@@ -21,16 +68,125 @@ const isDescriptionExpanded = ref(false);
 const activeImageIndex = ref(0);
 const quantity = ref(1);
 
+// Lấy danh sách màu duy nhất
+const uniqueColors = computed(() => {
+    if (!product.value?.variants) return [];
+    const colors = [...new Set(product.value.variants.map(v => v.color).filter(Boolean))];
+    return colors;
+});
+
+// Lấy danh sách size khả dụng — luôn hiện tất cả size, đánh dấu disabled theo màu đã chọn
+const availableSizes = computed(() => {
+    if (!product.value?.variants) return [];
+    const variants = product.value.variants;
+
+    // Lấy tất cả sizes duy nhất
+    const allSizes = [...new Set(variants.map(v => v.size).filter(Boolean))];
+
+    return allSizes.map(size => {
+        // Nếu đã chọn màu, kiểm tra variant (color + size) có tồn tại và khả dụng không
+        if (selectedColor.value) {
+            const match = variants.find(v => v.color === selectedColor.value && v.size === size);
+            return {
+                size,
+                stock: match?.stock ?? 0,
+                status: match?.status ?? 'inactive',
+                variant_id: match?.variant_id ?? null,
+                available: !!match && match.status === 'active' && match.stock > 0,
+            };
+        }
+        // Chưa chọn màu → kiểm tra có BẤT KỲ variant nào có size này khả dụng không
+        const anyAvailable = variants.some(v => v.size === size && v.status === 'active' && v.stock > 0);
+        const first = variants.find(v => v.size === size);
+        return {
+            size,
+            stock: first?.stock ?? 0,
+            status: first?.status ?? 'inactive',
+            variant_id: first?.variant_id ?? null,
+            available: anyAvailable,
+        };
+    });
+});
+
+// Khi chọn màu → reset size + reset gallery, auto-select nếu chỉ có 1 size
+watch(selectedColor, (newColor) => {
+    selectedSize.value = null;
+    selectedVariant.value = null;
+    activeImageIndex.value = 0;
+    if (newColor) {
+        const sizes = product.value?.variants?.filter(v => v.color === newColor) || [];
+        if (sizes.length === 1) {
+            selectedSize.value = sizes[0].size;
+            selectedVariant.value = sizes[0];
+        }
+    }
+});
+
+// Khi chọn size → tìm variant đúng
+watch(selectedSize, (newSize) => {
+    if (newSize && selectedColor.value && product.value?.variants) {
+        const match = product.value.variants.find(
+            v => v.color === selectedColor.value && v.size === newSize
+        );
+        selectedVariant.value = match || null;
+    }
+});
+const mainImageUrl = computed(() => {
+    const imgs = allImages.value;
+    if (imgs.length === 0) return getImageUrl(null);
+    const idx = activeImageIndex.value < imgs.length ? activeImageIndex.value : 0;
+    return getImageUrl(imgs[idx]?.image_url);
+});
+
 const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 };
 
 const increaseQuantity = () => quantity.value++;
 const decreaseQuantity = () => { if (quantity.value > 1) quantity.value-- };
+
+const showToast = (message, type = 'success') => {
+    toast.value = { show: true, message, type };
+    setTimeout(() => { toast.value.show = false; }, 3000);
+};
+
+const addToCart = async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+        router.push({ name: 'login', query: { redirect: route.fullPath } });
+        return;
+    }
+
+    if (!selectedVariant.value) {
+        showToast('Vui lòng chọn phiên bản sản phẩm!', 'error');
+        return;
+    }
+
+    if (quantity.value < 1) {
+        showToast('Số lượng tối thiểu là 1!', 'error');
+        return;
+    }
+
+    addingToCart.value = true;
+    try {
+        const response = await api.post('/cart/items', {
+            variant_id: selectedVariant.value.variant_id,
+            quantity: quantity.value,
+        });
+        if (response.data.status === 'success') {
+            showToast(response.data.message, 'success');
+        }
+    } catch (error) {
+        const msg = error.response?.data?.message || 'Không thể thêm vào giỏ hàng.';
+        showToast(msg, 'error');
+    } finally {
+        addingToCart.value = false;
+    }
+};
+
 onMounted(() => {
     fetchProduct();
 });
-
 </script>
 
 <template>
@@ -51,19 +207,19 @@ onMounted(() => {
       <div class="product-gallery">
         <!-- Ảnh chính -->
         <div class="main-image-container ocean-card">
-          <img :src="product.images[activeImageIndex]" :alt="product.name" class="main-image animate-fade-in" :key="activeImageIndex" />
+          <img :src="mainImageUrl" :alt="product.name" class="main-image animate-fade-in" :key="activeImageIndex" />
         </div>
         
         <!-- Danh sách Ảnh nhỏ (Thumbnails) -->
-        <div class="thumbnail-list">
+        <div class="thumbnail-list" v-if="allImages.length > 1">
           <div 
-            v-for="(img, index) in product.images" 
+            v-for="(img, index) in allImages" 
             :key="index"
             class="thumbnail-item"
             :class="{ 'active': activeImageIndex === index }"
             @click="activeImageIndex = index"
           >
-            <img :src="img" :alt="`${product.name} - ảnh ${index + 1}`" />
+            <img :src="getImageUrl(img.image_url)" :alt="`${product.name} - ảnh ${index + 1}`" />
           </div>
         </div>
       </div>
@@ -94,6 +250,41 @@ onMounted(() => {
         <div class="short-description" v-html="product.short_description">
         </div>
 
+        <!-- Chọn Màu sắc -->
+        <div class="variant-selector" v-if="uniqueColors.length > 0">
+          <h4 class="variant-label">Màu sắc:</h4>
+          <div class="variant-options">
+            <button
+              v-for="color in uniqueColors"
+              :key="color"
+              class="variant-btn"
+              :class="{ active: selectedColor === color }"
+              @click="selectedColor = selectedColor === color ? null : color"
+            >
+              <span>{{ color }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chọn Kích cỡ -->
+        <div class="variant-selector" v-if="availableSizes.length > 0">
+          <h4 class="variant-label">Kích cỡ:</h4>
+          <div class="variant-options">
+            <button
+              v-for="s in availableSizes"
+              :key="s.size"
+              class="variant-btn"
+              :class="{ active: selectedSize === s.size, disabled: !s.available }"
+              @click="s.available && (selectedSize = selectedSize === s.size ? null : s.size)"
+              :disabled="!s.available"
+            >
+              <span>{{ s.size || 'Mặc định' }}</span>
+              <span class="variant-stock" v-if="selectedColor && s.stock <= 5 && s.stock > 0">(còn {{ s.stock }})</span>
+              <span class="variant-stock out" v-if="selectedColor && s.stock <= 0">Hết hàng</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Chức năng Số lượng & Mua hàng -->
         <div class="purchase-actions">
           <div class="quantity-selector">
@@ -101,8 +292,10 @@ onMounted(() => {
             <input type="number" v-model="quantity" readonly />
             <button @click="increaseQuantity"><i class="fas fa-plus"></i></button>
           </div>
-          <button class="btn-primary btn-addToCart">
-            <i class="fas fa-cart-plus"></i> Thêm vào giỏ
+          <button class="btn-primary btn-addToCart" @click="addToCart" :disabled="addingToCart">
+            <i class="fas fa-cart-plus" v-if="!addingToCart"></i>
+            <span v-if="addingToCart">Đang thêm...</span>
+            <span v-else>Thêm vào giỏ</span>
           </button>
         </div>
         <button class="btn-primary btn-buyNow">Mua ngay</button>
@@ -157,6 +350,15 @@ onMounted(() => {
     </section>
 
   </main>
+
+  <!-- Toast -->
+  <Transition name="toast">
+    <div v-if="toast.show" class="toast-notification" :class="toast.type">
+      <svg v-if="toast.type === 'success'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <span>{{ toast.message }}</span>
+    </div>
+  </Transition>
 </template>
 
 <style scoped>
@@ -185,7 +387,7 @@ onMounted(() => {
 /* Grid Layout */
 .product-main-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 5fr 7fr;
   gap: 40px;
   margin-bottom: 40px;
 }
@@ -198,7 +400,7 @@ onMounted(() => {
 }
 .main-image-container {
   width: 100%;
-  aspect-ratio: 4/5;
+  aspect-ratio: 1/1;
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border-color, #d9e8f0);
@@ -207,7 +409,7 @@ onMounted(() => {
 .main-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .thumbnail-list {
   display: flex;
@@ -504,5 +706,95 @@ onMounted(() => {
 @media (max-width: 900px) {
   .product-main-grid { grid-template-columns: 1fr; gap: 24px; }
   .product-details-reviews { grid-template-columns: 1fr; }
+}
+
+/* Variant Selector */
+.variant-selector { margin-bottom: 24px; }
+.variant-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #334e68;
+  margin-bottom: 10px;
+}
+.variant-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.variant-btn {
+  padding: 8px 16px;
+  border: 1.5px solid #d9e2ec;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334e68;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.variant-btn:hover:not(:disabled) {
+  border-color: #0288d1;
+  color: #0288d1;
+}
+.variant-btn.active {
+  border-color: #0288d1;
+  background: rgba(2, 136, 209, 0.08);
+  color: #0288d1;
+}
+.variant-btn.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.variant-stock {
+  font-size: 0.75rem;
+  color: #f59e0b;
+  font-weight: 500;
+}
+.variant-stock.out { color: #dc2626; }
+
+.btn-primary:disabled,
+.btn-addToCart:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Toast */
+.toast-notification {
+  position: fixed;
+  top: 90px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  z-index: 999;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+.toast-notification.success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.toast-notification.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+.toast-enter-active { animation: slideInRight 0.3s ease; }
+.toast-leave-active { animation: slideOutRight 0.3s ease; }
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideOutRight {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(40px); }
 }
 </style>

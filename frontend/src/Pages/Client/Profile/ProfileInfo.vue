@@ -238,9 +238,10 @@ onMounted(async () => {
   // Lấy dữ liệu mới nhất từ server
   try {
     const res = await api.get('/me');
-    if (res.data) {
-      syncUser(res.data);
-      localStorage.setItem('user', JSON.stringify(res.data));
+    const userData = res.data?.user || res.data;
+    if (userData) {
+      syncUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
     }
   } catch (e) {
     console.error('Lỗi tải thông tin user:', e);
