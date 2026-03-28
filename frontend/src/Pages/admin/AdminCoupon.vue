@@ -10,6 +10,14 @@ const isSubmitting = ref(false);
 const isEditing = ref(false);
 const searchQuery = ref('');
 
+// === Danh mục ===
+const allCategories = ref([]);
+
+// === Usages modal ===
+const isUsagesModalOpen = ref(false);
+const usagesData = ref(null);
+const isLoadingUsages = ref(false);
+
 const defaultForm = () => ({
     id: null,
     code: '',
@@ -24,6 +32,8 @@ const defaultForm = () => ({
     start_date: '',
     end_date: '',
     is_active: 1,
+    category_ids: [],
+    send_email: false,
 });
 
 const form = ref(defaultForm());
@@ -63,16 +73,32 @@ const filteredCoupons = computed(() => {
     return list;
 });
 
-onMounted(fetchCoupons);
+const fetchCategories = async () => {
+    try {
+        const res = await api.get('/categories');
+        allCategories.value = res.data.data || res.data;
+    } catch (e) {
+        console.error('Lỗi tải danh mục:', e);
+    }
+};
+
+onMounted(() => {
+    fetchCoupons();
+    fetchCategories();
+});
 
 const openCreateModal = () => {
     isEditing.value = false;
+    formError.value = '';
+    errors.value = {};
     form.value = defaultForm();
     isModalOpen.value = true;
 };
 
 const openEditModal = (coupon) => {
     isEditing.value = true;
+    formError.value = '';
+    errors.value = {};
     form.value = {
         id: coupon.id,
         code: coupon.code,
@@ -84,23 +110,35 @@ const openEditModal = (coupon) => {
         user_usage_limit: coupon.user_usage_limit !== undefined ? coupon.user_usage_limit : 1,
         is_public: coupon.is_public !== undefined ? coupon.is_public : 1,
         is_first_order: coupon.is_first_order || 0,
-        // Xử lý cắt chuỗi ngày giờ để vừa với input datetime-local
         start_date: coupon.start_date ? new Date(coupon.start_date).toISOString().slice(0, 16) : '',
         end_date: coupon.end_date ? new Date(coupon.end_date).toISOString().slice(0, 16) : '',
         is_active: coupon.is_active,
+        category_ids: coupon.category_ids || [],
+        send_email: false,
     };
     isModalOpen.value = true;
 };
 
 const closeModal = () => {
     isModalOpen.value = false;
+    isCatDropdownOpen.value = false;
 };
 
+const formError = ref('');
+const errors = ref({});
+
 const handleSubmit = async () => {
-    if (!form.value.code.trim()) {
-        showToast('Vui lòng nhập mã code!', 'danger');
-        return;
-    }
+    formError.value = '';
+    errors.value = {};
+
+    let hasError = false;
+    if (!form.value.code.trim()) { errors.value.code = 'Vui lòng nhập mã code.'; hasError = true; }
+    if (!form.value.value || form.value.value <= 0) { errors.value.value = 'Mức giảm phải lớn hơn 0.'; hasError = true; }
+    if (form.value.type === 'percent' && (!form.value.value || form.value.value > 100)) { errors.value.value = 'Phần trăm giảm không được vượt quá 100%'; hasError = true; }
+    if (!form.value.start_date) { errors.value.start_date = 'Vui lòng chọn ngày bắt đầu.'; hasError = true; }
+    if (!form.value.end_date) { errors.value.end_date = 'Vui lòng chọn ngày kết thúc.'; hasError = true; }
+
+    if (hasError) return;
 
     isSubmitting.value = true;
 
@@ -129,8 +167,15 @@ const handleSubmit = async () => {
         await fetchCoupons();
         closeModal();
     } catch (error) {
-        const msg = error.response?.data?.message || (isEditing.value ? 'Cập nhật thất bại!' : 'Tạo mã mới thất bại!');
-        showToast(msg, 'danger');
+        if (error.response?.status === 422 && error.response?.data?.errors) {
+            const backendErrors = error.response.data.errors;
+            for (const key in backendErrors) {
+                errors.value[key] = backendErrors[key][0];
+            }
+            // formError.value = error.response.data.message || 'Vui lòng kiểm tra lại các trường nhập liệu!';
+        } else {
+            formError.value = error.response?.data?.message || (isEditing.value ? 'Cập nhật thất bại!' : 'Tạo mã mới thất bại!');
+        }
     } finally {
         isSubmitting.value = false;
     }
@@ -181,6 +226,56 @@ const isExpired = (endDate) => {
     if (!endDate) return false;
     return new Date(endDate) < new Date();
 };
+
+// === Usages Modal ===
+const openUsagesModal = async (couponId) => {
+    isUsagesModalOpen.value = true;
+    isLoadingUsages.value = true;
+    usagesData.value = null;
+    try {
+        const res = await api.get(`/admin/coupons/${couponId}/usages`);
+        if (res.data.status === 'success') {
+            usagesData.value = res.data.data;
+        }
+    } catch (e) {
+        showToast('Lỗi khi tải lượt dùng!', 'danger');
+    } finally {
+        isLoadingUsages.value = false;
+    }
+};
+
+const closeUsagesModal = () => {
+    isUsagesModalOpen.value = false;
+    usagesData.value = null;
+};
+
+const isCatDropdownOpen = ref(false);
+
+const toggleCategory = (catId) => {
+    const idx = form.value.category_ids.indexOf(catId);
+    if (idx > -1) {
+        form.value.category_ids.splice(idx, 1);
+    } else {
+        form.value.category_ids.push(catId);
+    }
+};
+
+// Lấy tên category theo ID (duyệt cả children)
+const getCategoryName = (catId) => {
+    for (const cat of allCategories.value) {
+        if (cat.category_id === catId) return cat.name;
+        if (cat.children) {
+            const child = cat.children.find(c => c.category_id === catId);
+            if (child) return child.name;
+        }
+    }
+    return '';
+};
+
+const selectedCategoryNames = computed(() => {
+    if (!form.value.category_ids.length) return 'Tất cả danh mục';
+    return form.value.category_ids.map(id => getCategoryName(id)).filter(Boolean).join(', ');
+});
 </script>
 
 <template>
@@ -266,6 +361,10 @@ const isExpired = (endDate) => {
                                     <svg v-if="!coupon.is_public" title="Ẩn nội bộ" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="vertical-align:top;margin-left:2px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                                 </span>
                                 <div class="type-badge">{{ coupon.type === 'percent' ? 'Phần trăm' : (coupon.type === 'free_ship' ? 'Freeship' : 'Cố định') }}</div>
+                                <div v-if="coupon.categories && coupon.categories.length" class="cat-badges">
+                                    <span v-for="cat in coupon.categories" :key="cat.category_id" class="badge-category">{{ cat.name }}</span>
+                                </div>
+                                <div v-else class="cat-badges"><span class="badge-category all">Tất cả</span></div>
                             </td>
                             <td>
                                 <strong class="value-text">{{ formatValue(coupon) }}</strong>
@@ -287,6 +386,10 @@ const isExpired = (endDate) => {
                                     <span v-if="coupon.usage_limit">{{ coupon.usage_limit }}</span>
                                     <span v-else>∞</span>
                                 </div>
+                                <button class="btn-usage" @click="openUsagesModal(coupon.id)" title="Xem chi tiết lượt dùng">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                                    {{ coupon.total_users_used || 0 }} user
+                                </button>
                             </td>
                             <td class="date-cell">
                                 <div><small>Từ:</small> {{ formatDate(coupon.start_date) || '-' }}</div>
@@ -328,13 +431,14 @@ const isExpired = (endDate) => {
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                     </div>
-                    <form @submit.prevent="handleSubmit" class="modal-body">
+                    <form @submit.prevent="handleSubmit" novalidate class="modal-body">
                         
                         <!-- Cụm Code -->
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Mã Code <span class="required">*</span></label>
-                                <input v-model="form.code" type="text" placeholder="VD: SALE50K" class="form-control" required style="text-transform: uppercase;" />
+                                <input v-model="form.code" type="text" placeholder="VD: SALE50K" class="form-control" :class="{'is-invalid': errors.code}" style="text-transform: uppercase;" />
+                                <span v-if="errors.code" class="field-error">{{ errors.code }}</span>
                             </div>
                         </div>
 
@@ -350,7 +454,8 @@ const isExpired = (endDate) => {
                             </div>
                             <div class="form-group">
                                 <label>Mức giảm <span class="required">*</span></label>
-                                <input v-model.number="form.value" type="number" min="0" class="form-control" placeholder="0" required />
+                                <input v-model.number="form.value" type="number" min="0" class="form-control" :class="{'is-invalid': errors.value}" placeholder="0" />
+                                <span v-if="errors.value" class="field-error">{{ errors.value }}</span>
                             </div>
                         </div>
 
@@ -374,64 +479,96 @@ const isExpired = (endDate) => {
                             </div>
                         </div>
 
-                        <!-- Cụm Public & Kho -->
+                        <!-- Cụm Kho -->
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Tổng số mã phát ra (Kho)</label>
                                 <input v-model.number="form.usage_limit" type="number" min="1" class="form-control" placeholder="Để trống = vô hạn" />
-                            </div>
-                            <div class="form-group">
-                                <label>Sự kiện: Chỉ áp dụng Đơn Đầu</label>
-                                <div class="toggle-wrap" style="margin-top:6px;">
-                                    <label class="toggle-switch-wrapper">
-                                        <div class="toggle-switch">
-                                            <input type="checkbox" v-model="form.is_first_order" :true-value="1" :false-value="0" class="toggle-input" />
-                                            <span class="toggle-slider"></span>
-                                        </div>
-                                        <span class="toggle-text">{{ form.is_first_order ? 'Có (Chỉ First Order)' : 'Không (Mọi đơn)' }}</span>
-                                    </label>
-                                </div>
                             </div>
                         </div>
 
                         <!-- Cụm Ngày -->
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Ngày bắt đầu</label>
-                                <input v-model="form.start_date" type="datetime-local" class="form-control" />
+                                <label>Ngày bắt đầu <span class="required">*</span></label>
+                                <input v-model="form.start_date" type="datetime-local" class="form-control" :class="{'is-invalid': errors.start_date}" />
+                                <span v-if="errors.start_date" class="field-error">{{ errors.start_date }}</span>
                             </div>
                             <div class="form-group">
-                                <label>Ngày kết thúc</label>
-                                <input v-model="form.end_date" type="datetime-local" class="form-control" />
+                                <label>Ngày kết thúc <span class="required">*</span></label>
+                                <input v-model="form.end_date" type="datetime-local" class="form-control" :class="{'is-invalid': errors.end_date}" />
+                                <span v-if="errors.end_date" class="field-error">{{ errors.end_date }}</span>
                             </div>
                         </div>
 
-                        <!-- Cụm Trạng thái -->
-                        <div class="form-row" style="background:var(--hover-bg); padding:12px; border-radius:8px;">
-                            <div class="form-group mb-0">
-                                <label>Công khai mã?</label>
-                                <div class="toggle-wrap">
-                                    <label class="toggle-switch-wrapper">
-                                        <div class="toggle-switch">
-                                            <input type="checkbox" v-model="form.is_public" :true-value="1" :false-value="0" class="toggle-input" />
-                                            <span class="toggle-slider"></span>
-                                        </div>
-                                        <span class="toggle-text">{{ form.is_public ? 'Hiện trên Săn Voucher' : 'Mã ẩn / Nội bộ' }}</span>
-                                    </label>
-                                </div>
+                        <!-- Cụm Danh mục áp dụng (Dropdown tree-view) -->
+                        <div class="form-group" style="margin-bottom: 16px; position: relative;">
+                            <label>Áp dụng cho Danh mục <span style="color:#9fb3c8;font-weight:400;font-size:0.75rem">(bỏ trống = tất cả)</span></label>
+                            <div class="cat-dropdown-trigger" @click="isCatDropdownOpen = !isCatDropdownOpen">
+                                <span class="cat-dropdown-text">{{ selectedCategoryNames }}</span>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" :style="{transform: isCatDropdownOpen ? 'rotate(180deg)' : '', transition: '0.2s'}"><polyline points="6 9 12 15 18 9"/></svg>
                             </div>
-                            <div class="form-group mb-0">
-                                <label>Trạng thái Kích Hoạt</label>
-                                <div class="toggle-wrap">
-                                    <label class="toggle-switch-wrapper">
-                                        <div class="toggle-switch">
-                                            <input type="checkbox" v-model="form.is_active" :true-value="1" :false-value="0" class="toggle-input" />
-                                            <span class="toggle-slider"></span>
-                                        </div>
-                                        <span class="toggle-text">{{ form.is_active ? 'Đang hoạt động' : 'Đang tạm dừng' }}</span>
-                                    </label>
-                                </div>
+                            <!-- Selected tags -->
+                            <div v-if="form.category_ids.length" class="cat-selected-tags">
+                                <span v-for="catId in form.category_ids" :key="catId" class="cat-tag">
+                                    {{ getCategoryName(catId) }}
+                                    <svg @click.stop="toggleCategory(catId)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="cursor:pointer;margin-left:4px;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </span>
                             </div>
+                            <!-- Dropdown menu -->
+                            <div v-if="isCatDropdownOpen" class="cat-dropdown-menu">
+                                <div v-if="allCategories.length === 0" style="padding:12px;color:#9fb3c8;font-size:0.8rem">Đang tải...</div>
+                                <template v-for="parent in allCategories" :key="parent.category_id">
+                                    <label class="cat-dropdown-item parent">
+                                        <input type="checkbox" :checked="form.category_ids.includes(parent.category_id)" @change="toggleCategory(parent.category_id)" />
+                                        <span>{{ parent.name }}</span>
+                                    </label>
+                                    <template v-if="parent.children && parent.children.length">
+                                        <label v-for="child in parent.children" :key="child.category_id" class="cat-dropdown-item child">
+                                            <input type="checkbox" :checked="form.category_ids.includes(child.category_id)" @change="toggleCategory(child.category_id)" />
+                                            <span>{{ child.name }}</span>
+                                        </label>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- ✅ Kích hoạt ngay -->
+                        <div class="option-section">
+                            <label class="option-checkbox main-option">
+                                <input type="checkbox" v-model="form.is_active" :true-value="1" :false-value="0" />
+                                <span class="checkmark"></span>
+                                <span class="option-label">Kích hoạt ngay</span>
+                            </label>
+                        </div>
+
+                        <!-- TÙY CHỌN NÂNG CAO -->
+                        <div class="advanced-section">
+                            <div class="advanced-title">TÙY CHỌN NÂNG CAO</div>
+
+                            <label class="option-checkbox">
+                                <input type="checkbox" v-model="form.is_public" :true-value="1" :false-value="0" />
+                                <span class="checkmark"></span>
+                                <svg class="option-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e65100" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                                <span class="option-label">Công khai trên Săn Voucher</span>
+                            </label>
+
+                            <!-- Gửi email (indented, highlighted) -->
+                            <div v-if="!isEditing" class="email-option-wrap">
+                                <label class="option-checkbox">
+                                    <input type="checkbox" v-model="form.send_email" :true-value="true" :false-value="false" />
+                                    <span class="checkmark"></span>
+                                    <svg class="option-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1565c0" stroke-width="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                    <span class="option-label" style="color:#1565c0; font-weight:600;">Gửi email thông báo cho tất cả người dùng ngay lập tức</span>
+                                </label>
+                            </div>
+
+                            <label class="option-checkbox">
+                                <input type="checkbox" v-model="form.is_first_order" :true-value="1" :false-value="0" />
+                                <span class="checkmark"></span>
+                                <svg class="option-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d84315" stroke-width="2.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                                <span class="option-label">Chỉ cho đơn đầu tiên</span>
+                            </label>
                         </div>
                         
                         <div class="modal-footer">
@@ -471,6 +608,73 @@ const isExpired = (endDate) => {
             </div>
         </div>
 
+        <!-- Vue Modal: Xem lượt dùng coupon -->
+        <Transition name="modal">
+            <div v-if="isUsagesModalOpen" class="modal-overlay" @click.self="closeUsagesModal">
+                <div class="modal-box ocean-card" style="max-width: 600px;">
+                    <div class="modal-head">
+                        <h3>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ocean-blue)" stroke-width="2.5" style="vertical-align:middle;margin-right:6px"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                            Lượt dùng: <strong style="color:#d84315">{{ usagesData?.coupon?.code }}</strong>
+                        </h3>
+                        <button class="btn-close" @click="closeUsagesModal">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <div style="padding: 20px 24px;">
+                        <!-- Stats -->
+                        <div v-if="usagesData" style="display:flex; gap:12px; margin-bottom:16px;">
+                            <div class="stat-card">
+                                <div class="stat-num">{{ usagesData.total_saved }}</div>
+                                <div class="stat-label">Đã lưu</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-num" style="color:#2e7d32">{{ usagesData.total_used }}</div>
+                                <div class="stat-label">Đã dùng</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-num" style="color:#d84315">{{ usagesData.coupon?.used_count || 0 }} / {{ usagesData.coupon?.usage_limit || '∞' }}</div>
+                                <div class="stat-label">Tổng lượt xài</div>
+                            </div>
+                        </div>
+
+                        <!-- Loading -->
+                        <div v-if="isLoadingUsages" class="loading-state" style="padding:40px"><div class="spinner"></div>Đang tải...</div>
+                        
+                        <!-- Table -->
+                        <div v-else-if="usagesData && usagesData.usages.length" style="max-height:350px; overflow-y:auto;">
+                            <table class="data-table" style="font-size:0.85rem">
+                                <thead>
+                                    <tr>
+                                        <th>Khách hàng</th>
+                                        <th>Email</th>
+                                        <th>Số lần dùng</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="u in usagesData.usages" :key="u.user_id">
+                                        <td><strong>{{ u.full_name }}</strong></td>
+                                        <td style="color:var(--text-muted); font-size:0.8rem">{{ u.email }}</td>
+                                        <td><span class="usage-count-badge">{{ u.used_count }}</span></td>
+                                        <td>
+                                            <span v-if="u.used_count > 0" class="status-badge active" style="font-size:0.6rem">Đã dùng</span>
+                                            <span v-else class="status-badge inactive" style="font-size:0.6rem">Chỉ lưu</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Empty -->
+                        <div v-else-if="usagesData" style="text-align:center; padding:40px; color:#9fb3c8">
+                            <p>Chưa có ai lưu hoặc dùng mã này.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+
         <!-- Bootstrap Toast -->
         <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
             <div class="toast align-items-center border-0 border-start border-4" :class="toast.type === 'success' ? 'text-bg-white border-success' : 'text-bg-white border-danger'" id="couponToast" role="alert">
@@ -487,6 +691,26 @@ const isExpired = (endDate) => {
 </template>
 
 <style scoped>
+/* Validation Styles */
+.field-error {
+    color: #e53935;
+    font-size: 0.8rem;
+    margin-top: 4px;
+    display: block;
+}
+.is-invalid {
+    border-color: #e53935 !important;
+    background-color: #fff2f2 !important;
+}
+.form-error-box {
+    background-color: #fff2f2;
+    border: 1px solid #e53935;
+    color: #c62828;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
 .category-page { font-family: var(--font-inter); }
 
 /* Header */
@@ -685,4 +909,148 @@ const isExpired = (endDate) => {
 
 /* Custom Bootstap Toast style */
 .text-bg-white { background-color: #fff !important; color: #333 !important; }
+
+/* Category Badges in table */
+.cat-badges { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.badge-category {
+    display: inline-block; font-size: 0.6rem; font-weight: 600;
+    padding: 1px 6px; border-radius: 4px;
+    background: #e3f2fd; color: #1565c0;
+}
+.badge-category.all { background: #f3e5f5; color: #7b1fa2; }
+
+/* Category Dropdown selector */
+.cat-dropdown-trigger {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-radius: 8px;
+    border: 1.5px solid var(--border-color); background: var(--ocean-deepest);
+    cursor: pointer; transition: all 0.2s; font-size: 0.85rem;
+    color: var(--text-main); font-family: var(--font-inter);
+}
+.cat-dropdown-trigger:hover { border-color: var(--ocean-blue); box-shadow: 0 0 0 3px rgba(2,136,209,0.08); }
+.cat-dropdown-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
+.cat-selected-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.cat-tag {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 10px; border-radius: 14px; font-size: 0.72rem; font-weight: 600;
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb); color: #0d47a1;
+    border: 1px solid #90caf9; transition: all 0.2s;
+}
+.cat-tag:hover { background: linear-gradient(135deg, #bbdefb, #90caf9); }
+
+.cat-dropdown-menu {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+    background: #ffffff; border: 1px solid #e0e6ed;
+    border-radius: 10px; box-shadow: 0 12px 36px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+    max-height: 280px; overflow-y: auto; margin-top: 6px; padding: 6px 0;
+}
+.cat-dropdown-menu::-webkit-scrollbar { width: 5px; }
+.cat-dropdown-menu::-webkit-scrollbar-track { background: transparent; }
+.cat-dropdown-menu::-webkit-scrollbar-thumb { background: #c7d2e0; border-radius: 10px; }
+
+.cat-dropdown-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0; cursor: pointer; font-size: 0.84rem;
+    font-weight: 500; color: #3d4f5f; transition: all 0.15s;
+    font-family: var(--font-inter); margin: 2px 6px; border-radius: 6px;
+    padding: 9px 12px; user-select: none;
+}
+.cat-dropdown-item:hover { background: #f0f5ff; color: #1a56db; }
+.cat-dropdown-item.parent {
+    font-weight: 700; font-size: 0.85rem; color: #1e293b;
+    margin-top: 2px; border-bottom: 1px solid #f1f5f9;
+    border-radius: 6px 6px 0 0; padding-bottom: 9px;
+}
+.cat-dropdown-item.parent:first-child { margin-top: 0; }
+.cat-dropdown-item.child {
+    padding-left: 36px; font-size: 0.8rem; color: #64748b;
+    position: relative; margin-top: 0; border-radius: 0;
+}
+.cat-dropdown-item.child::before {
+    content: ''; position: absolute; left: 20px; top: 50%; width: 8px; height: 1px;
+    background: #cbd5e1;
+}
+/* Custom checkbox inside dropdown */
+.cat-dropdown-item input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 17px; height: 17px; border: 2px solid #c0c8d4; border-radius: 4px;
+    cursor: pointer; flex-shrink: 0; position: relative;
+    background: #fff; transition: all 0.15s;
+}
+.cat-dropdown-item input[type="checkbox"]:hover { border-color: var(--ocean-blue); }
+.cat-dropdown-item input[type="checkbox"]:checked {
+    background: var(--ocean-blue); border-color: var(--ocean-blue);
+}
+.cat-dropdown-item input[type="checkbox"]:checked::after {
+    content: ''; position: absolute; left: 4px; top: 1px;
+    width: 5px; height: 9px; border: solid #fff;
+    border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+
+/* Usage button in table */
+.btn-usage {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 4px; padding: 2px 8px; border-radius: 12px;
+    border: 1px solid #e3f2fd; background: #e3f2fd; color: #1565c0;
+    font-size: 0.68rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+    font-family: var(--font-inter);
+}
+.btn-usage:hover { background: #bbdefb; border-color: #90caf9; }
+
+/* Stat cards in usages modal */
+.stat-card {
+    flex: 1; text-align: center; padding: 12px; border-radius: 10px;
+    background: var(--ocean-deepest); border: 1px solid var(--border-color);
+}
+.stat-num { font-size: 1.3rem; font-weight: 800; color: var(--text-main); }
+.stat-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); margin-top: 2px; }
+
+/* Usage count badge */
+.usage-count-badge {
+    display: inline-block; min-width: 24px; padding: 2px 8px;
+    background: #fff3e0; color: #e65100; font-weight: 800;
+    font-size: 0.8rem; border-radius: 12px; text-align: center;
+}
+
+/* ======= Option Checkbox (Redesigned form section) ======= */
+.option-section {
+    padding: 14px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 12px;
+}
+
+.option-checkbox {
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer; padding: 8px 0; margin: 0; font-family: var(--font-inter);
+    user-select: none; font-size: 0.88rem; color: var(--text-main);
+}
+.option-checkbox input[type="checkbox"] { display: none; }
+.option-checkbox .checkmark {
+    width: 20px; height: 20px; border: 2px solid #c0c8d4; border-radius: 4px;
+    flex-shrink: 0; position: relative; transition: all 0.2s;
+    background: var(--ocean-deepest);
+}
+.option-checkbox input:checked + .checkmark {
+    background: #1a56db; border-color: #1a56db;
+}
+.option-checkbox input:checked + .checkmark::after {
+    content: ''; position: absolute; left: 5px; top: 1px;
+    width: 6px; height: 11px; border: solid #fff;
+    border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+.option-checkbox.main-option { font-weight: 700; font-size: 0.92rem; }
+.option-icon { flex-shrink: 0; }
+.option-label { flex: 1; }
+
+.advanced-section {
+    border-top: 1px solid var(--border-color); padding-top: 12px; margin-bottom: 4px;
+}
+.advanced-title {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 1.5px;
+    color: var(--text-muted); margin-bottom: 6px;
+}
+
+.email-option-wrap {
+    padding: 8px 12px; margin: 4px 0 4px 28px;
+    background: #eef2ff; border-radius: 8px;
+}
 </style>

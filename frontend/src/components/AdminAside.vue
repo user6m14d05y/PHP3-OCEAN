@@ -81,6 +81,10 @@
             <span class="submenu-dot"></span>
             <span>Bài viết</span>
           </router-link>
+          <router-link to="/admin/post-category" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Danh mục bài viết</span>
+          </router-link>
           <router-link to="/admin/review" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
             <span>Đánh giá</span>

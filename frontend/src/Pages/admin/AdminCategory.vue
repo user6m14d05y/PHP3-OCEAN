@@ -68,12 +68,16 @@ onMounted(fetchCategories);
 
 const openCreateModal = () => {
     isEditing.value = false;
+    formError.value = '';
+    errors.value = {};
     form.value = defaultForm();
     isModalOpen.value = true;
 };
 
 const openEditModal = (category) => {
     isEditing.value = true;
+    formError.value = '';
+    errors.value = {};
     form.value = {
         category_id: category.category_id,
         name: category.name,
@@ -89,11 +93,20 @@ const closeModal = () => {
     isModalOpen.value = false;
 };
 
+const formError = ref('');
+const errors = ref({});
+
 const handleSubmit = async () => {
+    formError.value = '';
+    errors.value = {};
+
+    let hasError = false;
     if (!form.value.name.trim()) {
-        showToast('Vui lòng nhập tên danh mục!', 'danger');
-        return;
+        errors.value.name = 'Vui lòng nhập tên danh mục.';
+        hasError = true;
     }
+
+    if (hasError) return;
 
     const data = { ...form.value, parent_id: form.value.parent_id || null };
     isSubmitting.value = true;
@@ -109,8 +122,15 @@ const handleSubmit = async () => {
         await fetchCategories();
         closeModal();
     } catch (error) {
-        const msg = error.response?.data?.message || (isEditing.value ? 'Cập nhật thất bại!' : 'Thêm danh mục thất bại!');
-        showToast(msg, 'danger');
+        if (error.response?.status === 422 && error.response?.data?.errors) {
+            const backendErrors = error.response.data.errors;
+            for (const key in backendErrors) {
+                errors.value[key] = backendErrors[key][0];
+            }
+            // formError.value = error.response.data.message || 'Vui lòng kiểm tra lại các trường nhập liệu!';
+        } else {
+            formError.value = error.response?.data?.message || (isEditing.value ? 'Cập nhật thất bại!' : 'Thêm danh mục thất bại!');
+        }
     } finally {
         isSubmitting.value = false;
     }
@@ -238,10 +258,11 @@ const confirmDeleteCategory = async () => {
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                     </div>
-                    <form @submit.prevent="handleSubmit" class="modal-body">
+                    <form @submit.prevent="handleSubmit" novalidate class="modal-body">
                         <div class="form-group">
                             <label>Tên danh mục <span class="required">*</span></label>
-                            <input v-model="form.name" type="text" placeholder="VD: Quần áo thể thao" class="form-control" required />
+                            <input v-model="form.name" type="text" placeholder="VD: Quần áo thể thao" class="form-control" :class="{'is-invalid': errors.name}" />
+                            <span v-if="errors.name" class="field-error">{{ errors.name }}</span>
                         </div>
                         <div class="form-group">
                             <label>Danh mục cha</label>
@@ -272,6 +293,13 @@ const confirmDeleteCategory = async () => {
                             <label>Mô tả</label>
                             <textarea v-model="form.description" rows="3" class="form-control" placeholder="Mô tả ngắn về danh mục (không bắt buộc)..."></textarea>
                         </div>
+                        
+                        <!-- Inline error -->
+                        <div v-if="formError" class="form-error-box">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            {{ formError }}
+                        </div>
+
                         <div class="modal-footer">
                             <button type="button" @click="closeModal" class="btn-outline">Hủy bỏ</button>
                             <button type="submit" class="btn-primary" :disabled="isSubmitting">
@@ -455,6 +483,18 @@ const confirmDeleteCategory = async () => {
     font-size: 0.85rem; transition: all 0.2s; box-sizing: border-box;
 }
 .form-control:focus { border-color: var(--ocean-blue); outline: none; box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.1); }
+.form-control.is-invalid { border-color: var(--coral); background: #fef2f2; }
+.form-control.is-invalid:focus { box-shadow: 0 0 0 3px rgba(239,83,80,0.1); }
+.field-error { display: block; color: var(--coral); font-size: 0.72rem; font-weight: 600; margin-top: 6px; animation: fadeSlideUp 0.2s ease; }
+
+.form-error-box {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px; margin-bottom: 14px;
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+    color: #dc2626; font-size: 0.82rem; font-weight: 600;
+    animation: shakeError 0.35s ease;
+}
+@keyframes shakeError { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+
 .form-control::placeholder { color: var(--text-light); }
 .form-select {
     appearance: none;

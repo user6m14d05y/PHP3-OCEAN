@@ -172,6 +172,42 @@ const routes = [
                 component: AdminCoupon,
                 meta: { title: 'Quản lý mã giảm giá' },
             },
+            {
+                path: "shipping",
+                name: "admin-shipping",
+                component: () => import("../Pages/admin/AdminShipping.vue"),
+                meta: { title: 'Quản lý phí vận chuyển' },
+            },
+            {
+                path: "post",
+                name: "admin-post",
+                component: () => import("../Pages/admin/AdminPost.vue"),
+                meta: { title: 'Quản lý bài viết' },
+            },
+            {
+                path: "post/create",
+                name: "admin-post-create",
+                component: () => import("../Pages/admin/AdminCreatePost.vue"),
+                meta: { title: 'Thêm bài viết' },
+            },
+            {
+                path: "post/edit/:id",
+                name: "admin-post-edit",
+                component: () => import("../Pages/admin/AdminEditPost.vue"),
+                meta: { title: 'Sửa bài viết' },
+            },
+            {
+                path: "post-category",
+                name: "admin-post-category",
+                component: () => import("../Pages/admin/AdminPostCategory.vue"),
+                meta: { title: 'Danh mục bài viết' },
+            },
+            {
+                path: "post-category/create",
+                name: "admin-post-category-create",
+                component: () => import("../Pages/admin/AdminCreatePostCategory.vue"),
+                meta: { title: 'Thêm danh mục bài viết' },
+            },
         ],
     },
 ];
