@@ -176,6 +176,7 @@ const addToCart = async () => {
         });
         if (response.data.status === 'success') {
             showToast(response.data.message, 'success');
+            window.dispatchEvent(new Event('cart-updated'));
         }
     } catch (error) {
         const msg = error.response?.data?.message || 'Không thể thêm vào giỏ hàng.';
@@ -240,7 +241,7 @@ onMounted(() => {
 
         <!-- Giá tiền -->
         <div class="product-pricing">
-          <span class="current-price">{{ formatPrice(product.min_price) }}</span>
+          <span class="current-price">{{ formatPrice(selectedVariant ? selectedVariant.price : product.min_price) }}</span>
           <span class="original-price" v-if="product.originalPrice">{{ formatPrice(product.originalPrice) }}</span>
           <span class="discount-badge" v-if="product.originalPrice">
             -{{ Math.round((1 - product.price / product.originalPrice) * 100) }}%

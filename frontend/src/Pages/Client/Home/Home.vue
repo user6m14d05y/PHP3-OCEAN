@@ -4,24 +4,32 @@ import api from "../../../axios.js";
 
 const Products = ref([]);
 const Categories = ref([]);
+const categoryProducts = ref({});
+
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
+
+const getImageUrl = (path) => {
+    if (!path || path === '0') return 'https://placehold.co/400x500?text=No+Image';
+    if (path.startsWith('http')) return path;
+    return `${BASE_URL}/storage/${path}`;
+};
+
+const mapProduct = (item) => ({
+    id: item.product_id,
+    name: item.name,
+    price: new Intl.NumberFormat("vi-VN", {
+        style: "currency",
+        currency: "VND",
+    }).format(item.min_price),
+    image: getImageUrl(item.thumbnail_url),
+    badge: item.is_featured ? "Hot" : null,
+    slug: item.slug,
+});
 
 const fetchProducts = async () => {
     try {
         const response = await api.get("/productsFeatured");
-        Products.value = response.data.data.map((item) => ({
-            id: item.product_id,
-            name: item.name,
-            price: new Intl.NumberFormat("vi-VN", {
-                style: "currency",
-                currency: "VND",
-            }).format(item.min_price),
-            image:
-                item.thumbnail_url !== "0"
-                    ? item.thumbnail_url
-                    : "https://placehold.co/400x500?text=No+Image",
-            badge: item.is_featured ? "Hot" : null,
-            slug: item.slug,
-        }));
+        Products.value = response.data.data.map(mapProduct);
     } catch (error) {
         console.error("Error fetching products:", error);
     }
@@ -33,11 +41,20 @@ const fetchCategories = async () => {
         Categories.value = response.data.data.map((item) => ({
             id: item.category_id,
             name: item.name,
-            image:
-                item.image_url !== "0"
-                    ? item.image_url
-                    : "https://placehold.co/400x500?text=No+Image",
+            slug: item.slug,
         }));
+
+        // Fetch products cho từng danh mục (lấy 4 sản phẩm đầu)
+        await Promise.all(
+            Categories.value.map(async (cat) => {
+                try {
+                    const res = await api.get(`/products?limit=4&page=1&category_id=${cat.id}`);
+                    categoryProducts.value[cat.id] = (res.data.data || []).map(mapProduct);
+                } catch (e) {
+                    categoryProducts.value[cat.id] = [];
+                }
+            })
+        );
     } catch (error) {
         console.error("Error fetching categories:", error);
     }
@@ -155,8 +172,9 @@ onMounted(() => {
             </div>
         </section>
 
+        <template v-for="item in Categories" :key="item.id">
         <section
-            v-for="item in Categories"
+            v-if="categoryProducts[item.id] && categoryProducts[item.id].length > 0"
             class="products-section animate-in"
             style="animation-delay: 0.1s"
         >
@@ -168,7 +186,7 @@ onMounted(() => {
             <div class="products-grid">
                 <div
                     class="product-card ocean-card"
-                    v-for="product in Products"
+                    v-for="product in categoryProducts[item.id]"
                     :key="product.id"
                 >
                     <router-link
@@ -208,6 +226,7 @@ onMounted(() => {
                 </div>
             </div>
         </section>
+        </template>
     </main>
 </template>
 

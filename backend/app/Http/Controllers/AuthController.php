@@ -158,12 +158,7 @@ class AuthController extends Controller
             'token_type' => 'Bearer',
             'expires_in' => config('jwt.ttl', 60) * 60,
             'role' => $user->role,
-            'user' => [
-                'id' => $guardType === 'admin' ? $user->admin_id : $user->user_id,
-                'name' => $user->full_name,
-                'email' => $user->email,
-                'role' => $user->role
-            ]
+            'user' => $user
         ], 200);
     }
 
@@ -188,12 +183,7 @@ class AuthController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'user' => [
-                'id' => $guard === 'admin' ? $user->admin_id : $user->user_id,
-                'name' => $user->full_name,
-                'email' => $user->email,
-                'role' => $user->role
-            ]
+            'user' => $user
         ]);
     }
 
@@ -296,12 +286,7 @@ class AuthController extends Controller
                 'token_type' => 'Bearer',
                 'expires_in' => config('jwt.ttl', 60) * 60,
                 'role' => $user->role,
-                'user' => [
-                    'id' => $user->user_id,
-                    'name' => $user->full_name,
-                    'email' => $user->email,
-                    'role' => $user->role
-                ]
+                'user' => clone $user
             ]);
 
         } catch (\Exception $e) {
