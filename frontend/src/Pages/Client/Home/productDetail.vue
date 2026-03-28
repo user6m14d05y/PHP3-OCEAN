@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/axios';
 const route = useRoute();
@@ -7,17 +7,58 @@ const router = useRouter();
 const slug = route.params.slug;
 const product = ref(null);
 const selectedVariant = ref(null);
+const selectedColor = ref(null);
+const selectedSize = ref(null);
 const addingToCart = ref(false);
 const toast = ref({ show: false, message: '', type: 'success' });
+
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
+const getImageUrl = (path) => {
+    if (!path || path === '0') return 'https://placehold.co/600x600?text=No+Image';
+    if (path.startsWith('http')) return path;
+    return `${BASE_URL}/storage/${path}`;
+};
+
+const allImages = computed(() => {
+    if (!product.value) return [];
+    const imgs = product.value.images || [];
+    const variants = product.value.variants || [];
+    const hasVariants = variants.length > 0;
+
+    // Sản phẩm biến thể + đã chọn màu → hiện ảnh của variant màu đó
+    if (hasVariants && selectedColor.value) {
+        const colorVariants = variants.filter(v => v.color === selectedColor.value);
+        const variantIds = colorVariants.map(v => v.variant_id);
+
+        const variantImgs = imgs.filter(img => img.variant_id && variantIds.includes(img.variant_id));
+        if (variantImgs.length > 0) return variantImgs;
+
+        const directImgs = colorVariants
+            .filter(v => v.image_url)
+            .map(v => ({ image_url: v.image_url, variant_id: v.variant_id }));
+        if (directImgs.length > 0) return directImgs;
+    }
+
+    // Sản phẩm biến thể + chưa chọn màu → chỉ hiện thumbnail
+    if (hasVariants && !selectedColor.value) {
+        if (product.value.thumbnail_url && product.value.thumbnail_url !== '0') {
+            return [{ image_url: product.value.thumbnail_url }];
+        }
+        return [{ image_url: null }];
+    }
+
+    // Sản phẩm đơn giản → hiện tất cả ảnh
+    if (imgs.length > 0) return imgs;
+    if (product.value.thumbnail_url && product.value.thumbnail_url !== '0') {
+        return [{ image_url: product.value.thumbnail_url }];
+    }
+    return [{ image_url: null }];
+});
 
 const fetchProduct = async () => {
     try {
         const response = await api.get(`/products/${slug}`);
         product.value = response.data;
-        // Auto-select variant đầu tiên (nếu có)
-        if (product.value?.variants?.length > 0) {
-            selectedVariant.value = product.value.variants[0];
-        }
     } catch (error) {
         console.error("Error fetching product:", error);
     }
@@ -26,6 +67,76 @@ const fetchProduct = async () => {
 const isDescriptionExpanded = ref(false);
 const activeImageIndex = ref(0);
 const quantity = ref(1);
+
+// Lấy danh sách màu duy nhất
+const uniqueColors = computed(() => {
+    if (!product.value?.variants) return [];
+    const colors = [...new Set(product.value.variants.map(v => v.color).filter(Boolean))];
+    return colors;
+});
+
+// Lấy danh sách size khả dụng — luôn hiện tất cả size, đánh dấu disabled theo màu đã chọn
+const availableSizes = computed(() => {
+    if (!product.value?.variants) return [];
+    const variants = product.value.variants;
+
+    // Lấy tất cả sizes duy nhất
+    const allSizes = [...new Set(variants.map(v => v.size).filter(Boolean))];
+
+    return allSizes.map(size => {
+        // Nếu đã chọn màu, kiểm tra variant (color + size) có tồn tại và khả dụng không
+        if (selectedColor.value) {
+            const match = variants.find(v => v.color === selectedColor.value && v.size === size);
+            return {
+                size,
+                stock: match?.stock ?? 0,
+                status: match?.status ?? 'inactive',
+                variant_id: match?.variant_id ?? null,
+                available: !!match && match.status === 'active' && match.stock > 0,
+            };
+        }
+        // Chưa chọn màu → kiểm tra có BẤT KỲ variant nào có size này khả dụng không
+        const anyAvailable = variants.some(v => v.size === size && v.status === 'active' && v.stock > 0);
+        const first = variants.find(v => v.size === size);
+        return {
+            size,
+            stock: first?.stock ?? 0,
+            status: first?.status ?? 'inactive',
+            variant_id: first?.variant_id ?? null,
+            available: anyAvailable,
+        };
+    });
+});
+
+// Khi chọn màu → reset size + reset gallery, auto-select nếu chỉ có 1 size
+watch(selectedColor, (newColor) => {
+    selectedSize.value = null;
+    selectedVariant.value = null;
+    activeImageIndex.value = 0;
+    if (newColor) {
+        const sizes = product.value?.variants?.filter(v => v.color === newColor) || [];
+        if (sizes.length === 1) {
+            selectedSize.value = sizes[0].size;
+            selectedVariant.value = sizes[0];
+        }
+    }
+});
+
+// Khi chọn size → tìm variant đúng
+watch(selectedSize, (newSize) => {
+    if (newSize && selectedColor.value && product.value?.variants) {
+        const match = product.value.variants.find(
+            v => v.color === selectedColor.value && v.size === newSize
+        );
+        selectedVariant.value = match || null;
+    }
+});
+const mainImageUrl = computed(() => {
+    const imgs = allImages.value;
+    if (imgs.length === 0) return getImageUrl(null);
+    const idx = activeImageIndex.value < imgs.length ? activeImageIndex.value : 0;
+    return getImageUrl(imgs[idx]?.image_url);
+});
 
 const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
@@ -96,19 +207,19 @@ onMounted(() => {
       <div class="product-gallery">
         <!-- Ảnh chính -->
         <div class="main-image-container ocean-card">
-          <img :src="'http://localhost:8383/storage/' + product.images[activeImageIndex].image_url" :alt="product.name" class="main-image animate-fade-in" :key="activeImageIndex" />
+          <img :src="mainImageUrl" :alt="product.name" class="main-image animate-fade-in" :key="activeImageIndex" />
         </div>
         
         <!-- Danh sách Ảnh nhỏ (Thumbnails) -->
-        <div class="thumbnail-list">
+        <div class="thumbnail-list" v-if="allImages.length > 1">
           <div 
-            v-for="(img, index) in product.images" 
+            v-for="(img, index) in allImages" 
             :key="index"
             class="thumbnail-item"
             :class="{ 'active': activeImageIndex === index }"
             @click="activeImageIndex = index"
           >
-            <img :src=" 'http://localhost:8383/storage/' + img.image_url" :alt="`${product.name} - ảnh ${index + 1}`" />
+            <img :src="getImageUrl(img.image_url)" :alt="`${product.name} - ảnh ${index + 1}`" />
           </div>
         </div>
       </div>
@@ -139,21 +250,37 @@ onMounted(() => {
         <div class="short-description" v-html="product.short_description">
         </div>
 
-        <!-- Chọn Variant -->
-        <div class="variant-selector" v-if="product.variants && product.variants.length > 0">
-          <h4 class="variant-label">Phân loại:</h4>
+        <!-- Chọn Màu sắc -->
+        <div class="variant-selector" v-if="uniqueColors.length > 0">
+          <h4 class="variant-label">Màu sắc:</h4>
           <div class="variant-options">
             <button
-              v-for="v in product.variants"
-              :key="v.variant_id"
+              v-for="color in uniqueColors"
+              :key="color"
               class="variant-btn"
-              :class="{ active: selectedVariant?.variant_id === v.variant_id, disabled: v.status !== 'active' || v.stock <= 0 }"
-              @click="v.status === 'active' && v.stock > 0 && (selectedVariant = v)"
-              :disabled="v.status !== 'active' || v.stock <= 0"
+              :class="{ active: selectedColor === color }"
+              @click="selectedColor = selectedColor === color ? null : color"
             >
-              <span>{{ v.variant_name || [v.color, v.size].filter(Boolean).join(' / ') || 'Mặc định' }}</span>
-              <span class="variant-stock" v-if="v.stock <= 5 && v.stock > 0">(còn {{ v.stock }})</span>
-              <span class="variant-stock out" v-if="v.stock <= 0">Hết hàng</span>
+              <span>{{ color }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chọn Kích cỡ -->
+        <div class="variant-selector" v-if="availableSizes.length > 0">
+          <h4 class="variant-label">Kích cỡ:</h4>
+          <div class="variant-options">
+            <button
+              v-for="s in availableSizes"
+              :key="s.size"
+              class="variant-btn"
+              :class="{ active: selectedSize === s.size, disabled: !s.available }"
+              @click="s.available && (selectedSize = selectedSize === s.size ? null : s.size)"
+              :disabled="!s.available"
+            >
+              <span>{{ s.size || 'Mặc định' }}</span>
+              <span class="variant-stock" v-if="selectedColor && s.stock <= 5 && s.stock > 0">(còn {{ s.stock }})</span>
+              <span class="variant-stock out" v-if="selectedColor && s.stock <= 0">Hết hàng</span>
             </button>
           </div>
         </div>
@@ -260,7 +387,7 @@ onMounted(() => {
 /* Grid Layout */
 .product-main-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 5fr 7fr;
   gap: 40px;
   margin-bottom: 40px;
 }
@@ -273,7 +400,7 @@ onMounted(() => {
 }
 .main-image-container {
   width: 100%;
-  aspect-ratio: 4/5;
+  aspect-ratio: 1/1;
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border-color, #d9e8f0);
@@ -282,7 +409,7 @@ onMounted(() => {
 .main-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .thumbnail-list {
   display: flex;

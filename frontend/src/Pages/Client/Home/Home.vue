@@ -14,7 +14,8 @@ const fetchProducts = async () => {
             price: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.min_price),
             image: item.thumbnail_url !== "0" ? item.thumbnail_url : 'https://placehold.co/400x500?text=No+Image',
             badge: item.is_featured ? 'Hot' : null,
-            slug: item.slug
+            slug: item.slug,
+            category_id: item.category_id,
         }));
     } catch (error) {
         console.error('Error fetching products:', error);
@@ -28,7 +29,10 @@ const fetchCategories = async () => {
         Categories.value = response.data.data.map(item => ({
             id: item.category_id,
             name: item.name,
+            slug: item.slug,
             image: item.image_url !== "0" ? item.image_url : 'https://placehold.co/400x500?text=No+Image',
+            // Lấy tất cả category_id con + chính nó
+            childIds: [item.category_id, ...(item.children || []).map(c => c.category_id)],
         }));
     } catch (error) {
         console.error('Error fetching categories:', error);
@@ -66,7 +70,7 @@ onMounted(() => {
             </div>
 
             <div class="products-grid">
-                <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
+                <div class="product-card ocean-card" v-for="product in Products.slice(0, 4)" :key="product.id">
                     <router-link :to="{ name: 'product-detail', params: { slug: product.slug } }"
                         class="text-decoration-none">
                         <div class="product-img-wrapper">
@@ -110,14 +114,14 @@ onMounted(() => {
             </div>
         </section>
 
-        <section v-for="item in Categories" class="products-section animate-in" style="animation-delay: 0.1s">
+        <section v-for="item in Categories" :key="item.id" v-show="Products.filter(p => item.childIds.includes(p.category_id)).length > 0" class="products-section animate-in" style="animation-delay: 0.1s">
             <div class="section-header">
                 <h2 class="section-title">{{ item.name }}</h2>
-                <a href="#" class="link-all">Xem tất cả →</a>
+                <router-link :to="{ name: 'product', query: { category: item.slug } }" class="link-all">Xem tất cả →</router-link>
             </div>
 
             <div class="products-grid">
-                <div class="product-card ocean-card" v-for="product in Products" :key="product.id">
+                <div class="product-card ocean-card" v-for="product in Products.filter(p => item.childIds.includes(p.category_id)).slice(0, 4)" :key="product.id">
                     <router-link :to="{ name: 'product-detail', params: { slug: product.slug } }"
                         class="text-decoration-none">
                         <div class="product-img-wrapper">

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Models\CartItem;
 
 class ProductController extends Controller
 {
@@ -33,7 +34,7 @@ class ProductController extends Controller
             },
             'category:category_id,name',
             'brand:brand_id,name',
-        ]);
+        ])->withSum('variants', 'stock');
 
         if ($search) {
             $query->where(function ($q) use ($search)
@@ -51,11 +52,11 @@ class ProductController extends Controller
         $products = $query->orderBy('product_id', 'desc')
             ->offset($offset)
             ->limit($limit)
-            ->get();
+            ->get(); 
 
         return response()->json([
             'data' => $products,
-            'total' => $total,
+            'total_pages' => ceil($total / $limit),
             'page' => (int) $page,
             'limit' => (int) $limit,
         ]);
@@ -480,50 +481,82 @@ class ProductController extends Controller
                     ProductVariant::create([
                         'product_id' => $product->product_id,
                         'sku'        => Str::slug($product->name) . '-default',
-                        'price'      => $price,
+                        'price'            => $price,
                         'compare_at_price' => $request->compare_at_price,
-                        'stock'      => $stock,
+                        'stock'            => $stock,
                         'status'     => 'active',
                     ]);
                 }
             } else {
                 // Variant product
-                // FE gửi: [{ color, sizes: [{ size, price, stock }], variant_ids: [id1, ...] }, ...]
-                // Xóa tất cả variant cũ và tạo lại (đơn giản, tránh diff phức tạp)
                 $existingVariantIds = $product->variants()->pluck('variant_id')->toArray();
 
-                // Xóa ảnh variant cũ trong product_images
-                ProductImage::where('product_id', $product->product_id)
-                    ->whereNotNull('variant_id')
-                    ->delete();
+                // Xóa cart_items tham chiếu đến variants cũ (tránh FK constraint)
+                if (!empty($existingVariantIds)) {
+                    CartItem::whereIn('variant_id', $existingVariantIds)->delete();
+                }
 
-                // Xóa file ảnh cũ của variant
-                foreach ($product->variants as $oldVariant) {
-                    if ($oldVariant->image_url) {
-                        Storage::disk('public')->delete($oldVariant->image_url);
+                // 1. Xóa ảnh biến thể mà user đã ấn nút xóa thủ công
+                $deletedImageIds = $request->input('deleted_variant_image_ids', []);
+                if (!empty($deletedImageIds)) {
+                    $imagesToDelete = ProductImage::whereIn('image_id', $deletedImageIds)->get();
+                    foreach ($imagesToDelete as $img) {
+                        Storage::disk('public')->delete($img->image_url);
+                        $img->delete();
                     }
                 }
 
-                // Xóa tất cả variant cũ
+                // 2. QUAN TRỌNG: Set variant_id = NULL cho ảnh TRƯỚC khi xóa variant
+                // (vì FK ON DELETE CASCADE sẽ xóa ảnh theo variant nếu không)
+                $oldVariantImagesMap = []; // color => [ProductImage records]
+                foreach ($product->variants as $oldVariant) {
+                    $color = $oldVariant->color ?? 'default';
+                    if (!isset($oldVariantImagesMap[$color])) {
+                        $oldVariantImagesMap[$color] = [];
+                    }
+                    $variantOldImages = ProductImage::where('product_id', $product->product_id)
+                        ->where('variant_id', $oldVariant->variant_id)
+                        ->get();
+                    foreach ($variantOldImages as $img) {
+                        $img->update(['variant_id' => null]); // Tạm tách khỏi variant
+                        $oldVariantImagesMap[$color][] = $img;
+                    }
+                }
+
+                // 3. Xóa tất cả variant cũ (ảnh đã được tách ra, không bị CASCADE xóa)
                 ProductVariant::where('product_id', $product->product_id)->delete();
 
-                // Tạo lại variant mới
+                // 4. Tạo lại variant mới
                 $combinations = [];
                 foreach ($variantsData as $vIndex => $vData) {
                     $color = $vData['color'] ?? null;
                     $sizes = $vData['sizes'] ?? [];
 
-                    // Upload variant images
+                    // Upload variant images MỚI
                     $variantImagePaths = [];
                     if ($request->hasFile("variant_images.{$vIndex}")) {
                         foreach ($request->file("variant_images.{$vIndex}") as $imgFile) {
                             $imgPath = $imgFile->store('products/variants', 'public');
                             if (!$imgPath || $imgPath === false) {
-                                throw new \Exception('Lỗi lưu ảnh biến thể. Kiểm tra quyền thư mục storage.' . $imgPath);
+                                throw new \Exception('Lỗi lưu ảnh biến thể.');
                             }
                             $variantImagePaths[] = $imgPath;
                         }
                     }
+
+                    // Lấy ảnh cũ còn tồn tại cho color này
+                    $colorKey = $color ?? 'default';
+                    $existingColorImages = $oldVariantImagesMap[$colorKey] ?? [];
+
+                    // Xác định image_url cho variant
+                    $mainImageUrl = null;
+                    if (!empty($existingColorImages)) {
+                        $mainImageUrl = $existingColorImages[0]->image_url;
+                    } elseif (!empty($variantImagePaths)) {
+                        $mainImageUrl = $variantImagePaths[0];
+                    }
+
+                    $firstVariantForColor = null;
 
                     foreach ($sizes as $sData) {
                         $size = $sData['size'] ?? null;
@@ -544,17 +577,29 @@ class ProductController extends Controller
                             'size'       => $size,
                             'price'      => $vPrice,
                             'stock'      => $sData['stock'] ?? 0,
-                            'image_url'  => $variantImagePaths[0] ?? null,
+                            'image_url'  => $mainImageUrl,
                             'status'     => 'active',
                         ]);
 
+                        if (!$firstVariantForColor) {
+                            $firstVariantForColor = $variant;
+                        }
+                    }
+
+                    // Gán ảnh cũ + ảnh mới cho variant ĐẦU TIÊN của màu này
+                    if ($firstVariantForColor) {
+                        // Cập nhật ảnh cũ → gán variant_id mới
+                        foreach ($existingColorImages as $oldImg) {
+                            $oldImg->update(['variant_id' => $firstVariantForColor->variant_id]);
+                        }
+                        // Tạo record cho ảnh mới upload
                         foreach ($variantImagePaths as $imgIndex => $imgPath) {
                             ProductImage::create([
                                 'product_id' => $product->product_id,
-                                'variant_id' => $variant->variant_id,
+                                'variant_id' => $firstVariantForColor->variant_id,
                                 'image_url'  => $imgPath,
                                 'is_main'    => false,
-                                'sort_order' => $imgIndex + 1,
+                                'sort_order' => count($existingColorImages) + $imgIndex + 1,
                             ]);
                         }
                     }

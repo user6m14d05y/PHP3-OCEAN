@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
 import api from "../../../axios.js";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 
 const router = useRouter();
+const route = useRoute();
 const Products = ref([]);
 const Categories = ref([]);
 
@@ -26,27 +27,30 @@ const priceRanges = ref([
     { id: "above-1m", label: "Trên 1.000.000₫" },
 ]);
 
+const currentPage = ref(1);
+const totalPages = ref(1);
+
 const fetchProducts = async () => {
     try {
-        // Gọi API lấy toàn bộ sản phẩm (hoặc một số lượng lớn, dùng /products thay vì /productsAll nếu sản phẩm đang là bản nháp)
-        const response = await api.get("/products?limit=12");
+        const response = await api.get(`/products?limit=12&page=${currentPage.value}`);
         Products.value = response.data.data.map((item) => ({
             id: item.product_id,
             name: item.name,
-            price: Number(item.min_price || 0), // Lưu giá thô để so sánh (number)
+            price: Number(item.min_price || 0),
             formatted_price: new Intl.NumberFormat("vi-VN", {
                 style: "currency",
                 currency: "VND",
-            }).format(item.min_price || 0), // Giá hiển thị
+            }).format(item.min_price || 0),
             image:
                 item.thumbnail_url !== "0"
                     ? item.thumbnail_url
                     : "https://placehold.co/400x500?text=No+Image",
             badge: item.is_featured ? "Hot" : null,
             slug: item.slug,
-            category_id: item.category_id, // Lưu category_id để lọc
-            date: item.created_at, // Thêm trường thời gian để sắp xếp theo mới nhất
+            category_id: item.category_id,
+            date: item.created_at,
         }));
+        totalPages.value = response.data.total_pages || 1;
     } catch (error) {
         console.error("Error fetching products:", error);
     }
@@ -128,9 +132,44 @@ const filteredProducts = computed(() => {
     return result;
 });
 
-onMounted(() => {
+const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages.value) {
+        currentPage.value = page;
+    }
+};
+
+const prevPage = () => {
+    if (currentPage.value > 1) {
+        currentPage.value--;
+    }
+};
+
+const nextPage = () => {
+    if (currentPage.value < totalPages.value) {
+        currentPage.value++;
+    }
+};
+
+watch(currentPage, () => {
     fetchProducts();
-    fetchCategories();
+    router.replace({ query: { ...route.query, page: currentPage.value } });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+onMounted(async () => {
+    const pageFromUrl = parseInt(route.query.page);
+    if (pageFromUrl && pageFromUrl > 0) currentPage.value = pageFromUrl;
+    await Promise.all([fetchProducts(), fetchCategories()]);
+
+    // Xử lý query param ?category=slug
+    const categorySlug = route.query.category;
+    if (categorySlug) {
+        const cat = Categories.value.find(c => c.slug === categorySlug);
+        if (cat) {
+            selectedCategory.value = cat.category_id;
+            expandedCategories.value[cat.category_id] = true;
+        }
+    }
 });
 </script>
 
@@ -245,7 +284,7 @@ onMounted(() => {
                                             'badge-hot':
                                                 product.badge === 'Hot',
                                         }">{{ product.badge }}</span>
-                                        <img :src="'http://localhost:8383/storage/' + product.image" :alt="product.name"
+                                        <img :src="product.image.startsWith('http') ? product.image : 'http://localhost:8383/storage/' + product.image" :alt="product.name"
                                             class="product-img" style="cursor: pointer" />
                                         <div class="product-hover-action">
                                             <button class="btn-icon">
@@ -269,6 +308,11 @@ onMounted(() => {
                                     </div>
                                 </div>
                             </router-link>
+                        </div>
+                        <div class="pagination" v-if="totalPages > 1">
+                            <button class="page-btn" :disabled="currentPage <= 1" @click="prevPage">Trước</button>
+                            <button v-for="page in totalPages" :key="page" class="page-btn" :class="{ 'page-btn--active': page === currentPage }" @click="goToPage(page)">{{ page }}</button>
+                            <button class="page-btn" :disabled="currentPage >= totalPages" @click="nextPage">Sau</button>
                         </div>
                     </div>
 
@@ -543,9 +587,49 @@ onMounted(() => {
 /* ======== PRODUCTS GRID (Đúng 4 cột hàng ngang) ======== */
 .products-grid {
     display: grid;
-    /* Quy định chia bảng thành chính xác 4 cột đều nhau */
     grid-template-columns: repeat(4, 1fr);
     gap: 20px;
+}
+
+/* Pagination */
+.pagination {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #e8ecf1;
+}
+
+.page-btn {
+    padding: 8px 14px;
+    border: 1px solid #d9e8f0;
+    background: #fff;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: #475569;
+    transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+    background: #f0f7fa;
+    border-color: var(--ocean-blue, #0288d1);
+    color: var(--ocean-blue, #0288d1);
+}
+
+.page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.page-btn--active {
+    background: var(--ocean-blue, #0288d1) !important;
+    color: #fff !important;
+    border-color: var(--ocean-blue, #0288d1) !important;
 }
 
 .product-card {
@@ -557,6 +641,11 @@ onMounted(() => {
     border: 1px solid var(--border-color, #d9e8f0);
     border-radius: 12px;
     overflow: hidden;
+}
+
+.product-card a {
+    text-decoration: none;
+    color: inherit;
 }
 
 .product-card:hover {
