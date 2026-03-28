@@ -7,7 +7,11 @@ const Categories = ref([]);
 
 const fetchProducts = async () => {
     try {
+<<<<<<< HEAD
         const response = await api.get('/products');
+=======
+        const response = await api.get('/productsFeatured');
+>>>>>>> origin/binhbc
         Products.value = response.data.data.map(item => ({
             id: item.product_id,
             name: item.name,
@@ -71,8 +75,7 @@ onMounted(() => {
                         class="text-decoration-none">
                         <div class="product-img-wrapper">
                             <!-- <span class="product-badge" v-if="product.badge" :class="{'badge-hot': product.badge === 'Hot'}">{{ product.badge }}</span> -->
-                            <img :src="'http://localhost:8383/storage/' + product.image" :alt="product.name"
-                                class="product-img" />
+                            <img :src="product.image" :alt="product.name" class="product-img" />
                             <div class="product-hover-action">
                                 <button class="btn-icon">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -124,7 +127,7 @@ onMounted(() => {
                             <span class="product-badge" v-if="product.badge"
                                 :class="{ 'badge-hot': product.badge === 'Hot' }">{{
                                     product.badge }}</span>
-                            <img :src="'http://localhost:8383/storage/' + product.image" :alt="product.name" class="product-img" />
+                            <img :src="product.image" :alt="product.name" class="product-img" />
                             <div class="product-hover-action">
                                 <button class="btn-icon">
                                     <i class="fas fa-shopping-cart"></i>
