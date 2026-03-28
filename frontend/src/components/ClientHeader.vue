@@ -218,7 +218,6 @@ const showCategoryMenu = ref(false);
 const categories = ref([]);
 const publicCoupons = ref([]);
 const hoveredCategory = ref(null);
-const cartCount = ref(0);
 
 const fetchCategories = async () => {
   try {
@@ -241,6 +240,7 @@ const fetchPublicCoupons = async () => {
 const formatCurrency = (val) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 };
+
 
 // Đóng mega menu khi chuyển trang
 watch(() => route.path, () => {
@@ -281,20 +281,11 @@ const handleLogout = async () => {
   localStorage.removeItem('user');
   isLoggedIn.value = false;
   showDropdown.value = false;
-  
-  // Ở lại trang hiện tại nếu không phải trang cần auth, 
+
+  // Ở lại trang hiện tại nếu không phải trang cần auth,
   // nhưng thực tế trang hiện tại có thể yêu cầu auth nên router guard sẽ tự xử lý.
   // Người dùng yêu cầu: "khi ấn đăng xuất thì vẫn ở lại trang đó chứ ko trả về trang login"
-  window.location.reload(); 
-};
-
-const fetchCartCount = async () => {
-  const token = localStorage.getItem('auth_token');
-  if (!token) { cartCount.value = 0; return; }
-  try {
-    const response = await api.get('/cart/count');
-    cartCount.value = response.data.count || 0;
-  } catch (e) { cartCount.value = 0; }
+  window.location.reload();
 };
 
 onMounted(() => {
@@ -304,7 +295,7 @@ onMounted(() => {
   fetchCartCount();
   window.addEventListener('user-updated', checkAuth);
 });
-watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
+watch(() => route.path, checkAuth);
 </script>
 
 <style scoped>
@@ -626,33 +617,6 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 .voucher-mini-card { padding: 10px 12px; border-radius: 8px; background: #fff5f5; border: 1px dashed #fecaca; }
 .cp-code { font-size: 0.85rem; font-weight: 700; color: #dc2626; margin-bottom: 2px; }
 .cp-info { font-size: 0.75rem; color: #666; font-weight: 500; }
-
-/* Cart Badge */
-.cart-icon-wrapper { position: relative; }
-.cart-badge {
-  position: absolute;
-  top: -8px;
-  right: -10px;
-  background: #dc2626;
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 700;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  line-height: 1;
-  border: 2px solid #fff;
-  animation: badgePop 0.3s ease;
-}
-@keyframes badgePop {
-  0% { transform: scale(0); }
-  70% { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
 
 @media (max-width: 768px) {
   .search-box { display: none; }
