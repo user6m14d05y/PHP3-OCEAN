@@ -85,30 +85,6 @@ class ProductController extends Controller
         ]);
     }
 
-    public function productFeatured(Request $request)
-    {
-        $query = Product::with([
-            'mainImage' => function ($q) {
-                $q->select('image_id', 'image_url', 'product_id');
-            },
-            'lowestPriceVariant' => function ($q) {
-                $q->select('variant_id', 'price', 'stock', 'product_id');
-            },
-            'category:category_id,name',
-            'brand:brand_id,name',
-        ]);
-        $products = $query->orderBy('product_id', 'desc')
-            ->where('is_featured', true)
-            ->where('status', 'active')
-            ->limit(4)
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'data' => $products
-        ]);
-    }
-
 
     /**
      * Chi tiết sản phẩm theo slug (client)

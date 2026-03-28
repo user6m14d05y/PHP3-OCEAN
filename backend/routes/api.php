@@ -80,6 +80,16 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     Route::post('/coupons/save', [CouponController::class, 'saveCoupon']);
 });
 
+// Cart routes (Protected - cần JWT token user/admin)
+Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
+    Route::get('/', [CartController::class, 'getCart']);
+    Route::get('/count', [CartController::class, 'getCount']);
+    Route::post('/items', [CartController::class, 'addItem']);
+    Route::put('/items/{id}', [CartController::class, 'updateItem']);
+    Route::delete('/items/{id}', [CartController::class, 'removeItem']);
+    Route::delete('/', [CartController::class, 'clearCart']);
+});
+
 // Nhóm các route yêu cầu quyền admin/staff (hỗ trợ cả guard api và admin)
 Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->group(function () {
 
