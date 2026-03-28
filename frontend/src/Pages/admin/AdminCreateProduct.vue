@@ -235,10 +235,8 @@ const validateForm = () => {
                     const sizeSetInVariant = new Set();
                     variant.sizes.forEach((size, sIndex) => {
                         const sErrors = {};
-                        if (!size.size) {
-                            sErrors.size = "Kích cỡ là bắt buộc";
-                            isValid = false;
-                        } else {
+                        // Size là tùy chọn, chỉ check trùng nếu có nhập
+                        if (size.size) {
                             const sizeKey = size.size.trim().toLowerCase();
                             if (sizeSetInVariant.has(sizeKey)) {
                                 sErrors.size = `Size "${size.size}" bị trùng trong biến thể này`;
@@ -354,7 +352,7 @@ onMounted(() => {
 
 <template>
     <div class="create-product-page">
-        <form @submit.prevent="handleSubmit" enctype="multipart/form-data">
+        <form @submit.prevent="handleSubmit" novalidate enctype="multipart/form-data">
             <!-- Page Header -->
             <div class="page-header animate-in">
                 <div class="header-info">
@@ -424,36 +422,31 @@ onMounted(() => {
                                 v-model="product.name"
                                 @input="generateSlug"
                                 class="form-control"
+                                :class="{'is-invalid': errors.name}"
                                 placeholder="Ví dụ: Đồng Hồ Xanh Đại Dương"
                             />
-                            <div v-if="errors.name" class="error-message">
+                            <span v-if="errors.name" class="field-error">
                                 {{ errors.name }}
-                            </div>
+                            </span>
                         </div>
                         <div class="form-group">
                             <label>Mô Tả Ngắn</label>
-                            <div class="quill-wrapper editor-short">
+                            <div class="quill-wrapper editor-short" :class="{'is-invalid': errors.short_description}">
                                 <div ref="editorShort"></div>
                             </div>
-                            <div
-                                v-if="errors.short_description"
-                                class="error-message"
-                            >
+                            <span v-if="errors.short_description" class="field-error">
                                 {{ errors.short_description }}
-                            </div>
+                            </span>
                         </div>
 
                         <div class="form-group">
                             <label>Mô Tả Chi Tiết</label>
-                            <div class="quill-wrapper editor-long">
+                            <div class="quill-wrapper editor-long" :class="{'is-invalid': errors.description}">
                                 <div ref="editorLong"></div>
                             </div>
-                            <div
-                                v-if="errors.description"
-                                class="error-message"
-                            >
+                            <span v-if="errors.description" class="field-error">
                                 {{ errors.description }}
-                            </div>
+                            </span>
                         </div>
                     </div>
 
@@ -499,12 +492,9 @@ onMounted(() => {
                                     </div>
                                 </label>
                             </div>
-                            <div
-                                v-if="errors.product_type"
-                                class="error-message"
-                            >
+                            <span v-if="errors.product_type" class="field-error">
                                 {{ errors.product_type }}
-                            </div>
+                            </span>
                         </div>
 
                         <div
@@ -516,7 +506,7 @@ onMounted(() => {
                                     >Giá Bán
                                     <span class="required">*</span></label
                                 >
-                                <div class="input-with-prefix">
+                                <div class="input-with-prefix" :class="{'is-invalid': errors.price}">
                                     <span class="prefix">₫</span>
                                     <input
                                         type="number"
@@ -525,9 +515,9 @@ onMounted(() => {
                                         placeholder="0"
                                     />
                                 </div>
-                                <div v-if="errors.price" class="error-message">
+                                <span v-if="errors.price" class="field-error">
                                     {{ errors.price }}
-                                </div>
+                                </span>
                             </div>
                             <div class="form-group">
                                 <label>Giá Gốc Trước Giảm</label>
@@ -554,11 +544,12 @@ onMounted(() => {
                                     type="number"
                                     v-model="product.stock"
                                     class="form-control"
+                                    :class="{'is-invalid': errors.stock}"
                                     placeholder="0"
                                 />
-                                <div v-if="errors.stock" class="error-message">
+                                <span v-if="errors.stock" class="field-error">
                                     {{ errors.stock }}
-                                </div>
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -635,17 +626,18 @@ onMounted(() => {
                                         type="text"
                                         v-model="variant.color"
                                         class="form-control"
+                                        :class="{'is-invalid': errors.variants && errors.variants[vIndex]?.color}"
                                         placeholder="Ví dụ: Xanh Đại Dương"
                                     />
-                                    <div
+                                    <span
                                         v-if="
                                             errors.variants &&
                                             errors.variants[vIndex]?.color
                                         "
-                                        class="error-message"
+                                        class="field-error"
                                     >
                                         {{ errors.variants[vIndex].color }}
-                                    </div>
+                                    </span>
                                 </div>
 
                                 <div class="form-group">
@@ -721,7 +713,7 @@ onMounted(() => {
                                     <table class="sizes-table">
                                         <thead>
                                             <tr>
-                                                <th>Phân Loại Size</th>
+                                                <th>Size (tùy chọn)</th>
                                                 <th>Số Lượng Kho</th>
                                                 <th>Giá (₫)</th>
                                                 <th></th>
@@ -750,8 +742,24 @@ onMounted(() => {
                                                                         sIndex
                                                                     ]?.size,
                                                             }"
-                                                            placeholder="S, M, L..."
+                                                            placeholder="Để trống nếu không cần"
                                                         />
+                                                        <span
+                                                            v-if="
+                                                                errors.variants && errors.variants[
+                                                                    vIndex
+                                                                ]?.sizes?.[sIndex]
+                                                                    ?.size
+                                                            "
+                                                            class="field-error"
+                                                        >
+                                                            {{
+                                                                errors.variants[
+                                                                    vIndex
+                                                                ].sizes[sIndex]
+                                                                    .size
+                                                            }}
+                                                        </span>
                                                     </td>
                                                     <td>
                                                         <input
@@ -770,6 +778,22 @@ onMounted(() => {
                                                             }"
                                                             placeholder="0"
                                                         />
+                                                        <span
+                                                            v-if="
+                                                                errors.variants && errors.variants[
+                                                                    vIndex
+                                                                ]?.sizes?.[sIndex]
+                                                                    ?.stock
+                                                            "
+                                                            class="field-error"
+                                                        >
+                                                            {{
+                                                                errors.variants[
+                                                                    vIndex
+                                                                ].sizes[sIndex]
+                                                                    .stock
+                                                            }}
+                                                        </span>
                                                     </td>
                                                     <td>
                                                         <input
@@ -788,6 +812,22 @@ onMounted(() => {
                                                             }"
                                                             placeholder="0"
                                                         />
+                                                        <span
+                                                            v-if="
+                                                                errors.variants && errors.variants[
+                                                                    vIndex
+                                                                ]?.sizes?.[sIndex]
+                                                                    ?.price
+                                                            "
+                                                            class="field-error"
+                                                        >
+                                                            {{
+                                                                errors.variants[
+                                                                    vIndex
+                                                                ].sizes[sIndex]
+                                                                    .price
+                                                            }}
+                                                        </span>
                                                     </td>
                                                     <td>
                                                         <button
@@ -824,83 +864,13 @@ onMounted(() => {
                                                         </button>
                                                     </td>
                                                 </tr>
-                                                <!-- Error row inline per size -->
-                                                <tr
-                                                    v-if="
-                                                        errors.variants &&
-                                                        errors.variants[vIndex]
-                                                            ?.sizes?.[sIndex] &&
-                                                        Object.keys(
-                                                            errors.variants[
-                                                                vIndex
-                                                            ].sizes[sIndex],
-                                                        ).length > 0
-                                                    "
-                                                    class="error-row"
-                                                >
-                                                    <td
-                                                        colspan="4"
-                                                        style="padding-top: 0"
-                                                    >
-                                                        <div
-                                                            v-if="
-                                                                errors.variants[
-                                                                    vIndex
-                                                                ].sizes[sIndex]
-                                                                    ?.size
-                                                            "
-                                                            class="error-message"
-                                                        >
-                                                            {{
-                                                                errors.variants[
-                                                                    vIndex
-                                                                ].sizes[sIndex]
-                                                                    .size
-                                                            }}
-                                                        </div>
-                                                        <div
-                                                            v-if="
-                                                                errors.variants[
-                                                                    vIndex
-                                                                ].sizes[sIndex]
-                                                                    ?.price
-                                                            "
-                                                            class="error-message"
-                                                        >
-                                                            {{
-                                                                errors.variants[
-                                                                    vIndex
-                                                                ].sizes[sIndex]
-                                                                    .price
-                                                            }}
-                                                        </div>
-                                                        <div
-                                                            v-if="
-                                                                errors.variants[
-                                                                    vIndex
-                                                                ].sizes[sIndex]
-                                                                    ?.stock
-                                                            "
-                                                            class="error-message"
-                                                        >
-                                                            {{
-                                                                errors.variants[
-                                                                    vIndex
-                                                                ].sizes[sIndex]
-                                                                    .stock
-                                                            }}
-                                                        </div>
-                                                        <div
-                                                            v-if="
-                                                                errors.variants[
-                                                                    vIndex
-                                                                ].sizes[sIndex]
-                                                                    ?.duplicate
-                                                            "
-                                                            class="error-message"
+                                                <tr v-if="errors.variants && errors.variants[vIndex]?.sizes?.[sIndex]?.duplicate">
+                                                    <td colspan="4" style="padding: 0 10px 10px;">
+                                                        <span
+                                                            class="field-error"
                                                             style="
                                                                 color: #c62828;
-                                                                font-weight: 700;
+                                                                margin-top: 0;
                                                             "
                                                         >
                                                             ⚠
@@ -910,7 +880,7 @@ onMounted(() => {
                                                                 ].sizes[sIndex]
                                                                     .duplicate
                                                             }}
-                                                        </div>
+                                                        </span>
                                                     </td>
                                                 </tr>
                                             </template>
@@ -923,18 +893,19 @@ onMounted(() => {
                                     >
                                         + Thêm Kích Cỡ
                                     </button>
-                                    <div
+                                    <span
                                         v-if="
                                             errors.variants &&
                                             errors.variants[vIndex]
                                                 ?.sizes_global
                                         "
-                                        class="error-message"
+                                        class="field-error"
+                                        style="display: block; margin-top: 10px;"
                                     >
                                         {{
                                             errors.variants[vIndex].sizes_global
                                         }}
-                                    </div>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -1014,12 +985,12 @@ onMounted(() => {
                                     />
                                 </div>
                             </div>
-                            <div
+                            <span
                                 v-if="errors.thumbnail_url"
-                                class="error-message text-red-500 text-sm mt-1"
+                                class="field-error" style="margin-top: 10px;text-align:center;display:block;"
                             >
                                 {{ errors.thumbnail_url }}
-                            </div>
+                            </span>
                         </div>
 
                         <!-- Gallery Upload -->
@@ -1086,10 +1057,11 @@ onMounted(() => {
                         <h3 class="card-title">Thông Tin Phân Loại</h3>
 
                         <div class="form-group">
-                            <label>Danh Mục</label>
+                            <label>Danh Mục <span class="required">*</span></label>
                             <select
                                 v-model="product.category_id"
                                 class="form-control form-select"
+                                :class="{'is-invalid': errors.category_id}"
                             >
                                 <option value="">
                                     Chọn danh mục cho sản phẩm
@@ -1098,6 +1070,9 @@ onMounted(() => {
                                     :categories="categories"
                                 />
                             </select>
+                            <span v-if="errors.category_id" class="field-error">
+                                {{ errors.category_id }}
+                            </span>
                         </div>
 
                         <div class="form-group">
@@ -1176,6 +1151,26 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* Validation Styles */
+.field-error {
+    color: #e53935;
+    font-size: 0.8rem;
+    margin-top: 4px;
+    display: block;
+}
+.is-invalid {
+    border-color: #e53935 !important;
+    background-color: #fff2f2 !important;
+}
+.form-error-box {
+    background-color: #fff2f2;
+    border: 1px solid #e53935;
+    color: #c62828;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
 .create-product-page {
     font-family: var(--font-inter);
     padding-bottom: 40px;

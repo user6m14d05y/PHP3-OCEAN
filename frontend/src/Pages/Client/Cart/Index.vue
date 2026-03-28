@@ -140,6 +140,12 @@ const showToast = (message, type = 'success') => {
     setTimeout(() => { toast.value.show = false; }, 3000);
 };
 
+// Chuyển tới trang thanh toán
+const proceedToCheckout = () => {
+    if (selectedItems.value.length === 0) return;
+    router.push('/checkout');
+};
+
 onMounted(() => {
     fetchCart();
 });
@@ -277,7 +283,7 @@ onMounted(() => {
 
                     <p class="summary-note">Phí vận chuyển sẽ được tính ở bước thanh toán</p>
 
-                    <button class="btn-checkout" :disabled="selectedItems.length === 0">
+                    <button class="btn-checkout" @click="proceedToCheckout" :disabled="selectedItems.length === 0">
                         Tiến Hành Thanh Toán ({{ totalSelectedQuantity }})
                     </button>
 

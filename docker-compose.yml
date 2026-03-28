@@ -12,7 +12,6 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-root}
     volumes:
       - mysql_data:/var/lib/mysql
-      # Custom MySQL config để tối ưu performance
       - ./mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-root}"]
@@ -32,7 +31,6 @@ services:
     env_file:
       - .env
     environment:
-      # Dùng file cache thay vì database cache → nhanh hơn
       CACHE_STORE: file
     volumes:
       - ./backend:/var/www
@@ -42,7 +40,7 @@ services:
       db:
         condition: service_healthy
 
-  # NGINX (WEB SERVER CHO BACKEND)
+  # NGINX FOR BACKEND
   nginx_backend:
     image: nginx:alpine
     container_name: ocean_nginx_backend

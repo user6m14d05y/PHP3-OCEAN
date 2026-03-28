@@ -14,6 +14,7 @@ const Product = () => import("../Pages/Client/Home/Product.vue");
 const ProductDetail = () => import("../Pages/Client/Home/productDetail.vue");
 const Coupon = () => import("../Pages/Client/Home/Coupon.vue")
 const Cart = () => import("../Pages/Client/Cart/Index.vue")
+const Checkout = () => import("../Pages/Client/Cart/Checkout.vue")
 
 // Profile
 const ProfileLayout = () => import("../Pages/Client/Profile/ProfileLayout.vue");
@@ -66,6 +67,7 @@ const routes = [
             { path: "shopping-guide", name: "shopping-guide", component: ShoppingGuide, meta: { title: 'Hướng dẫn mua hàng' } },
             { path: "coupon", name: "coupon", component: Coupon, meta: { title: 'Mã giảm giá' } },
             { path: "cart", name: "cart", component: Cart, meta: { requiresAuth: true, title: 'Giỏ hàng' } },
+            { path: "checkout", name: "checkout", component: Checkout, meta: { requiresAuth: true, title: 'Thanh toán' } },
             // Profile routes (nested layout)
             {
                 path: "profile",
@@ -171,6 +173,42 @@ const routes = [
                 name: "admin-coupon",
                 component: AdminCoupon,
                 meta: { title: 'Quản lý mã giảm giá' },
+            },
+            {
+                path: "shipping",
+                name: "admin-shipping",
+                component: () => import("../Pages/admin/AdminShipping.vue"),
+                meta: { title: 'Quản lý phí vận chuyển' },
+            },
+            {
+                path: "post",
+                name: "admin-post",
+                component: () => import("../Pages/admin/AdminPost.vue"),
+                meta: { title: 'Quản lý bài viết' },
+            },
+            {
+                path: "post/create",
+                name: "admin-post-create",
+                component: () => import("../Pages/admin/AdminCreatePost.vue"),
+                meta: { title: 'Thêm bài viết' },
+            },
+            {
+                path: "post/edit/:id",
+                name: "admin-post-edit",
+                component: () => import("../Pages/admin/AdminEditPost.vue"),
+                meta: { title: 'Sửa bài viết' },
+            },
+            {
+                path: "post-category",
+                name: "admin-post-category",
+                component: () => import("../Pages/admin/AdminPostCategory.vue"),
+                meta: { title: 'Danh mục bài viết' },
+            },
+            {
+                path: "post-category/create",
+                name: "admin-post-category-create",
+                component: () => import("../Pages/admin/AdminCreatePostCategory.vue"),
+                meta: { title: 'Thêm danh mục bài viết' },
             },
         ],
     },
