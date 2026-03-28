@@ -70,7 +70,6 @@
       </router-link>
 
       <router-link
-<<<<<<< HEAD
         to="/profile/coupon"
         class="aside-nav-item"
         active-class="aside-nav-item--active"
@@ -84,8 +83,6 @@
       </router-link>
 
       <router-link
-=======
->>>>>>> origin/binhbc
         to="/profile/change-password"
         class="aside-nav-item"
         active-class="aside-nav-item--active"

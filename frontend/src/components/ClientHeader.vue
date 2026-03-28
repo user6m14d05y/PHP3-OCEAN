@@ -105,7 +105,6 @@
       <!-- Right icons -->
       <div class="header-actions">
         <!-- Săn Voucher -->
-<<<<<<< HEAD
         <div class="account-dropdown" @mouseenter="showVoucherDropdown = true" @mouseleave="showVoucherDropdown = false">
           <router-link to="/coupon" class="action-item voucher-item">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -135,17 +134,9 @@
             </div>
           </div>
         </div>
-=======
-        <a href="#" class="action-item voucher-item">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 00-2 2c0 1.1.9 2 2 2h4v-4h-4z"/>
-          </svg>
-          <span class="action-label" style="color: #dc2626;">Săn Voucher</span>
-        </a>
->>>>>>> origin/binhbc
 
         <!-- Giỏ hàng -->
-        <router-link to="#" class="action-item">
+        <router-link to="/cart" class="action-item">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
           <span class="action-label">Giỏ hàng</span>
         </router-link>
@@ -210,15 +201,10 @@ const userName = ref('');
 const userEmail = ref('');
 const isAdmin = ref(false);
 const showDropdown = ref(false);
-<<<<<<< HEAD
 const showVoucherDropdown = ref(false);
 const showCategoryMenu = ref(false);
 const categories = ref([]);
 const publicCoupons = ref([]);
-=======
-const showCategoryMenu = ref(false);
-const categories = ref([]);
->>>>>>> origin/binhbc
 const hoveredCategory = ref(null);
 
 const fetchCategories = async () => {
@@ -230,7 +216,6 @@ const fetchCategories = async () => {
   }
 };
 
-<<<<<<< HEAD
 const fetchPublicCoupons = async () => {
   try {
     const response = await api.get('/coupons/public');
@@ -244,8 +229,7 @@ const formatCurrency = (val) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 };
 
-=======
->>>>>>> origin/binhbc
+
 // Đóng mega menu khi chuyển trang
 watch(() => route.path, () => {
   showCategoryMenu.value = false;
@@ -287,10 +271,7 @@ const handleLogout = async () => {
 onMounted(() => {
   checkAuth();
   fetchCategories();
-<<<<<<< HEAD
   fetchPublicCoupons();
-=======
->>>>>>> origin/binhbc
 });
 watch(() => route.path, checkAuth);
 </script>
@@ -579,7 +560,6 @@ watch(() => route.path, checkAuth);
 .account-logout { color: #dc2626; }
 .account-logout:hover { background: #fff0f0; }
 
-<<<<<<< HEAD
 /* Voucher Dropdown Style */
 .voucher-menu { min-width: 280px; }
 .dropdown-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; }
@@ -592,8 +572,6 @@ watch(() => route.path, checkAuth);
 .cp-code { font-size: 0.85rem; font-weight: 700; color: #dc2626; margin-bottom: 2px; }
 .cp-info { font-size: 0.75rem; color: #666; font-weight: 500; }
 
-=======
->>>>>>> origin/binhbc
 @media (max-width: 768px) {
   .search-box { display: none; }
   .category-btn { display: none; }

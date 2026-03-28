@@ -42,9 +42,9 @@ return [
             'driver' => 'local',
             'root' => storage_path('app/public'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
-            'visibility' => 'public',
-            'throw' => false,
-            'report' => false,
+            // 'visibility' => 'public', // Bỏ qua visibility để tránh lỗi chmod trên Windows Docker
+            'throw' => true, // Bật throw để thấy rõ lỗi nếu có thay vì tự động trả về false
+            'report' => true,
         ],
 
         's3' => [
