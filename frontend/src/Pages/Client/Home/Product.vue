@@ -30,6 +30,14 @@ const priceRanges = ref([
 const currentPage = ref(1);
 const totalPages = ref(1);
 
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
+
+const getImageUrl = (path) => {
+    if (!path || path === '0') return 'https://placehold.co/400x500?text=No+Image';
+    if (path.startsWith('http')) return path;
+    return `${BASE_URL}/storage/${path}`;
+};
+
 const fetchProducts = async () => {
     try {
         const response = await api.get(`/products?limit=12&page=${currentPage.value}`);
@@ -41,10 +49,7 @@ const fetchProducts = async () => {
                 style: "currency",
                 currency: "VND",
             }).format(item.min_price || 0),
-            image:
-                item.thumbnail_url !== "0"
-                    ? item.thumbnail_url
-                    : "https://placehold.co/400x500?text=No+Image",
+            image: getImageUrl(item.thumbnail_url),
             badge: item.is_featured ? "Hot" : null,
             slug: item.slug,
             category_id: item.category_id,

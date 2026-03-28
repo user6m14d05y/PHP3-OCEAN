@@ -118,4 +118,19 @@ class ShippingZoneController extends Controller
             'message' => 'Đã xóa khu vực vận chuyển!',
         ]);
     }
+
+    /**
+     * Lấy danh sách khu vực đang hoạt động (cho App/Web)
+     */
+    public function activeZones()
+    {
+        $zones = ShippingZone::where('is_active', true)
+            ->orderByDesc('priority')
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $zones,
+        ]);
+    }
 }
