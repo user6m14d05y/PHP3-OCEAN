@@ -20,6 +20,7 @@ const Checkout = () => import("../Pages/Client/Cart/Checkout.vue")
 const ProfileLayout = () => import("../Pages/Client/Profile/ProfileLayout.vue");
 const ProfileInfo = () => import("../Pages/Client/Profile/ProfileInfo.vue");
 const ProfileAddress = () => import("../Pages/Client/Profile/ProfileAddress.vue");
+const ProfileOrders = () => import("../Pages/Client/Profile/ProfileOrders.vue");
 const ProfileCoupon = () => import("../Pages/Client/Profile/ProfileCoupon.vue");
 const ProfileChangePassword = () => import("../Pages/Client/Profile/ProfileChangePassword.vue");
 
@@ -76,7 +77,7 @@ const routes = [
                 children: [
                     { path: "", name: "profile", component: ProfileInfo },
                     { path: "addresses", name: "profile-addresses", component: ProfileAddress },
-                    { path: "orders", name: "profile-orders", component: ProfileInfo }, // placeholder
+                    { path: "orders", name: "profile-orders", component: ProfileOrders }, 
                     { path: "wishlist", name: "profile-wishlist", component: ProfileInfo }, // placeholder
                     { path: "change-password", name: "profile-change-password", component: ProfileChangePassword }, 
                     { path: "coupon", name: "profile-coupon", component: ProfileCoupon },

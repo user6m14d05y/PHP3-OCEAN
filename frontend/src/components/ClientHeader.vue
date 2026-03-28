@@ -218,6 +218,7 @@ const showCategoryMenu = ref(false);
 const categories = ref([]);
 const publicCoupons = ref([]);
 const hoveredCategory = ref(null);
+const cartCount = ref(0);
 
 const fetchCategories = async () => {
   try {
@@ -275,6 +276,15 @@ const checkAuth = () => {
   }
 };
 
+const fetchCartCount = async () => {
+  const token = localStorage.getItem('auth_token');
+  if (!token) { cartCount.value = 0; return; }
+  try {
+    const response = await api.get('/cart/count');
+    cartCount.value = response.data.count || 0;
+  } catch (e) { cartCount.value = 0; }
+};
+
 const handleLogout = async () => {
   try { await api.post('/logout'); } catch (e) { /* ignore */ }
   localStorage.removeItem('auth_token');
@@ -294,8 +304,9 @@ onMounted(() => {
   fetchPublicCoupons();
   fetchCartCount();
   window.addEventListener('user-updated', checkAuth);
+  window.addEventListener('cart-updated', fetchCartCount);
 });
-watch(() => route.path, checkAuth);
+watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 </script>
 
 <style scoped>
@@ -617,6 +628,31 @@ watch(() => route.path, checkAuth);
 .voucher-mini-card { padding: 10px 12px; border-radius: 8px; background: #fff5f5; border: 1px dashed #fecaca; }
 .cp-code { font-size: 0.85rem; font-weight: 700; color: #dc2626; margin-bottom: 2px; }
 .cp-info { font-size: 0.75rem; color: #666; font-weight: 500; }
+
+/* Cart Badge */
+.cart-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+.cart-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(220, 38, 38, 0.4);
+}
 
 @media (max-width: 768px) {
   .search-box { display: none; }
