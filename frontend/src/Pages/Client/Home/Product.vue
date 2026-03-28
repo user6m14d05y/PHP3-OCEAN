@@ -152,25 +152,41 @@ onMounted(() => {
                     <div class="sidebar-panel">
                         <!-- Header -->
                         <div class="sidebar-header">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="3" y1="6" x2="21" y2="6" />
+                                <line x1="3" y1="12" x2="21" y2="12" />
+                                <line x1="3" y1="18" x2="21" y2="18" />
+                            </svg>
                             <span>Nhóm sản phẩm</span>
                         </div>
 
                         <!-- Tất cả sản phẩm -->
-                        <div class="tree-item" :class="{ active: selectedCategory === 'All' }" @click="selectedCategory = 'All'">
+                        <div class="tree-item" :class="{ active: selectedCategory === 'All' }"
+                            @click="selectedCategory = 'All'">
                             <span class="tree-label">Tất cả sản phẩm</span>
                         </div>
 
                         <!-- Danh mục cha + con -->
                         <div v-for="cat in Categories" :key="cat.category_id" class="tree-group">
-                            <div class="tree-item tree-parent" :class="{ active: selectedCategory === cat.category_id && selectedSubcategory === 'All' }" @click="selectedCategory = cat.category_id; selectedSubcategory = 'All'; if (cat.children && cat.children.length) toggleCategory(cat.category_id)">
+                            <div class="tree-item tree-parent"
+                                :class="{ active: selectedCategory === cat.category_id && selectedSubcategory === 'All' }"
+                                @click="selectedCategory = cat.category_id; selectedSubcategory = 'All'; if (cat.children && cat.children.length) toggleCategory(cat.category_id)">
                                 <span class="tree-label">{{ cat.name }}</span>
-                                <svg v-if="cat.children && cat.children.length" class="tree-chevron" :class="{ open: expandedCategories[cat.category_id] }" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                                <svg v-if="cat.children && cat.children.length" class="tree-chevron"
+                                    :class="{ open: expandedCategories[cat.category_id] }" width="16" height="16"
+                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
                             </div>
 
                             <!-- Danh mục con -->
-                            <div class="tree-children" v-if="cat.children && cat.children.length" :class="{ expanded: expandedCategories[cat.category_id] }">
-                                <div v-for="child in cat.children" :key="child.category_id" class="tree-item tree-child" :class="{ active: selectedSubcategory === child.category_id }" @click="selectedCategory = cat.category_id; selectedSubcategory = child.category_id">
+                            <div class="tree-children" v-if="cat.children && cat.children.length"
+                                :class="{ expanded: expandedCategories[cat.category_id] }">
+                                <div v-for="child in cat.children" :key="child.category_id" class="tree-item tree-child"
+                                    :class="{ active: selectedSubcategory === child.category_id }"
+                                    @click="selectedCategory = cat.category_id; selectedSubcategory = child.category_id">
                                     <span class="tree-label">{{ child.name }}</span>
                                 </div>
                             </div>
@@ -181,7 +197,8 @@ onMounted(() => {
 
                         <!-- Mức giá -->
                         <div class="sidebar-subheader">Mức Giá</div>
-                        <div v-for="price in priceRanges" :key="price.id" class="tree-item tree-price" :class="{ active: selectedPriceRange === price.id }" @click="selectedPriceRange = price.id">
+                        <div v-for="price in priceRanges" :key="price.id" class="tree-item tree-price"
+                            :class="{ active: selectedPriceRange === price.id }" @click="selectedPriceRange = price.id">
                             <div class="custom-radio">
                                 <div class="radio-inner" v-if="selectedPriceRange === price.id"></div>
                             </div>
@@ -191,10 +208,7 @@ onMounted(() => {
                 </aside>
 
                 <!-- Cột phải: Danh sách sản phẩm (4 thẻ trên 1 hàng) -->
-                <section
-                    class="products-content animate-in"
-                    style="animation-delay: 0.2s"
-                >
+                <section class="products-content animate-in" style="animation-delay: 0.2s">
                     <!-- Thanh công cụ (Action Bar) -->
                     <div class="action-bar">
                         <div class="results-count">
@@ -205,11 +219,7 @@ onMounted(() => {
 
                         <div class="sort-box">
                             <label for="sortSelector">Sắp xếp:</label>
-                            <select
-                                id="sortSelector"
-                                v-model="sortBy"
-                                class="custom-select"
-                            >
+                            <select id="sortSelector" v-model="sortBy" class="custom-select">
                                 <option value="newest">
                                     Sản phẩm mới nhất
                                 </option>
@@ -226,56 +236,25 @@ onMounted(() => {
 
 
 
-                    <div
-                        class="products-grid"
-                        v-if="filteredProducts.length > 0"
-                    >
-                        <div
-                            class="product-card ocean-card"
-                            v-for="product in filteredProducts"
-                            :key="product.id"
-                        >
+                    <div class="products-grid" v-if="filteredProducts.length > 0">
+                        <div class="product-card ocean-card" v-for="product in filteredProducts" :key="product.id">
                             <router-link :to="'/product/' + product.slug">
                                 <div class="text-decoration-none">
                                     <div class="product-img-wrapper">
-                                        <span
-                                            class="product-badge"
-                                            v-if="product.badge"
-                                            :class="{
-                                                'badge-hot':
-                                                    product.badge === 'Hot',
-                                            }"
-                                            >{{ product.badge }}</span
-                                        >
-                                        <img
-                                            :src="product.image"
-                                            :alt="product.name"
-                                            class="product-img"
-                                            style="cursor: pointer"
-                                        />
+                                        <span class="product-badge" v-if="product.badge" :class="{
+                                            'badge-hot':
+                                                product.badge === 'Hot',
+                                        }">{{ product.badge }}</span>
+                                        <img :src="'http://localhost:8383/storage/' + product.image" :alt="product.name"
+                                            class="product-img" style="cursor: pointer" />
                                         <div class="product-hover-action">
                                             <button class="btn-icon">
-                                                <svg
-                                                    width="20"
-                                                    height="20"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                >
-                                                    <circle
-                                                        cx="9"
-                                                        cy="21"
-                                                        r="1"
-                                                    />
-                                                    <circle
-                                                        cx="20"
-                                                        cy="21"
-                                                        r="1"
-                                                    />
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2">
+                                                    <circle cx="9" cy="21" r="1" />
+                                                    <circle cx="20" cy="21" r="1" />
                                                     <path
-                                                        d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"
-                                                    />
+                                                        d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
                                                 </svg>
                                             </button>
                                         </div>
@@ -286,7 +265,7 @@ onMounted(() => {
                                         </h3>
                                         <span class="product-price">{{
                                             product.formatted_price
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                 </div>
                             </router-link>
@@ -300,13 +279,10 @@ onMounted(() => {
                             Không có sản phẩm nào phù hợp với bộ lọc bạn vừa
                             chọn.
                         </p>
-                        <button
-                            class="btn-outline"
-                            @click="
-                                selectedCategory = 'All';
-                                selectedPriceRange = 'All';
-                            "
-                        >
+                        <button class="btn-outline" @click="
+                            selectedCategory = 'All';
+                        selectedPriceRange = 'All';
+                        ">
                             Xóa bộ lọc
                         </button>
                     </div>
