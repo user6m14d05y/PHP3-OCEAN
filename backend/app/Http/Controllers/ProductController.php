@@ -48,6 +48,15 @@ class ProductController extends Controller
             $query->where('status', $status);
         }
 
+        // Lọc theo danh mục (bao gồm cả danh mục con)
+        $categoryId = $request->query('category_id');
+        if ($categoryId) {
+            $categoryIds = [$categoryId];
+            $childIds = \App\Models\Category::where('parent_id', $categoryId)->pluck('category_id')->toArray();
+            $categoryIds = array_merge($categoryIds, $childIds);
+            $query->whereIn('category_id', $categoryIds);
+        }
+
         $total = $query->count();
         $products = $query->orderBy('product_id', 'desc')
             ->offset($offset)

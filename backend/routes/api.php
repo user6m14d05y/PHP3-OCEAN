@@ -17,6 +17,8 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\ShippingZoneController;
 use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ProfileController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -68,6 +70,9 @@ Route::middleware('auth:api,admin')->group(function () {
 
 // Customer Profile routes (Protected - cần JWT token user/admin)
 Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
+    Route::post('/', [ProfileController::class, 'update']);
+    Route::put('/password', [ProfileController::class, 'changePassword']);
+
     Route::get('/addresses', [AddressController::class, 'index']);
     Route::post('/addresses', [AddressController::class, 'store']);
     Route::put('/addresses/{id}', [AddressController::class, 'update']);
@@ -78,6 +83,11 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     // Coupons (Lưu và xem mã giảm giá của tôi)
     Route::get('/coupons', [CouponController::class, 'getUserCoupons']);
     Route::post('/coupons/save', [CouponController::class, 'saveCoupon']);
+    
+    // Đơn hàng của tôi
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::post('/orders', [OrderController::class, 'store']);
+    Route::put('/orders/{id}/cancel', [OrderController::class, 'cancel']);
 });
 
 // Cart routes (Protected - cần JWT token user/admin)
@@ -157,6 +167,8 @@ Route::get('brands', [BrandController::class, 'index']);
 Route::get('coupons/public', [CouponController::class, 'getPublicCoupons']);
 
 
+
+Route::get('shipping-zones/active', [ShippingZoneController::class, 'activeZones']);
 
 // API Địa chỉ Việt Nam (Public)
 Route::prefix('location')->group(function () {

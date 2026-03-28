@@ -28,7 +28,7 @@ class UserCoupon extends Model
      */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
     /**
@@ -36,6 +36,6 @@ class UserCoupon extends Model
      */
     public function coupon()
     {
-        return $this->belongsTo(Coupon::class);
+        return $this->belongsTo(Coupon::class, 'coupon_id', 'id');
     }
 }

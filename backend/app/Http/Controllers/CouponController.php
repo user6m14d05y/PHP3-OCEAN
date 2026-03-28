@@ -273,7 +273,18 @@ class CouponController extends Controller
         $query = UserCoupon::with('coupon');
         $userCoupons = $query->where('user_id', $userId)
             ->where('is_saved', true)
-            ->get();
+            ->get()
+            ->filter(function ($userCoupon) {
+                $coupon = $userCoupon->coupon;
+                if (!$coupon) return false;
+                
+                // Ẩn các mã mà user đã dùng hết số lần cho phép
+                if ($coupon->user_usage_limit && $userCoupon->used_count >= $coupon->user_usage_limit) {
+                    return false;
+                }
+                
+                return true;
+            })->values();
 
         return response()->json([
             'status' => 'success',

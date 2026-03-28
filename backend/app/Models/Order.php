@@ -6,5 +6,44 @@ use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
-    //
+    protected $primaryKey = 'order_id';
+
+    protected $fillable = [
+        'order_code',
+        'user_id',
+        'address_id',
+        'promotion_id',
+        'recipient_name',
+        'recipient_phone',
+        'shipping_address',
+        'note',
+        'payment_method',
+        'payment_status',
+        'fulfillment_status',
+        'subtotal',
+        'discount_amount',
+        'shipping_fee',
+        'grand_total',
+        'confirmed_at',
+        'shipped_at',
+        'delivered_at',
+        'completed_at',
+        'cancelled_at',
+        'cancel_reason',
+    ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
+    }
+
+    public function items()
+    {
+        return $this->hasMany(OrderItem::class, 'order_id', 'order_id');
+    }
+
+    public function statusHistories()
+    {
+        return $this->hasMany(OrderStatusHistory::class, 'order_id', 'order_id');
+    }
 }

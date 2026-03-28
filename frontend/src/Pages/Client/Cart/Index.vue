@@ -98,6 +98,7 @@ const removeItem = async (item) => {
         cartItems.value = cartItems.value.filter(i => i.cart_item_id !== item.cart_item_id);
         showToast('Đã xóa sản phẩm khỏi giỏ hàng!', 'success');
         updateSelectAllState();
+        window.dispatchEvent(new Event('cart-updated'));
     } catch (error) {
         showToast('Không thể xóa sản phẩm. Vui lòng thử lại.', 'error');
     }
@@ -111,6 +112,7 @@ const clearCart = async () => {
         await api.delete('/cart');
         cartItems.value = [];
         showToast('Đã xóa toàn bộ giỏ hàng!', 'success');
+        window.dispatchEvent(new Event('cart-updated'));
     } catch (error) {
         showToast('Không thể xóa giỏ hàng. Vui lòng thử lại.', 'error');
     }

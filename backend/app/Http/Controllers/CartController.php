@@ -338,7 +338,7 @@ class CartController extends Controller
             ->where('status', 'active')
             ->first();
 
-        $count = $cart ? $cart->items()->sum('quantity') : 0;
+        $count = $cart ? $cart->items()->count() : 0;
 
         return response()->json(['count' => $count]);
     }
