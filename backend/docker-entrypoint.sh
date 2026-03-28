@@ -1,11 +1,96 @@
 #!/bin/sh
+<<<<<<< HEAD
 set -e
+=======
+>>>>>>> origin/binhbc
 
 echo "======================================="
 echo " Ocean Backend - Entrypoint Script"
 echo "======================================="
 
 # -----------------------------------------------
+<<<<<<< HEAD
+# 0. Fix quyền cho các thư mục cần ghi (chạy dưới root)
+#    Dùng chmod 777 để đảm bảo www-data luôn ghi được
+#    kể cả khi volume mount từ host với UID khác.
+# -----------------------------------------------
+echo "[0/7] Fixing file permissions..."
+chown -R www-data:www-data /var/www/vendor 2>/dev/null || true
+chown -R www-data:www-data /var/www/storage 2>/dev/null || true
+chown -R www-data:www-data /var/www/bootstrap/cache 2>/dev/null || true
+chmod -R 775 /var/www/vendor 2>/dev/null || true
+chmod -R 777 /var/www/storage 2>/dev/null || true
+chmod -R 777 /var/www/bootstrap/cache 2>/dev/null || true
+
+# -----------------------------------------------
+# 1. Chờ MySQL sẵn sàng (retry loop)
+# -----------------------------------------------
+echo "[1/7] Waiting for MySQL to be ready..."
+MAX_TRIES=30
+COUNT=0
+until php -r "
+    try {
+        \$pdo = new PDO(
+            'mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT', '3306'),
+            getenv('DB_USERNAME'),
+            getenv('DB_PASSWORD')
+        );
+        echo 'DB connected';
+    } catch (Exception \$e) {
+        exit(1);
+    }
+" 2>/dev/null; do
+    COUNT=$((COUNT + 1))
+    if [ "$COUNT" -ge "$MAX_TRIES" ]; then
+        echo "ERROR: MySQL is not ready after ${MAX_TRIES} retries. Aborting."
+        exit 1
+    fi
+    echo "  MySQL not ready yet... retrying ($COUNT/$MAX_TRIES)"
+    sleep 2
+done
+echo "  MySQL is ready!"
+
+# -----------------------------------------------
+# 2. Cài đặt Composer dependencies
+# -----------------------------------------------
+echo "[2/7] Installing Composer dependencies..."
+composer install --no-interaction --prefer-dist --optimize-autoloader
+
+# -----------------------------------------------
+# 3. Generate APP_KEY nếu chưa có
+# -----------------------------------------------
+echo "[3/7] Checking APP_KEY..."
+if [ -z "$APP_KEY" ] || [ "$APP_KEY" = "base64:CHANGE_ME" ]; then
+    echo "  Generating new APP_KEY..."
+    php artisan key:generate --force
+else
+    echo "  APP_KEY already set. Skipping."
+fi
+
+# -----------------------------------------------
+# 4. Tạo Storage Symlink (public/storage -> storage/app/public)
+# -----------------------------------------------
+echo "[4/7] Creating storage link..."
+ln -sf /var/www/storage/app/public /var/www/public/storage
+
+# -----------------------------------------------
+# 5. Chạy Database Migration
+# -----------------------------------------------
+echo "[5/7] Running database migrations..."
+php artisan migrate --force
+
+# -----------------------------------------------
+# 6. Khởi động PHP-FPM
+# -----------------------------------------------
+echo "[6/6] Starting PHP-FPM..."
+# Xóa cache cũ đi phòng trường hợp config cache đang làm crash app
+php artisan cache:clear || true
+php artisan config:clear || true
+php artisan route:clear || true
+php artisan view:clear || true
+
+exec php-fpm
+=======
 # 1. Khởi tạo cấu trúc thư mục cơ bản
 # -----------------------------------------------
 echo "[1/7] Preparing directory structure..."
@@ -22,11 +107,9 @@ mkdir -p /var/www/bootstrap/cache
 echo "[2/7] Waiting for MySQL..."
 MAX_TRIES=30
 COUNT=0
-MYSQL_READY=false
 while [ "$COUNT" -lt "$MAX_TRIES" ]; do
     if php -r "try { new PDO('mysql:host='.getenv('DB_HOST').';port='.(getenv('DB_PORT')?:'3306'), getenv('DB_USERNAME'), getenv('DB_PASSWORD'), [PDO::ATTR_TIMEOUT=>3]); echo 'OK'; } catch (Exception \$e) { exit(1); }" 2>/dev/null; then
         echo "  MySQL is ready!"
-        MYSQL_READY=true
         break
     fi
     COUNT=$((COUNT + 1))
@@ -34,28 +117,13 @@ while [ "$COUNT" -lt "$MAX_TRIES" ]; do
     sleep 2
 done
 
-if [ "$MYSQL_READY" = false ]; then
-    echo "ERROR: MySQL not ready after $MAX_TRIES attempts. Exiting."
-    exit 1
-fi
-
 # -----------------------------------------------
 # 3. Composer install
 # -----------------------------------------------
 echo "[3/7] Installing Composer dependencies..."
 cd /var/www
-
 # Chạy composer với tư cách root để tránh lỗi permission lúc ghi vendor
-if ! composer install --no-interaction --prefer-dist --optimize-autoloader; then
-    echo "ERROR: Composer install failed! Exiting."
-    exit 1
-fi
-
-# Kiểm tra autoload tồn tại
-if [ ! -f /var/www/vendor/autoload.php ]; then
-    echo "ERROR: vendor/autoload.php not found after composer install! Exiting."
-    exit 1
-fi
+composer install --no-interaction --prefer-dist --optimize-autoloader
 
 # -----------------------------------------------
 # 4. FIX QUYỀN TRIỆT ĐỂ (QUAN TRỌNG NHẤT)
@@ -90,9 +158,7 @@ php artisan cache:clear
 # 6. Database migration
 # -----------------------------------------------
 echo "[6/7] Running migrations..."
-if ! php artisan migrate --force --no-interaction; then
-    echo "WARNING: Migration failed, but continuing to start PHP-FPM..."
-fi
+php artisan migrate --force --no-interaction || echo "WARNING: Migration failed."
 
 # -----------------------------------------------
 # 7. Start PHP-FPM
@@ -104,3 +170,4 @@ echo "======================================="
 
 # Thực thi PHP-FPM
 exec php-fpm
+>>>>>>> origin/binhbc

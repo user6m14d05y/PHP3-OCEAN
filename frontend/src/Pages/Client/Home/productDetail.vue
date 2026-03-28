@@ -1,23 +1,17 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import api from '@/axios';
+// Kỹ thuật cơ bản: 
+// Lấy ID từ URL (nếu có API, ta sẽ dùng ID này để fetch() dữ liệu)
 const route = useRoute();
-const router = useRouter();
 const slug = route.params.slug;
 const product = ref(null);
-const selectedVariant = ref(null);
-const addingToCart = ref(false);
-const toast = ref({ show: false, message: '', type: 'success' });
 
 const fetchProduct = async () => {
     try {
         const response = await api.get(`/products/${slug}`);
         product.value = response.data;
-        // Auto-select variant đầu tiên (nếu có)
-        if (product.value?.variants?.length > 0) {
-            selectedVariant.value = product.value.variants[0];
-        }
     } catch (error) {
         console.error("Error fetching product:", error);
     }
@@ -33,49 +27,10 @@ const formatPrice = (price) => {
 
 const increaseQuantity = () => quantity.value++;
 const decreaseQuantity = () => { if (quantity.value > 1) quantity.value-- };
-
-const showToast = (message, type = 'success') => {
-    toast.value = { show: true, message, type };
-    setTimeout(() => { toast.value.show = false; }, 3000);
-};
-
-const addToCart = async () => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
-        router.push({ name: 'login', query: { redirect: route.fullPath } });
-        return;
-    }
-
-    if (!selectedVariant.value) {
-        showToast('Vui lòng chọn phiên bản sản phẩm!', 'error');
-        return;
-    }
-
-    if (quantity.value < 1) {
-        showToast('Số lượng tối thiểu là 1!', 'error');
-        return;
-    }
-
-    addingToCart.value = true;
-    try {
-        const response = await api.post('/cart/items', {
-            variant_id: selectedVariant.value.variant_id,
-            quantity: quantity.value,
-        });
-        if (response.data.status === 'success') {
-            showToast(response.data.message, 'success');
-        }
-    } catch (error) {
-        const msg = error.response?.data?.message || 'Không thể thêm vào giỏ hàng.';
-        showToast(msg, 'error');
-    } finally {
-        addingToCart.value = false;
-    }
-};
-
 onMounted(() => {
     fetchProduct();
 });
+
 </script>
 
 <template>
@@ -96,7 +51,7 @@ onMounted(() => {
       <div class="product-gallery">
         <!-- Ảnh chính -->
         <div class="main-image-container ocean-card">
-          <img :src="'http://localhost:8383/storage/' + product.images[activeImageIndex].image_url" :alt="product.name" class="main-image animate-fade-in" :key="activeImageIndex" />
+          <img :src="product.images[activeImageIndex]" :alt="product.name" class="main-image animate-fade-in" :key="activeImageIndex" />
         </div>
         
         <!-- Danh sách Ảnh nhỏ (Thumbnails) -->
@@ -108,7 +63,7 @@ onMounted(() => {
             :class="{ 'active': activeImageIndex === index }"
             @click="activeImageIndex = index"
           >
-            <img :src=" 'http://localhost:8383/storage/' + img.image_url" :alt="`${product.name} - ảnh ${index + 1}`" />
+            <img :src="img" :alt="`${product.name} - ảnh ${index + 1}`" />
           </div>
         </div>
       </div>
@@ -139,25 +94,6 @@ onMounted(() => {
         <div class="short-description" v-html="product.short_description">
         </div>
 
-        <!-- Chọn Variant -->
-        <div class="variant-selector" v-if="product.variants && product.variants.length > 0">
-          <h4 class="variant-label">Phân loại:</h4>
-          <div class="variant-options">
-            <button
-              v-for="v in product.variants"
-              :key="v.variant_id"
-              class="variant-btn"
-              :class="{ active: selectedVariant?.variant_id === v.variant_id, disabled: v.status !== 'active' || v.stock <= 0 }"
-              @click="v.status === 'active' && v.stock > 0 && (selectedVariant = v)"
-              :disabled="v.status !== 'active' || v.stock <= 0"
-            >
-              <span>{{ v.variant_name || [v.color, v.size].filter(Boolean).join(' / ') || 'Mặc định' }}</span>
-              <span class="variant-stock" v-if="v.stock <= 5 && v.stock > 0">(còn {{ v.stock }})</span>
-              <span class="variant-stock out" v-if="v.stock <= 0">Hết hàng</span>
-            </button>
-          </div>
-        </div>
-
         <!-- Chức năng Số lượng & Mua hàng -->
         <div class="purchase-actions">
           <div class="quantity-selector">
@@ -165,10 +101,8 @@ onMounted(() => {
             <input type="number" v-model="quantity" readonly />
             <button @click="increaseQuantity"><i class="fas fa-plus"></i></button>
           </div>
-          <button class="btn-primary btn-addToCart" @click="addToCart" :disabled="addingToCart">
-            <i class="fas fa-cart-plus" v-if="!addingToCart"></i>
-            <span v-if="addingToCart">Đang thêm...</span>
-            <span v-else>Thêm vào giỏ</span>
+          <button class="btn-primary btn-addToCart">
+            <i class="fas fa-cart-plus"></i> Thêm vào giỏ
           </button>
         </div>
         <button class="btn-primary btn-buyNow">Mua ngay</button>
@@ -223,15 +157,6 @@ onMounted(() => {
     </section>
 
   </main>
-
-  <!-- Toast -->
-  <Transition name="toast">
-    <div v-if="toast.show" class="toast-notification" :class="toast.type">
-      <svg v-if="toast.type === 'success'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-      <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-      <span>{{ toast.message }}</span>
-    </div>
-  </Transition>
 </template>
 
 <style scoped>
@@ -579,95 +504,5 @@ onMounted(() => {
 @media (max-width: 900px) {
   .product-main-grid { grid-template-columns: 1fr; gap: 24px; }
   .product-details-reviews { grid-template-columns: 1fr; }
-}
-
-/* Variant Selector */
-.variant-selector { margin-bottom: 24px; }
-.variant-label {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #334e68;
-  margin-bottom: 10px;
-}
-.variant-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.variant-btn {
-  padding: 8px 16px;
-  border: 1.5px solid #d9e2ec;
-  border-radius: 8px;
-  background: #fff;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #334e68;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.variant-btn:hover:not(:disabled) {
-  border-color: #0288d1;
-  color: #0288d1;
-}
-.variant-btn.active {
-  border-color: #0288d1;
-  background: rgba(2, 136, 209, 0.08);
-  color: #0288d1;
-}
-.variant-btn.disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.variant-stock {
-  font-size: 0.75rem;
-  color: #f59e0b;
-  font-weight: 500;
-}
-.variant-stock.out { color: #dc2626; }
-
-.btn-primary:disabled,
-.btn-addToCart:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Toast */
-.toast-notification {
-  position: fixed;
-  top: 90px;
-  right: 24px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 22px;
-  border-radius: 10px;
-  font-size: 0.92rem;
-  font-weight: 600;
-  z-index: 999;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-}
-.toast-notification.success {
-  background: #ecfdf5;
-  color: #065f46;
-  border: 1px solid #a7f3d0;
-}
-.toast-notification.error {
-  background: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
-}
-.toast-enter-active { animation: slideInRight 0.3s ease; }
-.toast-leave-active { animation: slideOutRight 0.3s ease; }
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(40px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-@keyframes slideOutRight {
-  from { opacity: 1; transform: translateX(0); }
-  to { opacity: 0; transform: translateX(40px); }
 }
 </style>

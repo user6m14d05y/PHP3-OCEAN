@@ -13,7 +13,11 @@ use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\CouponController;
-use App\Http\Controllers\CartController;
+
+
+use App\Http\Controllers\PostCategoryController;
+use App\Http\Controllers\PostController;
+
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -48,37 +52,40 @@ Route::middleware('auth:api,admin')->group(function () {
     Route::put('/products/{id}', [ProductController::class, 'update']);
     Route::delete('/products/{id}', [ProductController::class, 'destroy']);
     Route::get('products/edit/{id}', [ProductController::class, 'edit']);
+
+    Route::get('/post-categories', [PostCategoryController::class, 'index']);
+
+    // Post categories routes
+    Route::post('/post-categories', [PostCategoryController::class, 'create']);
+    Route::put('/post-categories/{id}', [PostCategoryController::class, 'edit']);
+    Route::delete('/post-categories/{id}', [PostCategoryController::class, 'destroy']);
+
+    
+    Route::post('/posts', [PostController::class, 'create']);
+    Route::post('/posts/upload-image', [PostController::class, 'uploadImage']);
+    Route::put('/posts/{id}', [PostController::class, 'update']);
+    Route::delete('/posts/{id}', [PostController::class, 'destroy']);
+    Route::get('posts/edit/{id}', [PostController::class, 'edit']);
+
 });
 
 // Customer Profile routes (Protected - cần JWT token user/admin)
 Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
-    // Profile Management
-    Route::post('/', [App\Http\Controllers\ProfileController::class, 'update']);
-    Route::put('/password', [App\Http\Controllers\ProfileController::class, 'changePassword']);
-
     Route::get('/addresses', [AddressController::class, 'index']);
     Route::post('/addresses', [AddressController::class, 'store']);
     Route::put('/addresses/{id}', [AddressController::class, 'update']);
     Route::delete('/addresses/{id}', [AddressController::class, 'destroy']);
     Route::put('/addresses/{id}/default', [AddressController::class, 'setDefault']);
+
     
     // Coupons (Lưu và xem mã giảm giá của tôi)
     Route::get('/coupons', [CouponController::class, 'getUserCoupons']);
     Route::post('/coupons/save', [CouponController::class, 'saveCoupon']);
 });
 
-// Cart routes (Protected - cần JWT token user/admin)
-Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
-    Route::get('/', [CartController::class, 'getCart']);
-    Route::get('/count', [CartController::class, 'getCount']);
-    Route::post('/items', [CartController::class, 'addItem']);
-    Route::put('/items/{id}', [CartController::class, 'updateItem']);
-    Route::delete('/items/{id}', [CartController::class, 'removeItem']);
-    Route::delete('/', [CartController::class, 'clearCart']);
-});
-
 // Nhóm các route yêu cầu quyền admin/staff (hỗ trợ cả guard api và admin)
 Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->group(function () {
+
     // Quản lý Khách hàng (bảng users)
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::put('/users/{id}/role', [AdminUserController::class, 'updateRole']);
@@ -124,11 +131,14 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->group(function () {
 });
 
 Route::get('productsAll', [ProductController::class, 'all']);
+Route::get('productsFeatured', [ProductController::class, 'productFeatured']);
 
 Route::get('brands', [BrandController::class, 'index']);
 
 // Coupons (Công khai)
 Route::get('coupons/public', [CouponController::class, 'getPublicCoupons']);
+
+
 
 // API Địa chỉ Việt Nam (Public)
 Route::prefix('location')->group(function () {

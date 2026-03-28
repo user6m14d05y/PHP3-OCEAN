@@ -3,8 +3,7 @@
     <!-- User Info Card -->
     <div class="aside-user-card">
       <div class="aside-avatar">
-        <img v-if="userAvatar" :src="userAvatar" alt="Avatar" class="h-full w-full object-cover rounded-full" />
-        <span v-else>{{ userInitial }}</span>
+        <span>{{ userInitial }}</span>
       </div>
       <div class="aside-user-info">
         <h3 class="aside-user-name">{{ userName }}</h3>
@@ -71,6 +70,7 @@
       </router-link>
 
       <router-link
+<<<<<<< HEAD
         to="/profile/coupon"
         class="aside-nav-item"
         active-class="aside-nav-item--active"
@@ -84,6 +84,8 @@
       </router-link>
 
       <router-link
+=======
+>>>>>>> origin/binhbc
         to="/profile/change-password"
         class="aside-nav-item"
         active-class="aside-nav-item--active"
@@ -114,26 +116,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import api from '@/axios';
 
 const router = useRouter();
 const route = useRoute();
 
-// Cùng logic với ProfileInfo.vue để tránh URL sai
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
-
 const userName = ref('');
 const userEmail = ref('');
 const userInitial = ref('?');
-const userAvatar = ref(null);
 
 const isExactActive = (path) => {
   return route.path === path;
 };
 
-const loadUserFromStorage = () => {
+onMounted(() => {
   const userData = localStorage.getItem('user');
   if (userData) {
     try {
@@ -141,26 +139,10 @@ const loadUserFromStorage = () => {
       userName.value = user.name || user.full_name || 'Người dùng';
       userEmail.value = user.email || '';
       userInitial.value = (userName.value[0] || '?').toUpperCase();
-      
-      const path = user.avatar_url;
-      if (path) {
-        userAvatar.value = path.startsWith('http') ? path : `${BASE_URL}${path}`;
-      } else {
-        userAvatar.value = null;
-      }
     } catch (e) {
       console.error('Failed to parse user data', e);
     }
   }
-};
-
-onMounted(() => {
-  loadUserFromStorage();
-  window.addEventListener('user-updated', loadUserFromStorage);
-});
-
-onUnmounted(() => {
-  window.removeEventListener('user-updated', loadUserFromStorage);
 });
 
 const handleLogout = async () => {
@@ -205,7 +187,6 @@ const handleLogout = async () => {
   font-weight: 700;
   flex-shrink: 0;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  overflow: hidden;
 }
 
 .aside-user-info {
