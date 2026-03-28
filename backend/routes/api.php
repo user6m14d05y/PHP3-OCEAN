@@ -13,6 +13,7 @@ use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\CouponController;
+use App\Http\Controllers\CartController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -51,6 +52,10 @@ Route::middleware('auth:api,admin')->group(function () {
 
 // Customer Profile routes (Protected - cần JWT token user/admin)
 Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
+    // Profile Management
+    Route::post('/', [App\Http\Controllers\ProfileController::class, 'update']);
+    Route::put('/password', [App\Http\Controllers\ProfileController::class, 'changePassword']);
+
     Route::get('/addresses', [AddressController::class, 'index']);
     Route::post('/addresses', [AddressController::class, 'store']);
     Route::put('/addresses/{id}', [AddressController::class, 'update']);
@@ -60,6 +65,16 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     // Coupons (Lưu và xem mã giảm giá của tôi)
     Route::get('/coupons', [CouponController::class, 'getUserCoupons']);
     Route::post('/coupons/save', [CouponController::class, 'saveCoupon']);
+});
+
+// Cart routes (Protected - cần JWT token user/admin)
+Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
+    Route::get('/', [CartController::class, 'getCart']);
+    Route::get('/count', [CartController::class, 'getCount']);
+    Route::post('/items', [CartController::class, 'addItem']);
+    Route::put('/items/{id}', [CartController::class, 'updateItem']);
+    Route::delete('/items/{id}', [CartController::class, 'removeItem']);
+    Route::delete('/', [CartController::class, 'clearCart']);
 });
 
 // Nhóm các route yêu cầu quyền admin/staff (hỗ trợ cả guard api và admin)
