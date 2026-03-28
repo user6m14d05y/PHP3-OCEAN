@@ -56,6 +56,7 @@ class ProductController extends Controller
 
         return response()->json([
             'data' => $products,
+            'total' => $total,
             'total_pages' => ceil($total / $limit),
             'page' => (int) $page,
             'limit' => (int) $limit,

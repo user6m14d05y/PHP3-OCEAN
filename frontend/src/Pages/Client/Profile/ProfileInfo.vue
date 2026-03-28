@@ -5,6 +5,12 @@
       <p class="section-desc">Quản lý và cập nhật thông tin cá nhân của bạn</p>
     </div>
 
+    <!-- Thông báo thành công toàn cục -->
+    <div v-if="globalSuccess" class="alert alert-success">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      {{ globalSuccess }}
+    </div>
+
     <!-- Thông báo lỗi toàn cục -->
     <div v-if="globalError" class="alert alert-error">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -19,10 +25,10 @@
         <div class="avatar-section">
           <div class="avatar-wrapper">
             <img :src="previewAvatar || avatarUrl" :alt="user.full_name" class="avatar-img" />
-            <label for="avatar-input" class="avatar-upload-btn" title="Đổi ảnh đại diện">
+            <label v-if="isEditing" for="avatar-input" class="avatar-upload-btn" title="Đổi ảnh đại diện">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             </label>
-            <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/gif,image/jpg" class="sr-only" @change="onAvatarChange" />
+            <input v-if="isEditing" type="file" id="avatar-input" accept="image/jpeg,image/png,image/gif,image/jpg" class="sr-only" @change="onAvatarChange" />
           </div>
           <div class="avatar-info">
             <h4>Ảnh đại diện</h4>
@@ -37,13 +43,14 @@
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label">
-              Họ và tên <span class="required">*</span>
+              Họ và tên <span class="required" v-if="isEditing">*</span>
             </label>
             <input
               type="text"
               v-model="form.full_name"
               class="form-input"
-              :class="{ 'form-input--error': errors.full_name }"
+              :class="{ 'form-input--error': errors.full_name, 'form-input--disabled': !isEditing }"
+              :disabled="!isEditing"
               placeholder="Nhập họ và tên"
               maxlength="120"
               required
@@ -64,7 +71,8 @@
               type="tel"
               v-model="form.phone"
               class="form-input"
-              :class="{ 'form-input--error': errors.phone }"
+              :class="{ 'form-input--error': errors.phone, 'form-input--disabled': !isEditing }"
+              :disabled="!isEditing"
               placeholder="Nhập số điện thoại"
               maxlength="20"
             />
@@ -87,10 +95,14 @@
         </div>
 
         <div class="form-actions">
-          <button type="submit" class="btn-primary" :disabled="loading || !isChanged">
-            <span v-if="loading" class="spinner"></span>
-            <span v-else>Lưu thay đổi</span>
-          </button>
+          <button v-if="!isEditing" type="button" class="btn-primary" @click.prevent="isEditing = true">Sửa thông tin</button>
+          <template v-else>
+            <button type="button" class="btn-outline" @click="cancelEdit" style="margin-right: 12px;">Hủy</button>
+            <button type="submit" class="btn-primary" :disabled="loading || !isChanged">
+              <span v-if="loading" class="spinner"></span>
+              <span v-else>Lưu thay đổi</span>
+            </button>
+          </template>
         </div>
       </form>
     </div>
@@ -131,7 +143,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import api from '@/axios';
-import Swal from 'sweetalert2';
 
 // Lấy base URL từ env (ví dụ: http://localhost:8383)
 const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
@@ -143,7 +154,9 @@ const avatarFile = ref(null);
 const previewAvatar = ref(null);
 const errors = ref({});
 const globalError = ref('');
+const globalSuccess = ref('');
 const loading = ref(false);
+const isEditing = ref(false);
 const originalData = ref({ full_name: '', phone: '' });
 
 // Tính toán avatar URL đúng (xử lý Google URL, local URL, và fallback)
@@ -175,11 +188,23 @@ const statusLabel = (status) => {
   return map[status] || 'Đang hoạt động';
 };
 
+const cancelEdit = () => {
+  isEditing.value = false;
+  form.value.full_name = originalData.value.full_name;
+  form.value.phone = originalData.value.phone;
+  avatarFile.value = null;
+  previewAvatar.value = null;
+  errors.value = {};
+  globalError.value = '';
+  globalSuccess.value = '';
+};
+
 const onAvatarChange = (e) => {
   const file = e.target.files[0];
   if (!file) return;
   if (file.size > 2 * 1024 * 1024) {
-    Swal.fire({ icon: 'error', title: 'Ảnh quá lớn', text: 'Vui lòng chọn ảnh nhỏ hơn 2MB.' });
+    globalError.value = 'Ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 2MB.';
+    setTimeout(() => globalError.value = '', 4000);
     e.target.value = '';
     return;
   }
@@ -198,6 +223,7 @@ const updateProfile = async () => {
   loading.value     = true;
   errors.value      = {};
   globalError.value = '';
+  globalSuccess.value = '';
 
   const formData = new FormData();
   formData.append('full_name', form.value.full_name);
@@ -209,7 +235,8 @@ const updateProfile = async () => {
 
   try {
     const res = await api.post('/profile', formData);
-    Swal.fire({ icon: 'success', title: 'Thành công', text: res.data.message, timer: 2000, showConfirmButton: false });
+    globalSuccess.value = res.data.message || 'Cập nhật tài khoản thành công!';
+    setTimeout(() => globalSuccess.value = '', 4000);
 
     syncUser(res.data.data);
     localStorage.setItem('user', JSON.stringify(res.data.data));
@@ -217,6 +244,7 @@ const updateProfile = async () => {
 
     avatarFile.value   = null;
     previewAvatar.value = null;
+    isEditing.value = false;
   } catch (err) {
     if (err.response?.status === 422) {
       errors.value = err.response.data.errors || {};
@@ -278,6 +306,7 @@ onMounted(async () => {
   font-weight: 500;
 }
 .alert-error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.alert-success { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
 
 /* Card */
 .info-card {
@@ -405,6 +434,26 @@ onMounted(async () => {
 }
 .btn-primary:hover:not(:disabled) { background: #4338ca; }
 .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+
+.btn-outline {
+  padding: 10px 28px;
+  background: #fff;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.btn-outline:hover {
+  background: #f9fafb;
+  color: #111827;
+  border-color: #9ca3af;
+}
 
 .spinner {
   width: 17px;

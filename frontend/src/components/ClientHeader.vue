@@ -107,7 +107,7 @@
         <!-- Săn Voucher -->
         <div class="account-dropdown" @mouseenter="showVoucherDropdown = true" @mouseleave="showVoucherDropdown = false">
           <router-link to="/coupon" class="action-item voucher-item">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 00-2 2c0 1.1.9 2 2 2h4v-4h-4z"/>
             </svg>
             <span class="action-label" style="color: #dc2626;">Săn Voucher</span>
@@ -138,7 +138,7 @@
         <!-- Giỏ hàng -->
         <router-link to="/cart" class="action-item cart-action">
           <div class="cart-icon-wrapper">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
             <span v-if="cartCount > 0" class="cart-badge">{{ cartCount > 99 ? '99+' : cartCount }}</span>
           </div>
           <span class="action-label">Giỏ hàng</span>
@@ -147,15 +147,23 @@
         <!-- Tài khoản -->
         <div class="account-dropdown" @mouseenter="showDropdown = true" @mouseleave="showDropdown = false">
           <button class="action-item">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span class="action-label">Tài khoản</span>
+            <template v-if="isLoggedIn">
+              <img v-if="userAvatar" :src="userAvatar" class="header-user-avatar" />
+              <div v-else class="header-user-avatar-fallback">{{ (userName || '?')[0].toUpperCase() }}</div>
+              <span class="action-label logged-in-name">{{ userName }}</span>
+            </template>
+            <template v-else>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span class="action-label">Tài khoản</span>
+            </template>
           </button>
           <div class="account-menu" v-show="showDropdown">
             <div class="account-menu-inner">
             <template v-if="isLoggedIn">
               <div class="dropdown-user">
-                <div class="dropdown-avatar">{{ (userName || '?')[0].toUpperCase() }}</div>
-                <div>
+                <img v-if="userAvatar" :src="userAvatar" class="dropdown-avatar-img" />
+                <div v-else class="dropdown-avatar">{{ (userName || '?')[0].toUpperCase() }}</div>
+                <div class="dropdown-user-text">
                   <div class="dropdown-name">{{ userName }}</div>
                   <div class="dropdown-email">{{ userEmail }}</div>
                 </div>
@@ -202,6 +210,7 @@ const route = useRoute();
 const isLoggedIn = ref(false);
 const userName = ref('');
 const userEmail = ref('');
+const userAvatar = ref(null);
 const isAdmin = ref(false);
 const showDropdown = ref(false);
 const showVoucherDropdown = ref(false);
@@ -244,9 +253,17 @@ const checkAuth = () => {
     try {
       const user = JSON.parse(userData);
       isLoggedIn.value = true;
-      userName.value = user.name || user.email;
+      userName.value = user.full_name || user.name || user.email;
       userEmail.value = user.email || '';
       isAdmin.value = user.role === 'admin' || user.role === 'staff';
+      
+      const path = user.avatar_url;
+      if (path) {
+        const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
+        userAvatar.value = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+      } else {
+        userAvatar.value = null;
+      }
     } catch (e) {
       isLoggedIn.value = false;
     }
@@ -285,6 +302,7 @@ onMounted(() => {
   fetchCategories();
   fetchPublicCoupons();
   fetchCartCount();
+  window.addEventListener('user-updated', checkAuth);
 });
 watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 </script>
@@ -505,8 +523,8 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 .action-item:hover { color: #1a56db; }
 
 .action-label {
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: 0.85rem;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -545,6 +563,30 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   background: #1a56db; color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+}
+.dropdown-avatar-img {
+  width: 44px; height: 44px; border-radius: 50%;
+  object-fit: cover; border: 2px solid #e5e7eb; flex-shrink: 0;
+}
+.dropdown-user-text { overflow: hidden; }
+
+.header-user-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  object-fit: cover; border: 1.5px solid #1a56db;
+}
+.header-user-avatar-fallback {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: #1a56db; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; font-weight: 700;
+}
+.logged-in-name {
+  color: #1a56db !important;
+  font-weight: 700 !important;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dropdown-name { font-size: 0.85rem; font-weight: 600; color: #111; }

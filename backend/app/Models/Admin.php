@@ -15,6 +15,8 @@ class Admin extends Authenticatable implements JWTSubject
         'email',
         'password',
         'role',
+        'phone',
+        'avatar_url',
     ];
 
     protected $hidden = [

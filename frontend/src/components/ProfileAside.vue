@@ -3,7 +3,7 @@
     <!-- User Info Card -->
     <div class="aside-user-card">
       <div class="aside-avatar">
-        <img v-if="userAvatar" :src="userAvatar" alt="Avatar" class="h-full w-full object-cover rounded-full" />
+        <img v-if="userAvatar" :src="userAvatar" alt="Avatar" class="aside-avatar-img" />
         <span v-else>{{ userInitial }}</span>
       </div>
       <div class="aside-user-info">
@@ -206,6 +206,13 @@ const handleLogout = async () => {
   flex-shrink: 0;
   border: 2px solid rgba(255, 255, 255, 0.3);
   overflow: hidden;
+}
+
+.aside-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .aside-user-info {

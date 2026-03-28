@@ -32,21 +32,18 @@ class ProfileController extends Controller
 
         $user->full_name = $validated['full_name'];
 
-        // Chỉ User (khách hàng) mới có cột phone & avatar_url
-        if ($user instanceof \App\Models\User) {
-            // Cho phép xóa số điện thoại bằng cách gửi chuỗi rỗng
-            $user->phone = isset($validated['phone']) ? ($validated['phone'] ?: null) : $user->phone;
+        // Cho phép xóa số điện thoại bằng cách gửi chuỗi rỗng
+        $user->phone = isset($validated['phone']) ? ($validated['phone'] ?: null) : $user->phone;
 
-            // Xử lý upload ảnh nếu có
-            if ($request->hasFile('avatar')) {
-                // Xoá ảnh cũ nếu là ảnh nội bộ (không phải URL Google/bên ngoài)
-                if ($user->avatar_url && !str_starts_with($user->avatar_url, 'http')) {
-                    $oldPath = ltrim(str_replace('/storage', '', $user->avatar_url), '/');
-                    Storage::disk('public')->delete($oldPath);
-                }
-                $path = $request->file('avatar')->store('avatars', 'public');
-                $user->avatar_url = '/storage/' . $path;
+        // Xử lý upload ảnh nếu có
+        if ($request->hasFile('avatar')) {
+            // Xoá ảnh cũ nếu là ảnh nội bộ (không phải URL Google/bên ngoài)
+            if ($user->avatar_url && !str_starts_with($user->avatar_url, 'http')) {
+                $oldPath = ltrim(str_replace('/storage', '', $user->avatar_url), '/');
+                Storage::disk('public')->delete($oldPath);
             }
+            $path = $request->file('avatar')->store('avatars', 'public');
+            $user->avatar_url = '/storage/' . $path;
         }
 
         $user->saveQuietly();
