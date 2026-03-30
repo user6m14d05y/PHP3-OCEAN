@@ -38,8 +38,9 @@ Route::middleware('throttle:3,1')->post('/forgot-password/send-otp', [ForgotPass
 Route::post('/forgot-password/verify-otp', [ForgotPasswordController::class, 'verifyOtp']);
 Route::post('/forgot-password/reset', [ForgotPasswordController::class, 'resetPassword']);
 
-// Google OAuth callback (Public)
+// OAuth callbacks (Public)
 Route::post('/auth/google/callback', [AuthController::class, 'googleCallback']);
+Route::post('/auth/facebook/callback', [AuthController::class, 'facebookCallback']);
 
 // Auth routes (Protected - cần JWT token)
 Route::middleware('auth:api,admin')->group(function () {
