@@ -73,18 +73,40 @@ class OrderController extends Controller
         }
 
         $request->validate([
-            'address_id' => 'required|exists:addresses,address_id',
+            'address_id' => 'required_without:recipient_name|nullable|exists:addresses,address_id',
+            'recipient_name' => 'required_without:address_id|nullable|string|max:255',
+            'phone' => 'required_without:address_id|nullable|string|max:20',
+            'province' => 'required_without:address_id|nullable|string|max:100',
+            'district' => 'required_without:address_id|nullable|string|max:100',
+            'ward' => 'required_without:address_id|nullable|string|max:100',
+            'address_line' => 'required_without:address_id|nullable|string|max:255',
             'payment_method' => 'required|in:cod,vnpay,momo,bank_transfer',
             'coupon_applied' => 'nullable|string',
             'note' => 'nullable|string|max:500'
         ]);
 
-        $address = Address::where('address_id', $request->address_id)
-            ->where('user_id', $userId)
-            ->first();
+        if ($request->address_id) {
+            $address = Address::where('address_id', $request->address_id)
+                ->where('user_id', $userId)
+                ->first();
 
-        if (!$address) {
-            return response()->json(['status' => 'error', 'message' => 'Địa chỉ không hợp lệ!'], 400);
+            if (!$address) {
+                return response()->json(['status' => 'error', 'message' => 'Địa chỉ không hợp lệ!'], 400);
+            }
+        } else {
+            $address = Address::create([
+                'user_id' => $userId,
+                'recipient_name' => $request->recipient_name,
+                'phone' => $request->phone,
+                'province' => $request->province,
+                'district' => $request->district,
+                'ward' => $request->ward,
+                'address_line' => $request->address_line,
+                'province_code' => $request->province_code,
+                'district_code' => $request->district_code,
+                'ward_code' => $request->ward_code,
+                'is_default' => false,
+            ]);
         }
 
         // Lấy giỏ hàng active
