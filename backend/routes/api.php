@@ -32,6 +32,7 @@ Route::get('/', function () {
 Route::middleware('throttle:5,1')->post('/login', [AuthController::class, 'login']);
 Route::middleware('throttle:3,1')->post('/register', [AuthController::class, 'register']);
 Route::post('/SubmitContact', [ContactController::class, 'SubmitContact']);
+Route::post('/SubmitContactEmail', [ContactController::class, 'SubmitContactEmail']);
 
 // Forgot Password routes (Public) — có Rate Limiting cho send OTP
 Route::middleware('throttle:3,1')->post('/forgot-password/send-otp', [ForgotPasswordController::class, 'sendOtp']);
