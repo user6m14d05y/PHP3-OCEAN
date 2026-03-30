@@ -4,9 +4,9 @@
       <div class="footer-grid">
         <!-- Col 1: Brand + Newsletter -->
         <div class="footer-brand-col">
-          <div class="footer-logo">
-            <span class="footer-logo-text">Ocean Store</span>
-          </div>
+          <router-link to="/" class="footer-logo">
+              <img src="../../public/favicon.ico" alt="logo-ocean" width="140" height="100">
+          </router-link>
           <p class="footer-desc">Ocean Store — Nơi hội tụ các thương hiệu uy tín, mang đến trải nghiệm mua sắm tuyệt vời cho bạn.</p>
           
           <div class="newsletter">
@@ -87,7 +87,7 @@ const newsletterEmail = ref('');
 const submitNewsletter = async () => {
   if (!newsletterEmail.value) return;
   try {
-    await api.post('/SubmitContact', { email: newsletterEmail.value });
+    await api.post('/SubmitContactEmail', { email: newsletterEmail.value });
     newsletterEmail.value = '';
     alert('Đăng ký nhận tin thành công!');
   } catch (e) {

@@ -9,6 +9,35 @@ use Illuminate\Support\Facades\Validator;
 
 class ContactController extends Controller
 {
+
+    public function SubmitContactEmail (Request $request){
+        $validator = Validator::make($request->all(), [
+            'email'   => 'required|email|max:255',
+        ], [
+            'email.required' => 'Vui lòng nhập email.',
+            'email.email' => 'Email không hợp lệ.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $contact = Contact::create([
+            'name'    => 'Newsletter Subscriber',
+            'email'   => $request->email,
+            'subject' => 'Đăng ký nhận bản tin',
+            'message' => 'Khách hàng đăng ký nhận tin từ footer.',
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đăng ký nhận tin thành công!',
+        ], 201);
+            
+    }
     /**
      * User gửi form liên hệ (Public)
      */
