@@ -3,7 +3,7 @@
     <div class="header-inner">
       <!-- Logo -->
       <router-link to="/" class="logo">
-        <span class="logo-text">Ocean</span>
+        <img src="../../public/favicon.ico" alt="logo-ocean" width="120" height="80">
       </router-link>
       <!-- Danh mục Mega Dropdown -->
       <div class="category-dropdown" @mouseenter="showCategoryMenu = true" @mouseleave="showCategoryMenu = false">

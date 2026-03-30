@@ -3,9 +3,7 @@
     <!-- Brand -->
     <div class="sidebar-brand">
       <div class="brand-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-        </svg>
+        <img src="../../public/favicon.ico" alt="logo-ocean" width="100" height="60">
       </div>
       <h2 class="brand-title">Admin</h2>
     </div>
@@ -109,7 +107,7 @@
     <!-- Footer (User Profile) -->
     <div class="sidebar-footer">
       <div class="user-profile">
-        <div class="user-avatar-circle">{{ userName[0].toUpperCase() }}</div>
+        <div class="user-avatar-circle"><img :src="userAvatar" alt="" width="50" height="50" style="border-radius: 50%;"></div>
         <div class="user-details" @click="handleLogout" style="cursor: pointer;" title="Nhấn để đăng xuất">
           <span class="user-name-bold">{{ userName }}</span>
           <span class="user-email-text">{{ userEmail || 'admin123@gmail.com' }}</span>
@@ -126,16 +124,22 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 const userName = ref('Admin');
 const userEmail = ref('');
+const userAvatar = ref('');
 const userRole = ref('Manager');
 const isStoreMenuOpen = ref(true); // Mặc định mở theo ảnh mẫu
+
 
 onMounted(() => {
   const userData = localStorage.getItem('user');
   if (userData) {
     try {
       const user = JSON.parse(userData);
-      userName.value = user.name || 'Admin';
+      const path = user.avatar_url;
+      const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
+      // alert ( ' BASE_URL' + BASE_URL + path)
+      userName.value = user.full_name || 'Admin';
       userEmail.value = user.email || '';
+      userAvatar.value = path.startsWith('http') ? path : `${BASE_URL}${path}`; 
       userRole.value = user.role === 'admin' ? 'Super Admin' : (user.role === 'staff' ? 'Staff' : 'Manager');
     } catch (e) {
       console.error("Failed to parse user data", e);
@@ -177,8 +181,6 @@ const handleLogout = () => {
 .brand-icon {
   width: 40px;
   height: 40px;
-  background: #1d4ed8;
-  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -187,6 +189,8 @@ const handleLogout = () => {
 
 .brand-title {
   font-size: 1.4rem;
+  margin-left: 5px;
+  margin-top: 5px;
   font-weight: 700;
   color: #000;
   letter-spacing: -0.5px;
