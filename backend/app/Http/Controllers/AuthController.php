@@ -297,4 +297,104 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Facebook OAuth 2.0 Callback
+     */
+    public function facebookCallback(Request $request)
+    {
+        $code = $request->input('code');
+
+        if (!$code) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Thiếu mã xác thực từ Facebook!'
+            ], 422);
+        }
+
+        try {
+            // Bước 1: Đổi code lấy access_token
+            $tokenResponse = Http::get('https://graph.facebook.com/v19.0/oauth/access_token', [
+                'client_id' => env('FACEBOOK_ID'),
+                'client_secret' => env('FACEBOOK_SECRET'),
+                'redirect_uri' => env('FACEBOOK_REDIRECT'),
+                'code' => $code,
+            ]);
+
+            if ($tokenResponse->failed()) {
+                Log::error('Facebook token exchange failed: ' . $tokenResponse->body());
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Xác thực Facebook thất bại! Vui lòng thử lại.'
+                ], 401);
+            }
+
+            $accessToken = $tokenResponse->json('access_token');
+
+            // Bước 2: Lấy thông tin user từ Facebook
+            $userResponse = Http::get('https://graph.facebook.com/me', [
+                'fields' => 'id,name,email,picture.type(large)',
+                'access_token' => $accessToken,
+            ]);
+
+            if ($userResponse->failed()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Không thể lấy thông tin từ Facebook!'
+                ], 401);
+            }
+
+            $facebookUser = $userResponse->json();
+            $facebookId = $facebookUser['id'];
+            $facebookEmail = $facebookUser['email'] ?? ($facebookId . '@facebook.local');
+            $facebookName = $facebookUser['name'] ?? 'Facebook User';
+            $facebookAvatar = $facebookUser['picture']['data']['url'] ?? null;
+
+            // Bước 3: Tìm hoặc tạo user (Account Linking)
+            $now = Carbon::now()->toDateTimeString();
+
+            // Tìm bằng facebook_id trước
+            $user = DB::selectOne("SELECT * FROM users WHERE facebook_id = ? AND deleted_at IS NULL", [$facebookId]);
+
+            if (!$user) {
+                // Tìm bằng email (account linking)
+                $user = DB::selectOne("SELECT * FROM users WHERE email = ? AND deleted_at IS NULL", [$facebookEmail]);
+
+                if ($user) {
+                    // Liên kết facebook_id vào tài khoản hiện tại
+                    DB::update("UPDATE users SET facebook_id = ?, avatar_url = COALESCE(avatar_url, ?), updated_at = ? WHERE user_id = ?", [
+                        $facebookId, $facebookAvatar, $now, $user->user_id
+                    ]);
+                } else {
+                    // Tạo user mới (password = null vì login bằng Facebook)
+                    DB::insert(
+                        "INSERT INTO users (full_name, email, facebook_id, password, avatar_url, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$facebookName, $facebookEmail, $facebookId, null, $facebookAvatar, 'customer', $now, $now]
+                    );
+                    $user = DB::selectOne("SELECT * FROM users WHERE facebook_id = ?", [$facebookId]);
+                }
+            }
+
+            // Bước 4: Generate JWT token
+            $token = auth('api')->login(User::find($user->user_id));
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Đăng nhập Facebook thành công!',
+                'access_token' => $token,
+                'refresh_token' => $token,
+                'token_type' => 'Bearer',
+                'expires_in' => config('jwt.ttl', 60) * 60,
+                'role' => $user->role,
+                'user' => clone $user
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Facebook login error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Đăng nhập Facebook thất bại! ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
