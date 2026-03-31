@@ -67,3 +67,18 @@ body {
   background: rgba(3, 169, 244, 0.2);
   color: var(--ocean-blue);
 }
+
+/* ===== SweetAlert2 Global Font Override ===== */
+.swal2-popup,
+.swal2-title,
+.swal2-html-container,
+.swal2-confirm,
+.swal2-cancel,
+.swal2-deny,
+.swal2-input,
+.swal2-textarea,
+.swal2-validation-message,
+.swal2-footer,
+.swal2-toast {
+  font-family: var(--font-inter) !important;
+}

@@ -77,12 +77,16 @@ echo "[6/7] Running migrations..."
 php artisan migrate --force --no-interaction || echo "WARNING: Migration failed."
 
 # -----------------------------------------------
-# 7. Start PHP-FPM
+# 7. Start PHP-FPM and Reverb
 # -----------------------------------------------
-echo "[7/7] Starting PHP-FPM..."
+echo "[7/7] Starting Reverb and PHP-FPM..."
 echo "======================================="
 echo " Backend READY on port 9000"
+echo " WebSocket (Reverb) READY on port 8383"
 echo "======================================="
+
+# Khởi chạy Reverb WebSocket Server chạy ngầm (Background) và gắn nohup để không bị kill khi exec php-fpm
+nohup php artisan reverb:start --host="0.0.0.0" --port=8383 > /var/www/storage/logs/reverb.log 2>&1 &
 
 # Thực thi PHP-FPM
 exec php-fpm

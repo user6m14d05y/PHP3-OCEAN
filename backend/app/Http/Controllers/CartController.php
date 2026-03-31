@@ -6,6 +6,8 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\ProductVariant;
 use Illuminate\Http\Request;
+use App\Models\Order;
+use App\Models\OrderItem;
 
 class CartController extends Controller
 {
@@ -341,5 +343,73 @@ class CartController extends Controller
         $count = $cart ? $cart->items()->count() : 0;
 
         return response()->json(['count' => $count]);
+    }
+
+    public function buyAgain(Request $request, $orderId)
+    {
+        $userId = $this->getUserId();
+
+        $order = Order::where('user_id', $userId)->where('order_id', $orderId)->first();
+
+        if (!$order) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy đơn hàng.'
+            ], 404);
+        }
+
+        $orderItems = OrderItem::where('order_id', $orderId)->get();
+
+        foreach ($orderItems as $orderItem) {
+            $variant = ProductVariant::find($orderItem->variant_id);
+            if (!$variant || $variant->status !== 'active') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Sản phẩm này hiện không khả dụng.'
+                ], 422);
+            }
+
+            $cart = $this->getOrCreateCart($userId);
+
+            // Kiểm tra xem variant đã có trong giỏ chưa
+            $existingItem = CartItem::where('cart_id', $cart->cart_id)
+                ->where('variant_id', $variant->variant_id)
+                ->first();
+
+            $newQuantity = $existingItem
+                ? $existingItem->quantity + $orderItem->quantity
+                : 1;
+
+            // Kiểm tra tồn kho
+            if ($newQuantity > $variant->stock) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Số lượng vượt quá tồn kho. Chỉ còn {$variant->stock} sản phẩm.",
+                    'available_stock' => $variant->stock,
+                ], 422);
+            }
+
+            if ($existingItem) {
+                $existingItem->update(['quantity' => $newQuantity]);
+                $message = 'Đã cập nhật số lượng trong giỏ hàng!';
+            } else {
+                CartItem::create([
+                    'cart_id' => $cart->cart_id,
+                    'variant_id' => $variant->variant_id,
+                    'quantity' => $orderItem->quantity,
+                    'selected' => true,
+                ]);
+                $message = 'Đã thêm sản phẩm vào giỏ hàng!';
+            }
+
+            // Đếm tổng items trong giỏ
+            $totalItems = CartItem::where('cart_id', $cart->cart_id)->sum('quantity');
+
+            return response()->json([
+                'status' => 'success',
+                'message' => $message,
+                'total_items' => $totalItems,
+            ]);
+        }
     }
 }
