@@ -4,6 +4,7 @@ import './assets/main.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './bootstrap';
+import './echo';
 import router from './router';
 
 const app = createApp(App);

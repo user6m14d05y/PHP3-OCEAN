@@ -2,6 +2,9 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Broadcast;
+
+Broadcast::routes(['middleware' => ['api', 'auth:api,admin']]);
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ProductController;
@@ -19,6 +22,7 @@ use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PosController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -89,6 +93,7 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     // Đơn hàng của tôi
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders/{id}', [OrderController::class, 'show']);
     Route::put('/orders/{id}/cancel', [OrderController::class, 'cancel']);
 });
 
@@ -100,6 +105,7 @@ Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
     Route::put('/items/{id}', [CartController::class, 'updateItem']);
     Route::delete('/items/{id}', [CartController::class, 'removeItem']);
     Route::delete('/', [CartController::class, 'clearCart']);
+    Route::post('/buy-again/{orderId}', [CartController::class, 'buyAgain']);
 });
 
 // Nhóm các route yêu cầu quyền admin/staff (hỗ trợ cả guard api và admin)
@@ -138,6 +144,16 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
     Route::post('/shipping-zones', [ShippingZoneController::class, 'store']);
     Route::put('/shipping-zones/{id}', [ShippingZoneController::class, 'update']);
     Route::delete('/shipping-zones/{id}', [ShippingZoneController::class, 'destroy']);
+
+    // Quản lý Đơn hàng
+    Route::get('/orders', [\App\Http\Controllers\AdminOrderController::class, 'index']);
+    Route::get('/orders/{id}', [\App\Http\Controllers\AdminOrderController::class, 'show']);
+    Route::put('/orders/{id}/status', [\App\Http\Controllers\AdminOrderController::class, 'updateStatus']);
+
+    // POS - Bán hàng trực tiếp
+    Route::get('/pos/products/search', [PosController::class, 'searchProducts']);
+    Route::get('/pos/products/scan', [PosController::class, 'scanProduct']);
+    Route::post('/pos/checkout', [PosController::class, 'checkout']);
 
 });
 // Business routes

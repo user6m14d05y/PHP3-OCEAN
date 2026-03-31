@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('orders', function (Blueprint $table) {
             $table->id('order_id');
             $table->string('order_code', 30)->unique();
+            $table->enum('order_type', ['online', 'pos'])->default('online');
             $table->foreignId('user_id')->constrained('users', 'user_id')->restrictOnDelete();
             $table->foreignId('address_id')->nullable()->constrained('addresses', 'address_id')->nullOnDelete();
             $table->foreignId('promotion_id')->nullable()->constrained('promotions', 'promotion_id')->nullOnDelete();
