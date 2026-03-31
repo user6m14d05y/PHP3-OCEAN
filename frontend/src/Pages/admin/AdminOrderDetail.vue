@@ -350,7 +350,7 @@ onMounted(() => fetchOrder());
               Lịch sử trạng thái
             </h3>
             <div class="history-list">
-              <div v-for="h in order.status_histories" :key="h.history_id" class="history-item">
+              <div v-for="h in [...order.status_histories].reverse()" :key="h.history_id" class="history-item">
                 <div class="history-dot" :class="getStatusBadgeClass(h.new_status)"></div>
                 <div class="history-content">
                   <div class="history-transition">

@@ -3,7 +3,7 @@
     <div class="header-inner">
       <!-- Logo -->
       <router-link to="/" class="logo">
-        <img :src="BASE_URL + '/storage/logo/logo_OceanShop.png'" alt="Logo" class="logo-img" width="100px">
+        <img :src="BASE_URL + '/storage/logo/logo_OceanShop.png'" alt="Logo" class="logo-img" width="70px">
       </router-link>
       <!-- Danh mục Mega Dropdown -->
       <div class="category-dropdown" @mouseenter="showCategoryMenu = true" @mouseleave="showCategoryMenu = false">

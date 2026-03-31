@@ -145,10 +145,14 @@ onMounted(() => {
       const user = JSON.parse(userData);
       const path = user.avatar_url;
       const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
-      // alert ( ' BASE_URL' + BASE_URL + path)
-      userName.value = user.full_name || 'Admin';
+      
+      userName.value = user.full_name || user.name || 'Admin';
       userEmail.value = user.email || '';
-      userAvatar.value = path.startsWith('http') ? path : `${BASE_URL}${path}`; 
+      if (path) {
+        userAvatar.value = path.startsWith('http') ? path : `${BASE_URL}${path}`; 
+      } else {
+        userAvatar.value = ''; // Hoặc path ảnh mặc định sau này nếu cần
+      }
       userRole.value = user.role === 'admin' ? 'Super Admin' : (user.role === 'staff' ? 'Staff' : 'Manager');
     } catch (e) {
       console.error("Failed to parse user data", e);
