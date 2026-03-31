@@ -3,7 +3,7 @@
     <div class="header-inner">
       <!-- Logo -->
       <router-link to="/" class="logo">
-        <img src="../../public/favicon.ico" alt="logo-ocean" width="120" height="80">
+        <img :src="BASE_URL + '/storage/logo/logo_OceanShop.png'" alt="Logo" class="logo-img" width="100px">
       </router-link>
       <!-- Danh mục Mega Dropdown -->
       <div class="category-dropdown" @mouseenter="showCategoryMenu = true" @mouseleave="showCategoryMenu = false">
@@ -205,6 +205,7 @@ import { ref, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import api from '../axios.js';
 
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 const route = useRoute();
 
 const isLoggedIn = ref(false);
