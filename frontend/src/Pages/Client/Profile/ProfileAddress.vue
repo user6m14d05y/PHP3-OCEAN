@@ -108,16 +108,38 @@
               </div>
 
               <!-- Address Selector -->
+              <div class="form-group-grid">
+                <div class="form-group">
+                  <label class="form-label">Tỉnh / Thành phố <span class="required">*</span></label>
+                  <select v-model="form.province_code" class="form-select" :disabled="loadingGHN.provinces">
+                    <option value="">Chọn tỉnh thành</option>
+                    <option v-for="p in provinces" :key="p.ProvinceID" :value="p.ProvinceID">{{ p.ProvinceName }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Quận / Huyện <span class="required">*</span></label>
+                  <select v-model="form.district_code" class="form-select" :disabled="!form.province_code || loadingGHN.districts">
+                    <option value="">Chọn quận huyện</option>
+                    <option v-for="d in districts" :key="d.DistrictID" :value="d.DistrictID">{{ d.DistrictName }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Phường / Xã <span class="required">*</span></label>
+                  <select v-model="form.ward_code" class="form-select" :disabled="!form.district_code || loadingGHN.wards">
+                    <option value="">Chọn phường xã</option>
+                    <option v-for="w in wards" :key="w.WardCode" :value="w.WardCode">{{ w.WardName }}</option>
+                  </select>
+                </div>
+              </div>
+
               <div class="form-group">
-                <label class="form-label">Khu vực <span class="required">*</span></label>
-                <AddressSelector
-                  :key="addressSelectorKey"
-                  :initial-province="form.province_code"
-                  :initial-district="form.district_code"
-                  :initial-ward="form.ward_code"
-                  :initial-detail="form.address_line"
-                  @change="onAddressChange"
-                />
+                <label class="form-label" for="address_line">Số nhà, tên đường</label>
+                <input id="address_line" v-model="form.address_line" type="text" class="form-input" placeholder="Ví dụ: 123 Đường ABC..." />
+              </div>
+
+              <div v-if="shippingFee > 0" class="shipping-preview">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                <span>Phí vận chuyển dự kiến: <strong>{{ shippingFee.toLocaleString() }}đ</strong></span>
               </div>
 
               <div class="form-row">
@@ -172,9 +194,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
+import axios from 'axios';
 import api from '@/axios';
-import AddressSelector from '@/components/AddressSelector.vue';
+
+const TOKEN_GHN = import.meta.env.VITE_TOKEN_GHN;
+const SHOPID_GHN = import.meta.env.VITE_SHOPID_GHN;
 
 const addresses = ref([]);
 const loading = ref(true);
@@ -183,7 +208,16 @@ const isEditing = ref(false);
 const editingId = ref(null);
 const submitting = ref(false);
 const formError = ref('');
-const addressSelectorKey = ref(0);
+const provinces = ref([]);
+const districts = ref([]);
+const wards = ref([]);
+const shippingFee = ref(0);
+const loadingGHN = ref({
+  provinces: false,
+  districts: false,
+  wards: false,
+  fee: false,
+});
 
 const form = ref({
   recipient_name: '',
@@ -198,6 +232,132 @@ const form = ref({
   address_type: 'home',
   is_default: false,
 });
+
+// --- GHN API Functions ---
+async function getGHNProvinces() {
+  if (!TOKEN_GHN) return;
+  loadingGHN.value.provinces = true;
+  try {
+    const response = await axios.get('https://online-gateway.ghn.vn/shiip/public-api/master-data/province', {
+      headers: { Token: TOKEN_GHN },
+    });
+    provinces.value = response.data?.data || [];
+  } catch (error) {
+    console.error("Lỗi tải tỉnh thành GHN:", error);
+  } finally {
+    loadingGHN.value.provinces = false;
+  }
+}
+
+async function getGHNDistricts(provinceId) {
+  if (!TOKEN_GHN || !provinceId) {
+    districts.value = [];
+    return;
+  }
+  loadingGHN.value.districts = true;
+  try {
+    const response = await axios.get('https://online-gateway.ghn.vn/shiip/public-api/master-data/district', {
+      params: { province_id: provinceId },
+      headers: { Token: TOKEN_GHN },
+    });
+    districts.value = response.data?.data || [];
+  } catch (error) {
+    console.error("Lỗi tải quận huyện GHN:", error);
+  } finally {
+    loadingGHN.value.districts = false;
+  }
+}
+
+async function getGHNWards(districtId) {
+  if (!TOKEN_GHN || !districtId) {
+    wards.value = [];
+    return;
+  }
+  loadingGHN.value.wards = true;
+  try {
+    const response = await axios.get('https://online-gateway.ghn.vn/shiip/public-api/master-data/ward', {
+      params: { district_id: districtId },
+      headers: { Token: TOKEN_GHN },
+    });
+    wards.value = response.data?.data || [];
+  } catch (error) {
+    console.error("Lỗi tải phường xã GHN:", error);
+  } finally {
+    loadingGHN.value.wards = false;
+  }
+}
+
+async function getGHNShippingFee() {
+  if (!TOKEN_GHN || !SHOPID_GHN || !form.value.district_code || !form.value.ward_code) {
+    shippingFee.value = 0;
+    return;
+  }
+  loadingGHN.value.fee = true;
+  try {
+    const response = await axios.get('https://online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee', {
+      params: {
+        "service_type_id": 2,
+        "to_district_id": parseInt(form.value.district_code),
+        "to_ward_code": form.value.ward_code,
+        "weight": 1000, // Default weight
+      },
+      headers: {
+        Token: TOKEN_GHN,
+        ShopId: SHOPID_GHN,
+      },
+    });
+    shippingFee.value = response.data?.data?.total || 0;
+  } catch (error) {
+    console.error("Lỗi tính phí vận chuyển GHN:", error);
+    shippingFee.value = 0;
+  } finally {
+    loadingGHN.value.fee = false;
+  }
+}
+
+// Watchers for nested selection
+watch(() => form.value.province_code, async (newVal) => {
+  if (newVal) {
+    const p = provinces.value.find(i => i.ProvinceID === newVal);
+    if (p) form.value.province = p.ProvinceName;
+    await getGHNDistricts(newVal);
+  } else {
+    districts.value = [];
+    form.value.province = '';
+  }
+  // If not manually triggered by openEditForm
+  if (!isInitializing) {
+    form.value.district_code = '';
+    form.value.ward_code = '';
+  }
+});
+
+watch(() => form.value.district_code, async (newVal) => {
+  if (newVal) {
+    const d = districts.value.find(i => i.DistrictID === newVal);
+    if (d) form.value.district = d.DistrictName;
+    await getGHNWards(newVal);
+  } else {
+    wards.value = [];
+    form.value.district = '';
+  }
+  if (!isInitializing) {
+    form.value.ward_code = '';
+  }
+});
+
+watch(() => form.value.ward_code, async (newVal) => {
+  if (newVal) {
+    const w = wards.value.find(i => i.WardCode === newVal);
+    if (w) form.value.ward = w.WardName;
+    await getGHNShippingFee();
+  } else {
+    form.value.ward = '';
+    shippingFee.value = 0;
+  }
+});
+
+let isInitializing = false;
 
 // Fetch addresses
 async function fetchAddresses() {
@@ -222,22 +382,14 @@ function formatFullAddress(addr) {
   return parts.join(', ') || 'Chưa có địa chỉ';
 }
 
-// Address selector callback
-function onAddressChange(data) {
-  form.value.province = data.province_name;
-  form.value.province_code = data.province_code;
-  form.value.district = data.district_name;
-  form.value.district_code = data.district_code;
-  form.value.ward = data.ward_name;
-  form.value.ward_code = data.ward_code;
-  form.value.address_line = data.address_detail;
-}
+// Removed onAddressChange and AddressSelector logic
 
 // Open Add form
-function openAddForm() {
+async function openAddForm() {
   isEditing.value = false;
   editingId.value = null;
   formError.value = '';
+  isInitializing = true;
   form.value = {
     recipient_name: '',
     phone: '',
@@ -251,15 +403,19 @@ function openAddForm() {
     address_type: 'home',
     is_default: false,
   };
-  addressSelectorKey.value++;
+  shippingFee.value = 0;
+  if (provinces.value.length === 0) await getGHNProvinces();
+  isInitializing = false;
   showForm.value = true;
 }
 
 // Open Edit form
-function openEditForm(address) {
+async function openEditForm(address) {
   isEditing.value = true;
   editingId.value = address.address_id;
   formError.value = '';
+  isInitializing = true;
+
   form.value = {
     recipient_name: address.recipient_name,
     phone: address.phone,
@@ -269,11 +425,26 @@ function openEditForm(address) {
     province: address.province || '',
     ward_code: address.ward_code || '',
     district_code: address.district_code || '',
-    province_code: address.province_code || '',
+    province_code: parseInt(address.province_code) || '',
     address_type: address.address_type || 'home',
     is_default: address.is_default || false,
   };
-  addressSelectorKey.value++;
+
+  if (provinces.value.length === 0) await getGHNProvinces();
+  
+  if (form.value.province_code) {
+    await getGHNDistricts(form.value.province_code);
+    form.value.district_code = parseInt(address.district_code) || '';
+    if (form.value.district_code) {
+      await getGHNWards(form.value.district_code);
+      form.value.ward_code = address.ward_code || '';
+      if (form.value.ward_code) {
+        await getGHNShippingFee();
+      }
+    }
+  }
+
+  isInitializing = false;
   showForm.value = true;
 }
 
@@ -675,14 +846,20 @@ onMounted(fetchAddresses);
 }
 
 /* Form */
-.form-row {
+.form-row,
+.form-group-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
 
+.form-group-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 @media (max-width: 640px) {
-  .form-row {
+  .form-row,
+  .form-group-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -707,7 +884,8 @@ onMounted(fetchAddresses);
   color: #ef4444;
 }
 
-.form-input {
+.form-input,
+.form-select {
   padding: 10px 14px;
   border: 1.5px solid #e2e8f0;
   border-radius: 10px;
@@ -716,14 +894,22 @@ onMounted(fetchAddresses);
   outline: none;
   transition: all 0.2s;
   font-family: inherit;
+  background-color: #fff;
 }
 
-.form-input:focus {
+.form-input:focus,
+.form-select:focus {
   border-color: #1a56db;
   box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.1);
 }
 
 .form-input::placeholder {
+  color: #94a3b8;
+}
+
+.form-select:disabled {
+  background-color: #f8fafc;
+  cursor: not-allowed;
   color: #94a3b8;
 }
 
@@ -803,9 +989,31 @@ onMounted(fetchAddresses);
   border-top: none;
   border-left: none;
   transform: rotate(45deg);
-  position: absolute;
-  top: 2px;
+  margin-top: -2px;
 }
+
+/* Shipping preview */
+.shipping-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #0369a1;
+}
+
+.shipping-preview svg {
+  color: #0ea5e9;
+  flex-shrink: 0;
+}
+
+.shipping-preview strong {
+  color: #1a56db;
+}
+
 
 /* Form Error */
 .form-error {
