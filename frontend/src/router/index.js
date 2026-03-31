@@ -20,6 +20,7 @@ const Checkout = () => import("../Pages/Client/Cart/Checkout.vue")
 const ProfileLayout = () => import("../Pages/Client/Profile/ProfileLayout.vue");
 const ProfileInfo = () => import("../Pages/Client/Profile/ProfileInfo.vue");
 const ProfileAddress = () => import("../Pages/Client/Profile/ProfileAddress.vue");
+const Address = () => import("../Pages/Client/Profile/Address.vue");
 const ProfileOrders = () => import("../Pages/Client/Profile/ProfileOrders.vue");
 const ProfileCoupon = () => import("../Pages/Client/Profile/ProfileCoupon.vue");
 const ProfileChangePassword = () => import("../Pages/Client/Profile/ProfileChangePassword.vue");
@@ -29,6 +30,7 @@ const Login = () => import("../Pages/Client/Auth/login.vue");
 const Register = () => import("../Pages/Client/Auth/Register.vue");
 const Forgot = () => import("../Pages/Client/Auth/Forgot.vue");
 const GoogleCallback = () => import("../Pages/Client/Auth/GoogleCallback.vue");
+const FacebookCallback = () => import("../Pages/Client/Auth/FacebookCallback.vue");
 
 // Static pages
 const BrandStory = () => import("../Pages/Client/Static/BrandStory.vue");
@@ -77,6 +79,7 @@ const routes = [
                 children: [
                     { path: "", name: "profile", component: ProfileInfo },
                     { path: "addresses", name: "profile-addresses", component: ProfileAddress },
+                    { path: "address", name: "profile-address", component: Address },
                     { path: "orders", name: "profile-orders", component: ProfileOrders }, 
                     { path: "wishlist", name: "profile-wishlist", component: ProfileInfo }, // placeholder
                     { path: "change-password", name: "profile-change-password", component: ProfileChangePassword }, 
@@ -108,6 +111,11 @@ const routes = [
         path: "/api/auth/google/callback",
         name: "google-callback",
         component: GoogleCallback,
+    },
+    {
+        path: "/api/auth/facebook/callback",
+        name: "facebook-callback",
+        component: FacebookCallback,
     },
     {
         path: "/contact",
