@@ -12,7 +12,8 @@ class LocationController extends Controller
      * API base URL cho provinces.open-api.vn
      * Sau khi sáp nhập đơn vị hành chính VN (2025)
      */
-    private string $apiBaseUrl = 'https://provinces.open-api.vn/api/';
+    private string $apiBaseUrl = 'https://online-gateway.ghn.vn/shiip/public-api/master-data/';
+    private string $token = env('TOKEN_API_GHN');
 
     /**
      * Lấy danh sách tỉnh/thành phố
@@ -21,7 +22,7 @@ class LocationController extends Controller
     public function getProvinces()
     {
         $data = Cache::remember('vn_provinces', 86400, function () {
-            $response = Http::timeout(10)->get($this->apiBaseUrl, [
+            $response = Http::timeout(10)->withToken($this->token)->get($this->apiBaseUrl . 'province', [
                 'depth' => 1
             ]);
 
