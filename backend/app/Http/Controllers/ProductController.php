@@ -11,9 +11,42 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Models\CartItem;
+use Endroid\QrCode\Builder\Builder;
+use Endroid\QrCode\Writer\PngWriter;
 
 class ProductController extends Controller
 {
+    /**
+     * Tạo mã barcode duy nhất cho biến thể
+     */
+    private function generateUniqueBarcode(): string
+    {
+        do {
+            $barcode = 'OCN' . strtoupper(Str::random(10)) . rand(10, 99);
+        } while (ProductVariant::where('barcode', $barcode)->exists());
+        return $barcode;
+    }
+
+    /**
+     * Tạo QR code PNG từ barcode và lưu vào storage
+     * @return string Đường dẫn file QR code (relative to public disk)
+     */
+    private function generateQrCodeImage(string $barcode): string
+    {
+        $storageDisk = Storage::disk('public');
+        if (!$storageDisk->exists('products/qrcodes')) {
+            $storageDisk->makeDirectory('products/qrcodes');
+        }
+
+        $builder = new Builder(writer: new PngWriter());
+        $result = $builder->build(data: $barcode, size: 400, margin: 15);
+
+        $filePath = 'products/qrcodes/' . $barcode . '.png';
+        $storageDisk->put($filePath, $result->getString());
+
+        return $filePath;
+    }
+
     /**
      * Admin: danh sách sản phẩm (phân trang, tìm kiếm, lọc status)
      */
@@ -289,14 +322,17 @@ class ProductController extends Controller
             if ($request->product_type === 'simple') {
                 $price = $request->price ?? 0;
                 $allPrices[] = $price;
+                $barcode = $this->generateUniqueBarcode();
                 ProductVariant::create([
                     'product_id'       => $product->product_id,
                     'sku'              => $slug . '-default',
+                    'barcode'          => $barcode,
                     'price'            => $price,
                     'compare_at_price' => $request->compare_at_price,
                     'stock'            => $request->stock ?? 0,
                     'status'           => 'active',
                 ]);
+                $this->generateQrCodeImage($barcode);
             } else {
                 // Variant product: mỗi color có nhiều sizes
                 // FE gửi: [{ color: "Đỏ", sizes: [{ size: "M", price: 100, stock: 10 }, ...] }, ...]
@@ -331,9 +367,11 @@ class ProductController extends Controller
                         $vPrice = $sData['price'] ?? 0;
                         $allPrices[] = $vPrice;
 
+                        $barcode = $this->generateUniqueBarcode();
                         $variant = ProductVariant::create([
                             'product_id' => $product->product_id,
                             'sku'        => $slug . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
+                            'barcode'    => $barcode,
                             'color'      => $color,
                             'size'       => $size,
                             'price'      => $vPrice,
@@ -341,6 +379,7 @@ class ProductController extends Controller
                             'image_url'  => $variantImagePaths[0] ?? null,
                             'status'     => 'active',
                         ]);
+                        $this->generateQrCodeImage($barcode);
 
                         // Lưu ảnh biến thể vào product_images
                         foreach ($variantImagePaths as $imgIndex => $imgPath) {
@@ -513,20 +552,30 @@ class ProductController extends Controller
 
                 $defaultVariant = $product->variants()->first();
                 if ($defaultVariant) {
-                    $defaultVariant->update([
+                    $updateData = [
                         'price'            => $price,
                         'compare_at_price' => $request->compare_at_price,
                         'stock'            => $stock,
-                    ]);
+                    ];
+                    // Nếu chưa có barcode thì tạo mới
+                    if (empty($defaultVariant->barcode)) {
+                        $newBarcode = $this->generateUniqueBarcode();
+                        $updateData['barcode'] = $newBarcode;
+                        $this->generateQrCodeImage($newBarcode);
+                    }
+                    $defaultVariant->update($updateData);
                 } else {
+                    $barcode = $this->generateUniqueBarcode();
                     ProductVariant::create([
                         'product_id' => $product->product_id,
                         'sku'        => Str::slug($product->name) . '-default',
+                        'barcode'    => $barcode,
                         'price'            => $price,
                         'compare_at_price' => $request->compare_at_price,
                         'stock'            => $stock,
                         'status'     => 'active',
                     ]);
+                    $this->generateQrCodeImage($barcode);
                 }
             } else {
                 // Variant product
@@ -611,9 +660,11 @@ class ProductController extends Controller
                         $vPrice = $sData['price'] ?? 0;
                         $allPrices[] = $vPrice;
 
+                        $barcode = $this->generateUniqueBarcode();
                         $variant = ProductVariant::create([
                             'product_id' => $product->product_id,
                             'sku'        => Str::slug($product->name) . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
+                            'barcode'    => $barcode,
                             'color'      => $color,
                             'size'       => $size,
                             'price'      => $vPrice,
@@ -621,6 +672,7 @@ class ProductController extends Controller
                             'image_url'  => $mainImageUrl,
                             'status'     => 'active',
                         ]);
+                        $this->generateQrCodeImage($barcode);
 
                         if (!$firstVariantForColor) {
                             $firstVariantForColor = $variant;

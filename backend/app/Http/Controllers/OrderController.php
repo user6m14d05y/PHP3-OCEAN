@@ -305,6 +305,13 @@ class OrderController extends Controller
 
             DB::commit();
 
+            // Fire realtime event for admin (bọc try-catch để tránh treo thanh toán nếu websocket lỗi)
+            try {
+                event(new \App\Events\OrderCreatedAdmin($order));
+            } catch (\Exception $e) {
+                Log::error('Realtime event dispatch failed: ' . $e->getMessage());
+            }
+
             // Gửi email
             $this->sendOrderConfirmationEmail($order);
 
@@ -328,10 +335,44 @@ class OrderController extends Controller
     }
 
     /**
+     * Khách hàng: Xem chi tiết đơn hàng
+     */
+    public function show($id)
+    {
+        $userId = $this->getUserId();
+        if (!$userId) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+        }
+
+        $order = Order::with(['items.product.images', 'items.variant', 'statusHistories'])
+            ->where('user_id', $userId)
+            ->where('order_id', $id)
+            ->first();
+
+        if (!$order) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy đơn hàng hoặc đơn hàng không thuộc về bạn!'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $order
+        ]);
+    }
+
+    /**
      * Khách hàng: Hủy đơn hàng
      */
-    public function cancel($id)
+    public function cancel(Request $request, $id)
     {
+        $request->validate([
+            'cancel_reason' => 'required|string|max:500',
+        ], [
+            'cancel_reason.required' => 'Vui lòng chọn hoặc nhập lý do hủy đơn hàng.',
+        ]);
+
         $userId = $this->getUserId();
         if (!$userId) return response()->json(['status' => 'error'], 401);
 
@@ -345,19 +386,21 @@ class OrderController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Bạn chỉ có thể hủy đơn hàng khi đang chờ xác nhận!'], 400);
         }
 
+        $cancelReason = $request->cancel_reason;
+
         DB::beginTransaction();
         try {
             $order->update([
                 'fulfillment_status' => 'cancelled',
                 'cancelled_at' => now(),
-                'cancel_reason' => 'Khách hàng yêu cầu hủy'
+                'cancel_reason' => $cancelReason
             ]);
 
             OrderStatusHistory::create([
                 'order_id' => $order->order_id,
                 'old_status' => 'pending',
                 'new_status' => 'cancelled',
-                'note' => 'Khách hàng tự hủy đơn',
+                'note' => 'Khách hàng hủy đơn: ' . $cancelReason,
             ]);
 
             // Hoàn lại tồn kho
@@ -459,7 +502,7 @@ class OrderController extends Controller
                         <p><strong>Phương thức TT:</strong> ' . strtoupper($order->payment_method) . '</p>
 
                         <div style="text-align: center; margin-top: 30px;">
-                            <a href="http://localhost:3000/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lịch sử đơn hàng</a>
+                            <a href="http://localhost:3302/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lịch sử đơn hàng</a>
                         </div>
                     </div>
                 </div>

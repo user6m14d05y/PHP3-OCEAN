@@ -1,100 +1,23 @@
-<template>
-  <div class="profile-orders-page animate-in">
-    <div class="page-header">
-      <h2 class="page-title">Tất cả đơn hàng</h2>
-    </div>
-
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <p>Đang tải danh sách đơn hàng...</p>
-    </div>
-
-    <div v-else-if="orders.length === 0" class="empty-state">
-      <div class="empty-icon">📦</div>
-      <h3>Chưa có đơn hàng nào</h3>
-      <p>Bạn chưa đặt bất kỳ đơn hàng nào. Hãy mua sắm ngay nhé!</p>
-      <router-link to="/product" class="btn-primary mt-4">Tiếp tục mua sắm</router-link>
-    </div>
-
-    <div v-else class="orders-list">
-      <div v-for="order in orders" :key="order.order_id" class="order-card">
-        <div class="order-header">
-          <div class="order-header-left">
-            <span class="order-code">#{{ order.order_code }}</span>
-            <div class="order-meta">
-              <span>{{ formatDate(order.created_at) }}</span>
-              <span class="dot">•</span>
-              <span>{{ order.items ? order.items.length : 0 }} sản phẩm</span>
-            </div>
-          </div>
-          <div class="order-header-center">
-            <div class="status-badge" :class="getStatusClass(order.fulfillment_status)">
-              <span class="status-icon" v-html="getStatusIcon(order.fulfillment_status)"></span>
-              {{ getStatusText(order.fulfillment_status) }}
-            </div>
-          </div>
-          <div class="order-header-right">
-            <span class="order-total">{{ formatPrice(order.grand_total) }}</span>
-            <div class="payment-status-badge" :class="order.fulfillment_status">
-              {{ getSummaryStatusText(order.fulfillment_status) }}
-            </div>
-            
-            <button 
-              v-if="order.fulfillment_status === 'pending'" 
-              class="btn-action btn-cancel-order"
-              @click="cancelOrder(order.order_id)"
-              :disabled="actionLoading === order.order_id"
-            >
-              <span v-if="actionLoading === order.order_id" class="spinner-small"></span>
-              <span v-else>⊗ Yêu cầu hủy</span>
-            </button>
-            <button 
-              v-else-if="['completed', 'cancelled', 'returned'].includes(order.fulfillment_status)" 
-              class="btn-action btn-buy-again"
-            >
-              ↻ Mua lại
-            </button>
-          </div>
-        </div>
-        
-        <!-- Hiển thị sản phẩm tóm tắt (tuỳ chọn) -->
-        <div class="order-items-preview" v-if="order.items && order.items.length > 0">
-           <div class="preview-item">
-              <span class="item-name">{{ order.items[0].product_name }}</span>
-              <span class="item-variant" v-if="order.items[0].variant_name">({{ order.items[0].variant_name }})</span>
-              <span class="item-qty">x{{ order.items[0].quantity }}</span>
-           </div>
-           <div class="preview-more" v-if="order.items.length > 1">
-              và {{ order.items.length - 1 }} sản phẩm khác...
-           </div>
-        </div>
-      </div>
-      
-      <!-- Phân trang -->
-      <div v-if="pagination && pagination.last_page > 1" class="pagination">
-        <button 
-          class="page-btn" 
-          :disabled="currentPage === 1" 
-          @click="changePage(currentPage - 1)">«</button>
-        <span class="page-info">Trang {{ currentPage }} / {{ pagination.last_page }}</span>
-        <button 
-          class="page-btn" 
-          :disabled="currentPage === pagination.last_page" 
-          @click="changePage(currentPage + 1)">»</button>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import { ref, onMounted } from 'vue';
 import api from '@/axios';
+import { useRouter } from 'vue-router';
 
 const orders = ref([]);
 const loading = ref(true);
 const actionLoading = ref(null);
 const currentPage = ref(1);
 const pagination = ref(null);
+const currentFilter = ref('all');
+const router = useRouter();
+
+const filterTabs = [
+  { value: 'all', label: 'Tất cả' },
+  { value: 'pending', label: 'Chờ xác nhận' },
+  { value: 'shipping', label: 'Đang giao' },
+  { value: 'completed', label: 'Hoàn thành' },
+  { value: 'cancelled', label: 'Đã hủy' },
+];
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
@@ -153,7 +76,7 @@ const getStatusIcon = (status) => {
 const fetchOrders = async (page = 1) => {
   loading.value = true;
   try {
-    const res = await api.get(`/profile/orders?page=${page}`);
+    const res = await api.get(`/profile/orders?page=${page}&status=${currentFilter.value}`);
     if (res.data.status === 'success') {
       orders.value = res.data.data.data;
       pagination.value = {
@@ -176,19 +99,125 @@ const changePage = (page) => {
   }
 };
 
+const setFilter = (status) => {
+  if (currentFilter.value !== status) {
+    currentFilter.value = status;
+    fetchOrders(1);
+  }
+};
+
+import Swal from 'sweetalert2';
+
+// Lý do hủy đơn phổ biến (chuẩn ecommerce)
+const cancelReasons = [
+  'Tôi muốn thay đổi sản phẩm (kích thước, màu sắc, số lượng)',
+  'Tôi muốn thay đổi địa chỉ giao hàng',
+  'Tôi tìm thấy giá rẻ hơn ở nơi khác',
+  'Tôi không còn nhu cầu mua nữa',
+  'Thời gian giao hàng quá lâu',
+  'Đặt nhầm sản phẩm / đặt trùng đơn',
+  'Muốn thay đổi phương thức thanh toán',
+  'Lý do khác',
+];
+
 const cancelOrder = async (orderId) => {
-  if (!confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return;
-  
+  // Bước 1: Hiện Modal chọn lý do
+  const { value: selectedReason } = await Swal.fire({
+    title: 'Hủy đơn hàng',
+    html: `
+      <p style="color:#64748b; font-size:0.9rem; margin-bottom:16px;">Vui lòng cho chúng tôi biết lý do bạn muốn hủy đơn hàng:</p>
+      <div id="cancel-reasons-list" style="text-align:left; max-height:260px; overflow-y:auto;">
+        ${cancelReasons.map((r, i) => `
+          <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; margin-bottom:6px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; transition:all 0.2s; background:white;" 
+                 onmouseover="this.style.borderColor='#0288d1'; this.style.background='#f0f9ff'" 
+                 onmouseout="if(!this.querySelector('input').checked){this.style.borderColor='#e2e8f0'; this.style.background='white'}">
+            <input type="radio" name="cancel_reason" value="${r}" style="accent-color:#0288d1; width:16px; height:16px; flex-shrink:0;">
+            <span style="font-size:0.9rem; color:#334155; line-height:1.4;">${r}</span>
+          </label>
+        `).join('')}
+      </div>
+      <textarea id="custom-cancel-reason" placeholder="Nhập lý do cụ thể của bạn..." 
+        style="display:none; width:100%; margin-top:12px; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:0.9rem; min-height:80px; resize:vertical; outline:none; font-family:inherit;"
+        onfocus="this.style.borderColor='#0288d1';" onblur="this.style.borderColor='#e2e8f0';"></textarea>
+    `,
+    showCancelButton: true,
+    confirmButtonText: 'Xác nhận hủy đơn',
+    cancelButtonText: 'Quay lại',
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748b',
+    width: 520,
+    customClass: { popup: 'cancel-modal-popup' },
+    didOpen: () => {
+      const radios = Swal.getPopup().querySelectorAll('input[name="cancel_reason"]');
+      const customArea = Swal.getPopup().querySelector('#custom-cancel-reason');
+      radios.forEach(radio => {
+        radio.addEventListener('change', () => {
+          // Reset all label styles
+          radios.forEach(r => {
+            const lbl = r.closest('label');
+            if (lbl) { lbl.style.borderColor = '#e2e8f0'; lbl.style.background = 'white'; }
+          });
+          // Highlight selected
+          const selectedLabel = radio.closest('label');
+          if (selectedLabel) { selectedLabel.style.borderColor = '#0288d1'; selectedLabel.style.background = '#f0f9ff'; }
+          // Show/hide custom textarea
+          customArea.style.display = radio.value === 'Lý do khác' ? 'block' : 'none';
+        });
+      });
+    },
+    preConfirm: () => {
+      const selected = Swal.getPopup().querySelector('input[name="cancel_reason"]:checked');
+      if (!selected) {
+        Swal.showValidationMessage('Vui lòng chọn một lý do hủy đơn');
+        return false;
+      }
+      if (selected.value === 'Lý do khác') {
+        const custom = Swal.getPopup().querySelector('#custom-cancel-reason').value.trim();
+        if (!custom) {
+          Swal.showValidationMessage('Vui lòng nhập lý do cụ thể');
+          return false;
+        }
+        return custom;
+      }
+      return selected.value;
+    }
+  });
+
+  if (!selectedReason) return; // User cancelled
+
+  // Bước 2: Gọi API hủy đơn
   actionLoading.value = orderId;
   try {
-    const res = await api.put(`/profile/orders/${orderId}/cancel`);
+    const res = await api.put(`/profile/orders/${orderId}/cancel`, {
+      cancel_reason: selectedReason
+    });
     if (res.data.status === 'success') {
-      alert('Hủy đơn hàng thành công!');
+      Swal.fire({
+        icon: 'success',
+        title: 'Đã hủy đơn hàng',
+        text: 'Đơn hàng của bạn đã được hủy thành công.',
+        timer: 2500,
+        showConfirmButton: false,
+      });
       await fetchOrders(currentPage.value);
     }
   } catch (error) {
     const msg = error.response?.data?.message || 'Lỗi khi hủy đơn hàng';
-    alert(msg);
+    Swal.fire({ icon: 'error', title: 'Không thể hủy', text: msg });
+  } finally {
+    actionLoading.value = null;
+  }
+};
+const buyAgain = async (orderId) => {
+  actionLoading.value = orderId;
+  try {
+    const res = await api.post(`/cart/buy-again/${orderId}`);
+    if (res.data.status === 'success') {
+      router.push('/cart');
+    }
+  } catch (error) {
+    const msg = error.response?.data?.message || 'Lỗi khi thêm vào giỏ hàng';
+    Swal.fire({ icon: 'error', title: 'Không thể thêm', text: msg });
   } finally {
     actionLoading.value = null;
   }
@@ -198,6 +227,111 @@ onMounted(() => {
   fetchOrders();
 });
 </script>
+
+<template>
+  <div class="profile-orders-page animate-in">
+    <div class="page-header">
+      <h2 class="page-title">Tất cả đơn hàng</h2>
+    </div>
+
+    <!-- Thanh lọc trạng thái đơn hàng -->
+    <div class="order-status-tabs">
+      <button 
+        v-for="tab in filterTabs" 
+        :key="tab.value" 
+        class="status-tab" 
+        :class="{ active: currentFilter === tab.value }"
+        @click="setFilter(tab.value)"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Đang tải danh sách đơn hàng...</p>
+    </div>
+
+    <div v-else-if="orders.length === 0" class="empty-state">
+      <div class="empty-icon">📦</div>
+      <h3>Chưa có đơn hàng nào</h3>
+      <p>Bạn chưa đặt bất kỳ đơn hàng nào. Hãy mua sắm ngay nhé!</p>
+      <router-link to="/product" class="btn-primary mt-4">Tiếp tục mua sắm</router-link>
+    </div>
+
+    <div v-else class="orders-list">
+      <div v-for="order in orders" :key="order.order_id" class="order-card">
+        <div class="order-header">
+          <div class="order-header-left">
+            <span class="order-code">#{{ order.order_code }}</span>
+            <div class="order-meta">
+              <span>{{ formatDate(order.created_at) }}</span>
+              <span class="dot">•</span>
+              <span>{{ order.items ? order.items.length : 0 }} sản phẩm</span>
+            </div>
+          </div>
+          <div class="order-header-center">
+            <div class="status-badge" :class="getStatusClass(order.fulfillment_status)">
+              <span class="status-icon" v-html="getStatusIcon(order.fulfillment_status)"></span>
+              {{ getStatusText(order.fulfillment_status) }}
+            </div>
+          </div>
+          <div class="order-header-right">
+            <span class="order-total">{{ formatPrice(order.grand_total) }}</span>
+            <div class="payment-status-badge" :class="order.fulfillment_status">
+              {{ getSummaryStatusText(order.fulfillment_status) }}
+            </div>
+            
+            <button 
+              v-if="order.fulfillment_status === 'pending'" 
+              class="btn-action btn-cancel-order"
+              @click="cancelOrder(order.order_id)"
+              :disabled="actionLoading === order.order_id"
+            >
+              <span v-if="actionLoading === order.order_id" class="spinner-small"></span>
+              <span v-else>⊗ Yêu cầu hủy</span>
+            </button>
+            <button 
+              v-else-if="['completed', 'cancelled', 'returned'].includes(order.fulfillment_status)" 
+              class="btn-action btn-buy-again" 
+              @click="buyAgain(order.order_id)"
+            >
+              ↻ Mua lại
+            </button>
+            <router-link :to="{ name: 'profile-order-detail', params: { id: order.order_id } }" class="btn-action btn-detail mt-2">
+              Xem chi tiết
+            </router-link>
+          </div>
+        </div>
+        
+        <!-- Hiển thị sản phẩm tóm tắt (tuỳ chọn) -->
+        <div class="order-items-preview" v-if="order.items && order.items.length > 0">
+           <div class="preview-item">
+              <span class="item-name">{{ order.items[0].product_name }}</span>
+              <span class="item-variant" v-if="order.items[0].variant_name">({{ order.items[0].variant_name }})</span>
+              <span class="item-qty">x{{ order.items[0].quantity }}</span>
+           </div>
+           <div class="preview-more" v-if="order.items.length > 1">
+              và {{ order.items.length - 1 }} sản phẩm khác...
+           </div>
+        </div>
+      </div>
+      
+      <!-- Phân trang -->
+      <div v-if="pagination && pagination.last_page > 1" class="pagination">
+        <button 
+          class="page-btn" 
+          :disabled="currentPage === 1" 
+          @click="changePage(currentPage - 1)">«</button>
+        <span class="page-info">Trang {{ currentPage }} / {{ pagination.last_page }}</span>
+        <button 
+          class="page-btn" 
+          :disabled="currentPage === pagination.last_page" 
+          @click="changePage(currentPage + 1)">»</button>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .profile-orders-page {
@@ -219,6 +353,45 @@ onMounted(() => {
   font-weight: 800;
   color: #0f172a;
   margin: 0;
+}
+
+/* Order Status Tabs */
+.order-status-tabs {
+  display: flex;
+  overflow-x: auto;
+  gap: 10px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 24px;
+}
+.order-status-tabs::-webkit-scrollbar {
+  height: 4px;
+}
+.order-status-tabs::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.status-tab {
+  background: white;
+  border: 1px solid #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.status-tab:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+.status-tab.active {
+  background: #0288d1;
+  color: white;
+  border-color: #0288d1;
 }
 
 /* Loading & Empty */
@@ -373,6 +546,17 @@ onMounted(() => {
 .btn-buy-again:hover {
   background: #f0f9ff;
   border-color: #0288d1;
+}
+
+.btn-detail {
+  border-color: #cbd5e1;
+  color: #475569;
+  text-decoration: none;
+}
+.btn-detail:hover {
+  background: #f8fafc;
+  border-color: #475569;
+  color: #0f172a;
 }
 
 /* Order items preview */
