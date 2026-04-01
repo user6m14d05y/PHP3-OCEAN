@@ -3,7 +3,7 @@
     <!-- Brand -->
     <div class="sidebar-brand">
       <div class="brand-icon">
-        <img src="../../public/favicon.ico" alt="logo-ocean" width="100" height="60">
+        <img :src="BASE_URL + '/storage/logo/logo_OceanShop.png'" alt="logo-ocean" width="100" height="60">
       </div>
       <h2 class="brand-title">Admin</h2>
     </div>
@@ -130,6 +130,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 const router = useRouter();
 const userName = ref('Admin');
 const userEmail = ref('');
