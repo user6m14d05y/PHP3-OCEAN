@@ -14,7 +14,7 @@ const SHOPID_GHN = import.meta.env.VITE_SHOPID_GHN;
 const addresses = ref([]);
 const selectedAddressId = ref(null);
 const showAddAddressForm = ref(false);
-const addressSelectorKey = ref(0);
+// const addressSelectorKey = ref(0);
 const formAddress = ref({
     recipient_name: '',
     phone: '',
@@ -298,13 +298,23 @@ watch(selectedAddressId, (newVal) => {
 
 const discount = computed(() => {
     if (!appliedCoupon.value) return 0;
+    
     let disc = 0;
-    if (appliedCoupon.value.discount_type === 'percentage') {
-        disc = (subtotal.value * appliedCoupon.value.discount_amount) / 100;
-    } else {
-        disc = appliedCoupon.value.discount_amount;
+    const type = appliedCoupon.value.type;
+    const val = appliedCoupon.value.value;
+
+    if (type === 'percent') {
+        disc = (subtotal.value * val) / 100;
+        if (appliedCoupon.value.max_discount_value) {
+            disc = Math.min(disc, appliedCoupon.value.max_discount_value);
+        }
+    } else if (type === 'fixed') {
+        disc = val;
+    } else if (type === 'free_ship') {
+        disc = shippingFee.value;
     }
-    return Math.min(disc, subtotal.value);
+
+    return Math.min(disc, subtotal.value + shippingFee.value);
 });
 
 const total = computed(() => {
@@ -344,8 +354,7 @@ const selectCoupon = (coupon) => {
         code: coupon.code,
         type: coupon.type,
         value: coupon.value,
-        max_discount_value: coupon.max_discount_value,
-        discount_amount: coupon.type === 'fixed' ? coupon.value : (subtotal.value * coupon.value) / 100
+        max_discount_value: coupon.max_discount_value
     };
     couponCode.value = coupon.code;
     showCouponModal.value = false;
