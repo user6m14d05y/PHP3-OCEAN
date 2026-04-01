@@ -20,9 +20,9 @@ return [
     'allowed_methods' => ['*'],
 
     // .env ip address
-    'allowed_origins' => [env('URL_CORS'), env('URL_CORS_LOCAL')],
+    'allowed_origins' => ['*'],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => ['*'],
 
     'allowed_headers' => ['*'],
 
