@@ -84,6 +84,14 @@ const loginWithGoogle = () => {
   window.location.href = url;
 };
 
+// Facebook OAuth
+const loginWithFacebook = () => {
+  const clientId = import.meta.env.VITE_FACEBOOK_ID || '1969230567301526';
+  const redirectUri = 'http://localhost:3302/api/auth/facebook/callback';
+  const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=public_profile,email`;
+  window.location.href = url;
+};
+
 const login = async () => {
   // Validate all fields
   touched.email = true;
@@ -203,7 +211,7 @@ const login = async () => {
               <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" width="20" height="20" />
               Google
             </button>
-            <button class="btn-social">
+            <button class="btn-social" @click="loginWithFacebook" type="button">
               <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" width="20" height="20" />
               Facebook
             </button>
