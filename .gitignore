@@ -33,21 +33,21 @@ Thumbs.db
 /backend/.env
 /backend/public/storage
 
-<<<<<<< HEAD
+# Ignore storage symlinks and cache (gây lỗi trên Windows)
+/backend/storage/app/public/public
+/backend/storage/framework/*
+/backend/storage/logs/*
+!/backend/storage/logs/.gitignore
+!/backend/storage/framework/.gitignore
+
 # Cho phép push ảnh mẫu (không bị block bởi root gitignore)
 !/backend/storage/app/public/products/
 !/backend/storage/app/public/products/**
 !/backend/storage/app/public/banners/
 !/backend/storage/app/public/banners/**
-=======
-# Ignore storage symlinks and cache (gây lỗi trên Windows)
-/backend/storage/app/public/public
-/backend/storage/framework/
-/backend/storage/logs/
 
 # MySQL data volume
 /mysql_data/
 
 # Docker volumes
 backend_logs.txt
->>>>>>> origin/binhbc
