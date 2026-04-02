@@ -198,6 +198,12 @@ const routes = [
                 meta: { title: 'Quản lý liên hệ' },
             },
             {
+                path: "chat",
+                name: "admin-chat",
+                component: () => import("../Pages/admin/AdminChat.vue"),
+                meta: { title: 'Tin nhắn khách hàng' },
+            },
+            {
                 path: "coupon",
                 name: "admin-coupon",
                 component: AdminCoupon,

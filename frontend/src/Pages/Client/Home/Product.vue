@@ -40,7 +40,22 @@ const getImageUrl = (path) => {
 
 const fetchProducts = async () => {
     try {
-        const response = await api.get(`/products?limit=12&page=${currentPage.value}`);
+        let queryParams = `limit=12&page=${currentPage.value}`;
+        
+        let targetCategory = selectedSubcategory.value !== "All" ? selectedSubcategory.value : selectedCategory.value;
+        if (targetCategory !== "All") {
+            queryParams += `&category_id=${targetCategory}`;
+        }
+        
+        if (selectedPriceRange.value !== "All") {
+            queryParams += `&price_range=${selectedPriceRange.value}`;
+        }
+        
+        if (sortBy.value) {
+            queryParams += `&sort_by=${sortBy.value}`;
+        }
+
+        const response = await api.get(`/products?${queryParams}`);
         Products.value = response.data.data.map((item) => ({
             id: item.product_id,
             name: item.name,
@@ -71,8 +86,10 @@ const fetchCategories = async () => {
 };
 
 // Theo dõi khi danh mục cha thay đổi thì reset danh mục con
-watch(selectedCategory, () => {
-    selectedSubcategory.value = "All";
+watch(selectedCategory, (newVal, oldVal) => {
+    if (newVal !== oldVal) {
+        selectedSubcategory.value = "All";
+    }
 });
 
 // Tính toán danh sách danh mục con tùy thuộc vào danh mục cha được chọn
@@ -84,57 +101,13 @@ const subcategories = computed(() => {
     return parent && parent.children ? parent.children : [];
 });
 
-// Sử dụng computed property để tự động lọc thay vì function gọi 1 lần
-const filteredProducts = computed(() => {
-    let result = [...Products.value];
+// Lọc dữ liệu được xử lý ở backend, trả về nguyên trạng mảng
+const filteredProducts = computed(() => Products.value);
 
-    // 1. Lọc theo danh mục
-    if (selectedCategory.value !== "All") {
-        if (selectedSubcategory.value !== "All") {
-            // Lọc chính xác theo danh mục con
-            result = result.filter(
-                (p) => p.category_id === selectedSubcategory.value,
-            );
-        } else {
-            // Lọc bao gồm cả danh mục cha VÀ TẤT CẢ các danh mục con của nó
-            const parent = Categories.value.find(
-                (c) => c.category_id === selectedCategory.value,
-            );
-            const validCategoryIds = [selectedCategory.value];
-
-            if (parent && parent.children) {
-                parent.children.forEach((child) =>
-                    validCategoryIds.push(child.category_id),
-                );
-            }
-
-            result = result.filter((p) =>
-                validCategoryIds.includes(p.category_id),
-            );
-        }
-    }
-
-    // 2. Lọc theo khoảng giá
-    if (selectedPriceRange.value === "under-500k") {
-        result = result.filter((p) => p.price < 500000);
-    } else if (selectedPriceRange.value === "500k-1m") {
-        result = result.filter((p) => p.price >= 500000 && p.price <= 1000000);
-    } else if (selectedPriceRange.value === "above-1m") {
-        result = result.filter((p) => p.price > 1000000);
-    }
-
-    // 3. Sắp xếp
-    if (sortBy.value === "newest") {
-        result.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-    } else if (sortBy.value === "oldest") {
-        result.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
-    } else if (sortBy.value === "price-asc") {
-        result.sort((a, b) => a.price - b.price);
-    } else if (sortBy.value === "price-desc") {
-        result.sort((a, b) => b.price - a.price);
-    }
-
-    return result;
+// Lắng nghe sự thay đổi của bộ lọc để fetch lại
+watch([selectedCategory, selectedSubcategory, selectedPriceRange, sortBy], () => {
+    currentPage.value = 1; // Reset về trang 1
+    fetchProducts();
 });
 
 const goToPage = (page) => {

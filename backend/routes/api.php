@@ -155,6 +155,11 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
     Route::get('/pos/products/scan', [PosController::class, 'scanProduct']);
     Route::post('/pos/checkout', [PosController::class, 'checkout']);
 
+    // Admin Live Chat
+    Route::get('/live-chats', [\App\Http\Controllers\Admin\AdminChatController::class, 'getSessions']);
+    Route::get('/live-chats/{id}', [\App\Http\Controllers\Admin\AdminChatController::class, 'getMessages']);
+    Route::post('/live-chats/{id}/reply', [\App\Http\Controllers\Admin\AdminChatController::class, 'replyMessage']);
+    Route::post('/live-chats/{id}/close', [\App\Http\Controllers\Admin\AdminChatController::class, 'closeSession']);
 });
 // Business routes
 // Public resources (Chỉ cho phép GET public, các thao tác khác cần admin)
@@ -196,3 +201,10 @@ Route::prefix('location')->group(function () {
     Route::get('/search', [LocationController::class, 'search']);
 });
 Route::get('/posts', [PostController::class, 'index']);
+
+// AI Chatbot (Public — tự detect auth nếu có JWT token)
+Route::post('/chatbot/message', [\App\Http\Controllers\ChatbotController::class, 'sendMessage']);
+
+// Live Chat (Realtime - Public/User)
+Route::post('/live-chat/init', [\App\Http\Controllers\ChatController::class, 'initSession']);
+Route::post('/live-chat/message', [\App\Http\Controllers\ChatController::class, 'sendMessage']);

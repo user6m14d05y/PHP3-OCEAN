@@ -148,6 +148,9 @@ const handleLogout = async () => {
   try { await api.post('/logout'); } catch (e) { /* ignore */ }
   localStorage.removeItem('auth_token');
   localStorage.removeItem('user');
+  localStorage.removeItem('ocean_live_chat_token');
+  sessionStorage.removeItem('ocean_chatbot_messages');
+  sessionStorage.removeItem('ocean_chatbot_history');
   router.push('/client/login');
 };
 </script>

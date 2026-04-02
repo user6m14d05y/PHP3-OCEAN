@@ -83,16 +83,38 @@ class ProductController extends Controller
 
         // Lọc theo danh mục (bao gồm cả danh mục con)
         $categoryId = $request->query('category_id');
-        if ($categoryId) {
+        if ($categoryId && $categoryId !== 'All') {
             $categoryIds = [$categoryId];
             $childIds = \App\Models\Category::where('parent_id', $categoryId)->pluck('category_id')->toArray();
             $categoryIds = array_merge($categoryIds, $childIds);
             $query->whereIn('category_id', $categoryIds);
         }
 
+        // Lọc theo giá
+        $priceRange = $request->query('price_range');
+        if ($priceRange === 'under-500k') {
+            $query->where('min_price', '<', 500000);
+        } elseif ($priceRange === '500k-1m') {
+            $query->whereBetween('min_price', [500000, 1000000]);
+        } elseif ($priceRange === 'above-1m') {
+            $query->where('min_price', '>', 1000000);
+        }
+
+        // Sắp xếp
+        $sortBy = $request->query('sort_by');
+        if ($sortBy === 'oldest') {
+            $query->orderBy('created_at', 'asc');
+        } elseif ($sortBy === 'price-asc') {
+            $query->orderBy('min_price', 'asc');
+        } elseif ($sortBy === 'price-desc') {
+            $query->orderBy('min_price', 'desc');
+        } else {
+            // newest hoặc default
+            $query->orderBy('product_id', 'desc');
+        }
+
         $total = $query->count();
-        $products = $query->orderBy('product_id', 'desc')
-            ->offset($offset)
+        $products = $query->offset($offset)
             ->limit($limit)
             ->get();
 

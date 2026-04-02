@@ -289,6 +289,9 @@ const fetchCartCount = async () => {
 const handleLogout = async () => {
   try { await api.post('/logout'); } catch (e) { /* ignore */ }
   localStorage.removeItem('auth_token');
+  localStorage.removeItem('ocean_live_chat_token');
+  sessionStorage.removeItem('ocean_chatbot_messages');
+  sessionStorage.removeItem('ocean_chatbot_history');
   localStorage.removeItem('user');
   isLoggedIn.value = false;
   showDropdown.value = false;

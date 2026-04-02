@@ -60,6 +60,16 @@ const fetchProduct = async () => {
     try {
         const response = await api.get(`/products/${slug}`);
         product.value = response.data;
+
+        // Auto-select variant if it's a simple product (no colors, no sizes)
+        if (product.value.variants && product.value.variants.length > 0) {
+            const hasColors = product.value.variants.some(v => v.color);
+            const hasSizes = product.value.variants.some(v => v.size);
+            
+            if (!hasColors && !hasSizes) {
+                selectedVariant.value = product.value.variants[0];
+            }
+        }
     } catch (error) {
         console.error("Error fetching product:", error);
     }
@@ -125,11 +135,19 @@ watch(selectedColor, (newColor) => {
 
 // Khi chọn size → tìm variant đúng
 watch(selectedSize, (newSize) => {
-    if (newSize && selectedColor.value && product.value?.variants) {
-        const match = product.value.variants.find(
-            v => v.color === selectedColor.value && v.size === newSize
-        );
+    if (newSize && product.value?.variants) {
+        let match = null;
+        if (selectedColor.value) {
+            match = product.value.variants.find(
+                v => v.color === selectedColor.value && v.size === newSize
+            );
+        } else {
+            // Trường hợp sản phẩm KHÔNG có màu, chỉ có size
+            match = product.value.variants.find(v => v.size === newSize);
+        }
         selectedVariant.value = match || null;
+    } else {
+        selectedVariant.value = null;
     }
 });
 const mainImageUrl = computed(() => {
