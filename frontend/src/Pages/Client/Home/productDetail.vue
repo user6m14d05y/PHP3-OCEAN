@@ -60,9 +60,30 @@ const fetchProduct = async () => {
     try {
         const response = await api.get(`/products/${slug}`);
         product.value = response.data;
+        if (product.value.product_id) {
+            fetchReviews(product.value.product_id);
+        }
     } catch (error) {
         console.error("Error fetching product:", error);
     }
+};
+
+const reviews = ref([]);
+const fetchReviews = async (productId) => {
+    try {
+        const res = await api.get(`/products/${productId}/comments`);
+        if (res.data.status === 'success') {
+            reviews.value = res.data.data.data || [];
+        }
+    } catch (err) {
+        console.error(err);
+    }
+};
+
+const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
 };
 
 const isDescriptionExpanded = ref(false);
@@ -234,9 +255,9 @@ onMounted(() => {
         <!-- Đánh giá sao -->
         <div class="product-rating">
           <div class="stars">
-            <i class="fas fa-star" v-for="i in 5" :key="i" :class="{'active': i <= Math.round(product.rating)}"></i>
+            <i class="fas fa-star" v-for="i in 5" :key="i" :class="{'active': i <= Math.round(product.rating_avg || 0)}"></i>
           </div>
-          <span class="rating-text">{{ product.rating  ?? 0}} <span class="reviews-count">({{ product.reviewsCount }} đánh giá)</span></span>
+          <span class="rating-text">{{ product.rating_avg ?? 0 }} <span class="reviews-count">({{ product.rating_count ?? 0 }} đánh giá)</span></span>
         </div>
 
         <!-- Giá tiền -->
@@ -337,23 +358,22 @@ onMounted(() => {
         <h2 class="section-title">Khách hàng đánh giá</h2>
         
         <div class="review-list">
-          <div class="review-item" v-for="review in product.reviews" :key="review.id">
+          <div v-if="reviews.length === 0" class="no-reviews">Chưa có đánh giá nào cho sản phẩm này.</div>
+          <div class="review-item" v-for="review in reviews" :key="review.comment_id">
             <div class="review-header">
-              <img :src="review.avatar" :alt="review.user" class="reviewer-avatar" />
+              <img :src="review.user?.avatar_url ? getImageUrl(review.user.avatar_url) : 'https://placehold.co/44x44?text=U'" :alt="review.user?.full_name" class="reviewer-avatar" />
               <div class="reviewer-info">
-                <h4 class="reviewer-name">{{ review.user }}</h4>
+                <h4 class="reviewer-name">{{ review.user ? review.user.full_name : 'Người dùng Ẩn danh' }}</h4>
                 <div class="stars small">
                   <i class="fas fa-star active" v-for="i in review.rating" :key="`star-${i}`"></i>
                   <i class="fas fa-star" v-for="i in 5 - review.rating" :key="`empty-${i}`"></i>
                 </div>
               </div>
-              <span class="review-date">{{ review.date }}</span>
+              <span class="review-date">{{ formatDate(review.created_at) }}</span>
             </div>
             <p class="review-content">{{ review.content }}</p>
           </div>
         </div>
-        
-        <button class="btn-outline w-100 mt-3">Đăng đánh giá của bạn</button>
       </div>
     </section>
 
