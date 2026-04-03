@@ -537,124 +537,94 @@ onUnmounted(() => {
         </div>
       </div>
       
-      <!-- ================== CỘT PHẢI: GIỎ HÀNG & THANH TOÁN ================== -->
-      <div class="col-lg-5 col-xl-4 pos-right">
-        
-        <!-- Tabs Giỏ hàng / Đơn khác (Optional - for future) -->
-        <ul class="nav nav-tabs cart-tabs mb-3">
-          <li class="nav-item">
-            <a class="nav-link active" href="#">Đơn hiện tại</a>
-          </li>
-          <!-- <li class="nav-item"><a class="nav-link" href="#"><i class="fas fa-plus"></i> Thêm khu vực</a></li> -->
-          <li class="nav-item ms-auto">
-            <button class="btn btn-sm btn-outline-danger mt-1 me-2" @click="clearCart" :disabled="cartItems.length === 0">Xóa hết</button>
-          </li>
-        </ul>
-        
-        <!-- Danh sách items -->
-        <div class="cart-items-container">
-          <table class="table table-borderless table-hover cart-table mb-0 align-middle">
-            <thead class="table-light">
-              <tr>
-                <th width="45%">Sản phẩm</th>
-                <th width="20%">Số lượng</th>
-                <th width="25%" class="text-end">Thành tiền</th>
-                <th width="10%"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="cartItems.length === 0">
-                <td colspan="4" class="text-center py-5 text-muted">Giỏ hàng trống</td>
-              </tr>
-              <tr v-for="item in cartItems" :key="item.variant_id">
-                <td>
-                  <div class="d-flex align-items-center">
-                    <img :src="getImageUrl(item.image_url)" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" class="me-2" onerror="this.src='/placeholder.jpg'">
-                    <div>
-                      <div class="fw-bold truncate-1" :title="item.product_name">{{ item.product_name }}</div>
-                      <small class="text-muted">{{ item.color }} - {{ item.size }}</small>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <div class="qty-control">
+      <!-- ================== CỘT PHẢI: GIỎ HÀNG & THANH TOÁN (MODERN POS UI) ================== -->
+      <div class="col-lg-5 col-xl-4 pos-right-panel">
+        <div class="pos-cart-container">
+          <!-- Header -->
+          <div class="cart-header">
+            <h5 class="fw-bold mb-0 text-dark">Giỏ hàng <span class="badge bg-primary ms-2 rounded-pill">{{ cartItems.length }}</span></h5>
+            <button class="btn btn-clear-cart" @click="clearCart" :disabled="cartItems.length === 0">
+              <i class="fas fa-trash-alt me-1"></i> Xóa hết
+            </button>
+          </div>
+          
+          <!-- Product List -->
+          <div class="cart-items-list">
+            <div v-if="cartItems.length === 0" class="empty-cart-state">
+              <i class="fas fa-shopping-bag fa-3x mb-3 text-muted"></i>
+              <p class="text-muted fw-semibold">Chưa có sản phẩm nào</p>
+            </div>
+            
+            <div v-for="item in cartItems" :key="item.variant_id" class="cart-item">
+              <img :src="getImageUrl(item.image_url)" alt="" class="item-img" onerror="this.src='/placeholder.jpg'">
+              <div class="item-details">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <h6 class="item-name truncate-1 mb-0" :title="item.product_name">{{ item.product_name }}</h6>
+                  <button class="btn-remove-item" @click="removeFromCart(item)">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+                <div class="item-meta text-muted small mb-2">{{ item.color }} - {{ item.size }}</div>
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="qty-control-pill">
                     <button class="qty-btn" @click="decreaseQuantity(item)">-</button>
-                    <input type="text" readonly :value="item.quantity" class="qty-input">
+                    <span class="qty-value">{{ item.quantity }}</span>
                     <button class="qty-btn" @click="increaseQuantity(item)">+</button>
                   </div>
-                </td>
-                <td class="text-end fw-bold text-primary">
-                  {{ formatPrice(item.price * item.quantity) }}
-                </td>
-                <td class="text-end">
-                  <button class="btn btn-sm text-danger border-0 bg-transparent p-0" @click="removeFromCart(item)">
-                    <i class="fas fa-trash-alt"></i>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        <!-- Box Thanh toán -->
-        <div class="checkout-box">
-          <div class="checkout-form">
-            <div class="row g-2 mb-3">
-              <div class="col-6">
-                <div class="form-floating">
-                  <input type="text" class="form-control form-control-sm" id="custName" v-model="customerName" placeholder="Tên khách">
-                  <label for="custName">Tên KH (Tùy chọn)</label>
-                </div>
-              </div>
-              <div class="col-6">
-                <div class="form-floating">
-                  <input type="text" class="form-control form-control-sm" id="custPhone" v-model="customerPhone" placeholder="SĐT">
-                  <label for="custPhone">SĐT (Tùy chọn)</label>
+                  <div class="item-price fw-bold text-primary">{{ formatPrice(item.price * item.quantity) }}</div>
                 </div>
               </div>
             </div>
-            
-            <div class="d-flex align-items-center mb-3">
-                <span class="me-3 text-muted" style="min-width: 80px;">Thanh toán:</span>
-                <div class="btn-group w-100" role="group">
-                    <input type="radio" class="btn-check" name="payment_method" id="pay_cash" value="pos_cash" v-model="paymentMethod">
-                    <label class="btn btn-outline-primary btn-sm" for="pay_cash">Tiền mặt</label>
+          </div>
 
-                    <input type="radio" class="btn-check" name="payment_method" id="pay_transfer" value="pos_transfer" v-model="paymentMethod">
-                    <label class="btn btn-outline-primary btn-sm" for="pay_transfer">C.Khoản</label>
-                    
-                    <input type="radio" class="btn-check" name="payment_method" id="pay_card" value="pos_card" v-model="paymentMethod">
-                    <label class="btn btn-outline-primary btn-sm" for="pay_card">Thẻ</label>
-                </div>
+          <!-- Checkout Box -->
+          <div class="checkout-box-modern">
+            <div class="customer-info-grid mb-3">
+              <input type="text" class="pos-input" v-model="customerName" placeholder="Tên khách hàng">
+              <input type="text" class="pos-input" v-model="customerPhone" placeholder="Số điện thoại">
+              <input type="text" class="pos-input full-width" v-model="note" placeholder="Ghi chú đơn hàng...">
             </div>
 
-            <div class="form-floating mb-3">
-                <textarea class="form-control" placeholder="Ghi chú" id="note" v-model="note" style="height: 60px"></textarea>
-                <label for="note">Ghi chú đơn hàng / KH</label>
+            <!-- Segmented Payment Methods -->
+            <div class="payment-segmented-control mb-4">
+              <label class="segment-label" :class="{'active': paymentMethod === 'pos_cash'}">
+                <input type="radio" value="pos_cash" v-model="paymentMethod" class="d-none">
+                <i class="fas fa-money-bill-wave mb-1"></i> Tiền mặt
+              </label>
+              <label class="segment-label" :class="{'active': paymentMethod === 'pos_transfer'}">
+                <input type="radio" value="pos_transfer" v-model="paymentMethod" class="d-none">
+                <i class="fas fa-university mb-1"></i> C.Khoản
+              </label>
+              <label class="segment-label" :class="{'active': paymentMethod === 'pos_card'}">
+                <input type="radio" value="pos_card" v-model="paymentMethod" class="d-none">
+                <i class="fas fa-credit-card mb-1"></i> Quẹt thẻ
+              </label>
             </div>
-            
-            <div class="summary-line d-flex justify-content-between mb-2">
-                <span class="text-muted">Tạm tính:</span>
-                <span class="fw-bold">{{ formatPrice(subtotal) }}</span>
+
+            <!-- Totals -->
+            <div class="totals-section">
+              <div class="summary-row">
+                <span class="text-secondary fw-medium">Tạm tính</span>
+                <span class="fw-semibold">{{ formatPrice(subtotal) }}</span>
+              </div>
+              <div class="summary-row discount-row align-items-center">
+                <span class="text-secondary fw-medium">Giảm giá đ/đơn</span>
+                <input type="number" class="pos-discount-input text-end" v-model.number="discountAmount" min="0" placeholder="0">
+              </div>
             </div>
-            <div class="summary-line d-flex justify-content-between mb-3 align-items-center">
-                <span class="text-muted">Giảm giá đ/đơn:</span>
-                <input type="number" class="form-control form-control-sm text-end" style="width: 120px;" v-model.number="discountAmount" min="0" placeholder="0">
-            </div>
-            
-            <div class="summary-line d-flex justify-content-between mb-4 border-top pt-3">
-                <span class="fw-bold fs-5 text-dark">Khách phải trả:</span>
-                <span class="fw-bold fs-4 text-danger">{{ formatPrice(grandTotal) }}</span>
-            </div>
-            
-            <button class="btn btn-primary w-100 py-3 fw-bold fs-5 text-uppercase" @click="handleCheckout" :disabled="isCheckingOut || cartItems.length === 0">
-                <span v-if="isCheckingOut" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                <i v-else class="fas fa-money-bill-wave me-2"></i>
-                Thanh toán
+
+            <!-- Checkout Action -->
+            <button class="btn-checkout-smart mt-4" @click="handleCheckout" :disabled="isCheckingOut || cartItems.length === 0">
+              <span v-if="isCheckingOut" class="spinner-border spinner-border-sm mx-auto" role="status" aria-hidden="true"></span>
+              <template v-else>
+                <span class="checkout-text text-uppercase">
+                  <i class="fas fa-check-circle me-2"></i> Thanh toán
+                </span>
+                <span class="checkout-amount">{{ formatPrice(grandTotal) }}</span>
+              </template>
             </button>
           </div>
         </div>
-        
       </div>
       
     </div>
@@ -983,36 +953,288 @@ onUnmounted(() => {
     opacity: 0.6;
 }
 
-/* RIGHT COLUMN */
-.pos-right {
-  background-color: white;
-  border-left: 1px solid #e2e8f0;
+/* RIGHT COLUMN MODERN POS */
+.pos-right-panel {
+  padding: 24px 24px 24px 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  padding: 0;
 }
 
-.cart-tabs {
-    padding: 16px 16px 0 16px;
-    margin-bottom: 0 !important;
-}
-
-.cart-items-container {
+.pos-cart-container {
   flex: 1;
+  min-height: 0;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.cart-header {
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px dashed #f1f5f9;
+}
+
+.btn-clear-cart {
+  background: #fef2f2;
+  color: #ef4444;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.btn-clear-cart:hover:not(:disabled) {
+  background: #fee2e2;
+  transform: translateY(-1px);
+}
+.btn-clear-cart:disabled {
+  opacity: 0.5;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.cart-items-list {
+  flex: 1 1 auto;
+  min-height: 0; /* Prevent flex blowout */
   overflow-y: auto;
-  background: #fff;
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.cart-table th {
-    font-size: 0.85rem;
-    color: #64748b;
-    font-weight: 600;
-    text-transform: uppercase;
+.cart-items-list::-webkit-scrollbar { width: 5px; }
+.cart-items-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+.empty-cart-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
 }
 
-.cart-table td {
-    padding: 12px 16px;
+.cart-item {
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #f1f5f9;
+  transition: all 0.2s;
+}
+.cart-item:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.item-img {
+  width: 55px;
+  height: 55px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #f1f5f9;
+}
+
+.item-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.item-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.btn-remove-item {
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  padding: 0 4px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.btn-remove-item:hover {
+  color: #ef4444;
+}
+
+.qty-control-pill {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 20px;
+  padding: 2px;
+}
+
+.qty-btn {
+  background: transparent;
+  border: none;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #64748b;
+  border-radius: 50%;
+  transition: background 0.2s;
+  font-size: 1.1rem;
+}
+.qty-btn:hover { background: #e2e8f0; color: #0f172a; }
+
+.qty-value {
+  width: 22px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.item-price {
+  font-size: 1.05rem;
+}
+
+/* Modern Checkout Box */
+.checkout-box-modern {
+  background: #f8fafc;
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.customer-info-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pos-input {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 120px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 10px;
+  outline: none;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+.pos-input.full-width {
+  flex: 1 1 100%;
+}
+.pos-input:focus {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+.pos-input::placeholder {
+  color: #94a3b8;
+}
+
+/* Segmented Control */
+.payment-segmented-control {
+  display: flex;
+  background: #e2e8f0;
+  padding: 4px;
+  border-radius: 12px;
+  gap: 4px;
+}
+
+.segment-label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.segment-label i { font-size: 1.1rem; }
+
+.segment-label.active {
+  background: #ffffff;
+  color: #0ea5e9;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.totals-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+}
+
+.pos-discount-input {
+  width: 100px;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #ef4444;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.pos-discount-input:focus { border-color: #0ea5e9; }
+
+.btn-checkout-smart {
+  width: 100%;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 20px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+}
+
+.btn-checkout-smart:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(14, 165, 233, 0.4);
+}
+
+.btn-checkout-smart:disabled {
+  background: #cbd5e1;
+  box-shadow: none;
+  cursor: not-allowed;
+  color: #94a3b8;
+}
+
+.checkout-amount {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 12px;
+  border-radius: 10px;
+  font-size: 1.25rem;
 }
 
 .truncate-1 {
@@ -1021,56 +1243,6 @@ onUnmounted(() => {
     line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
-}
-
-.qty-control {
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    overflow: hidden;
-}
-
-.qty-btn {
-    background: #f8fafc;
-    border: none;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    color: #475569;
-}
-.qty-btn:hover {
-    background: #e2e8f0;
-}
-
-.qty-input {
-    width: 36px;
-    height: 28px;
-    border: none;
-    border-left: 1px solid #cbd5e1;
-    border-right: 1px solid #cbd5e1;
-    text-align: center;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-/* Checkout Box */
-.checkout-box {
-  background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
-  padding: 20px;
-  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
-}
-
-.form-floating > label {
-    padding: 0.5rem 0.75rem;
-}
-.form-floating > .form-control {
-    height: calc(3rem + 2px);
-    line-height: 1.25;
 }
 
 /* MODAL */

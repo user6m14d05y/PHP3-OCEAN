@@ -1,0 +1,1293 @@
+<template>
+  <div class="chatbot-wrapper" id="ocean-chatbot">
+    <!-- Floating Bubble -->
+    <button
+      class="chatbot-bubble"
+      :class="{ 'is-open': isOpen, 'has-unread': hasUnread && !isOpen }"
+      @click="toggleChat"
+      id="chatbot-toggle-btn"
+    >
+      <transition name="icon-swap" mode="out-in">
+        <svg v-if="!isOpen" key="chat" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+        <svg v-else key="close" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </transition>
+      <span v-if="hasUnread && !isOpen" class="unread-dot"></span>
+    </button>
+
+    <!-- Chat Window -->
+    <transition name="chat-window">
+      <div v-if="isOpen" class="chatbot-window" id="chatbot-window">
+        <!-- Header -->
+        <div class="chat-header">
+          <div class="chat-header-info">
+            <div class="chat-avatar">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2a7 7 0 017 7v1a7 7 0 01-14 0V9a7 7 0 017-7z"/>
+                <path d="M5 22v-1a7 7 0 0114 0v1"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="chat-title">{{ mode === 'live' ? 'Hỗ trợ viên' : 'Ocean AI' }}</h3>
+              <p class="chat-subtitle">{{ mode === 'live' ? 'Sẵn sàng hỗ trợ bạn' : 'Trợ lý mua sắm thông minh' }}</p>
+            </div>
+          </div>
+          <button class="chat-close-btn" @click="isOpen = false">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Messages -->
+        <div class="chat-messages" ref="messagesContainer">
+          <!-- Welcome message -->
+          <div v-if="messages.length === 0" class="welcome-section">
+            <div class="welcome-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12c1.5-3 4.5-3 6 0s4.5 3 6 0 4.5-3 6 0"/>
+                <path d="M2 17c1.5-3 4.5-3 6 0s4.5 3 6 0 4.5-3 6 0" opacity="0.5"/>
+                <path d="M2 7c1.5-3 4.5-3 6 0s4.5 3 6 0 4.5-3 6 0" opacity="0.5"/>
+              </svg>
+            </div>
+            <h4 class="welcome-title">{{ mode === 'live' ? 'Kết nối thành công!' : 'Xin chào! Tôi là Ocean AI' }}</h4>
+            <p class="welcome-desc">{{ mode === 'live' ? 'Vui lòng đặt câu hỏi, chúng tôi sẽ phản hồi trong giây lát.' : 'Tôi có thể giúp bạn tìm sản phẩm, tra đơn hàng, xem khuyến mãi và nhiều hơn nữa!' }}</p>
+          </div>
+
+          <!-- Message items -->
+          <div v-for="(msg, idx) in messages" :key="idx" class="message-item" :class="msg.role">
+            <!-- AI avatar -->
+            <div v-if="msg.role === 'assistant'" class="msg-avatar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12c1.5-3 4.5-3 6 0s4.5 3 6 0 4.5-3 6 0"/>
+                <path d="M2 17c1.5-3 4.5-3 6 0s4.5 3 6 0 4.5-3 6 0" opacity="0.5"/>
+              </svg>
+            </div>
+            <div class="msg-bubble" :class="msg.role">
+              <div class="msg-text" v-html="formatMessage(msg.content)"></div>
+
+              <!-- Product Cards -->
+              <div v-if="msg.data && msg.type === 'search_products'" class="product-cards">
+                <div v-for="product in msg.data" :key="product.product_id" class="product-card" @click="goToProduct(product.slug)">
+                  <img :src="getProductImage(product.thumbnail)" :alt="product.name" class="product-card-img" loading="lazy" />
+                  <div class="product-card-info">
+                    <p class="product-card-name">{{ product.name }}</p>
+                    <p class="product-card-price">{{ product.price }}</p>
+                    <span v-if="product.category" class="product-card-cat">{{ product.category }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Product Detail Card -->
+              <div v-if="msg.data && msg.type === 'get_product_detail'" class="product-detail-card">
+                <div class="pd-header">
+                  <img :src="getProductImage(msg.data.thumbnail)" :alt="msg.data.name" class="pd-img" loading="lazy" />
+                  <div class="pd-main-info">
+                    <h4 class="pd-name">{{ msg.data.name }}</h4>
+                    <p class="pd-price">{{ msg.data.price_range }}</p>
+                    <span v-if="msg.data.category" class="product-card-cat">{{ msg.data.category }}</span>
+                  </div>
+                </div>
+                <p v-if="msg.data.short_description" class="pd-desc">{{ msg.data.short_description }}</p>
+                <div v-if="msg.data.variants && msg.data.variants.length" class="pd-variants">
+                  <p class="pd-variants-title">Phiên bản:</p>
+                  <div v-for="(v, vi) in msg.data.variants.slice(0, 5)" :key="vi" class="pd-variant-row">
+                    <span class="pd-variant-name">{{ v.variant_name }}</span>
+                    <span class="pd-variant-price">{{ v.price }}</span>
+                    <span class="pd-variant-status" :class="v.stock > 0 ? 'in-stock' : 'out-stock'">{{ v.status }}</span>
+                  </div>
+                </div>
+                <button v-if="msg.data.slug" class="pd-view-btn" @click="goToProduct(msg.data.slug)">Xem chi tiết sản phẩm</button>
+              </div>
+
+              <!-- Order Card -->
+              <div v-if="msg.data && msg.type === 'get_order_status'" class="order-cards">
+                <div v-for="(order, oi) in (Array.isArray(msg.data) ? msg.data : [msg.data])" :key="oi" class="order-card">
+                  <div class="order-card-header">
+                    <span class="order-code">{{ order.order_code }}</span>
+                    <span class="order-status" :class="'status-' + order.status_raw">{{ order.status }}</span>
+                  </div>
+                  <div class="order-card-body">
+                    <div class="order-items">
+                      <div v-for="(item, ii) in order.items?.slice(0, 3)" :key="ii" class="order-item-row">
+                        <span class="order-item-name">{{ item.product_name }}</span>
+                        <span class="order-item-qty">x{{ item.quantity }}</span>
+                      </div>
+                      <p v-if="order.items?.length > 3" class="order-more">+{{ order.items.length - 3 }} sản phẩm khác</p>
+                    </div>
+                    <div class="order-total">
+                      <span>Tổng cộng:</span>
+                      <strong>{{ order.grand_total }}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Coupon Cards -->
+              <div v-if="msg.data && msg.type === 'get_available_coupons'" class="coupon-cards">
+                <div v-for="(coupon, ci) in msg.data" :key="ci" class="coupon-card">
+                  <div class="coupon-code">{{ coupon.code }}</div>
+                  <div class="coupon-desc">{{ coupon.description }}</div>
+                  <div class="coupon-meta">
+                    <span>Đơn tối thiểu: {{ coupon.min_order }}</span>
+                    <span>HSD: {{ coupon.end_date }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Category List -->
+              <div v-if="msg.data && msg.type === 'get_categories'" class="category-cards">
+                <div v-for="(cat, ci) in msg.data" :key="ci" class="category-card" @click="goToCategory(cat.name)">
+                  <div class="cat-info">
+                    <span class="cat-name">{{ cat.name }}</span>
+                    <span class="cat-count">{{ cat.product_count }} sản phẩm</span>
+                  </div>
+                  <div v-if="cat.children && cat.children.length" class="cat-children">
+                    <span v-for="(child, cci) in cat.children" :key="cci" class="cat-child-tag">{{ child.name }}</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Typing indicator -->
+          <div v-if="isTyping" class="message-item assistant">
+            <div class="msg-avatar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12c1.5-3 4.5-3 6 0s4.5 3 6 0 4.5-3 6 0"/>
+                <path d="M2 17c1.5-3 4.5-3 6 0s4.5 3 6 0 4.5-3 6 0" opacity="0.5"/>
+              </svg>
+            </div>
+            <div class="msg-bubble assistant typing-bubble">
+              <div class="typing-indicator">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions (toggleable) -->
+        <transition name="quick-slide">
+          <div v-show="showQuickActions" class="quick-actions">
+            <button v-for="action in quickActions" :key="action.text" class="quick-action-btn" @click="sendQuickAction(action.text)">
+              <span class="quick-icon" v-html="action.icon"></span>
+              {{ action.text }}
+            </button>
+          </div>
+        </transition>
+
+        <!-- Input -->
+        <div class="chat-input-area">
+          <button class="quick-toggle-btn" @click="showQuickActions = !showQuickActions" :class="{ active: showQuickActions }" title="Gợi ý nhanh">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </button>
+          <input
+            ref="chatInput"
+            v-model="inputMessage"
+            type="text"
+            placeholder="Nhập tin nhắn..."
+            class="chat-input"
+            @keyup.enter="sendMessage"
+            :disabled="isTyping"
+            id="chatbot-input"
+            maxlength="1000"
+          />
+          <button class="chat-send-btn" @click="sendMessage" :disabled="!inputMessage.trim() || isTyping" id="chatbot-send-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </transition>
+  </div>
+</template>
+
+<script setup>
+import { ref, nextTick, onMounted, watch, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import api from '../axios.js';
+
+const router = useRouter();
+const BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:8383';
+
+const isOpen = ref(false);
+const hasUnread = ref(false);
+const inputMessage = ref('');
+const isTyping = ref(false);
+const showQuickActions = ref(true);
+const messages = ref([]);
+const messagesContainer = ref(null);
+const chatInput = ref(null);
+
+const mode = ref('ai'); // 'ai' or 'live'
+const sessionToken = ref(localStorage.getItem('ocean_live_chat_token') || '');
+const isConnecting = ref(false);
+let isConnectedLiveChat = false;
+
+/** Conversation history cho Gemini (role/parts format) */
+const conversationHistory = ref([]);
+
+const quickActions = computed(() => {
+  if (mode.value === 'live') {
+    return [
+      { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>', text: 'Trở lại Chatbot AI' },
+      { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', text: 'Đơn hàng của tôi đang ở đâu?' },
+      { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', text: 'Xin chào, tôi cần hỗ trợ!' }
+    ];
+  }
+  return [
+    { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>', text: 'Gợi ý sản phẩm bán chạy' },
+    { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', text: 'Xem đơn hàng của tôi' },
+    { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>', text: 'Có mã giảm giá nào không?' },
+    { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>', text: 'Chính sách đổi trả' },
+    { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>', text: 'Liên hệ nhân viên hỗ trợ' },
+  ];
+});
+
+// ==================== LIFECYCLE ====================
+onMounted(() => {
+  // Restore messages from sessionStorage
+  const saved = sessionStorage.getItem('ocean_chatbot_messages');
+  const savedHistory = sessionStorage.getItem('ocean_chatbot_history');
+  if (saved) {
+    try {
+      messages.value = JSON.parse(saved);
+    } catch (e) { /* ignore */ }
+  }
+  if (savedHistory) {
+    try {
+      conversationHistory.value = JSON.parse(savedHistory);
+    } catch (e) { /* ignore */ }
+  }
+  
+  if (sessionToken.value) {
+     mode.value = 'live';
+     connectLiveChat();
+  }
+});
+
+// Save messages on change
+watch(messages, (val) => {
+  sessionStorage.setItem('ocean_chatbot_messages', JSON.stringify(val));
+}, { deep: true });
+
+watch(conversationHistory, (val) => {
+  sessionStorage.setItem('ocean_chatbot_history', JSON.stringify(val));
+}, { deep: true });
+
+// ==================== METHODS ====================
+function toggleChat() {
+  isOpen.value = !isOpen.value;
+  hasUnread.value = false;
+  if (isOpen.value) {
+    nextTick(() => {
+      chatInput.value?.focus();
+      scrollToBottom();
+    });
+  }
+}
+
+function scrollToBottom() {
+  nextTick(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+  });
+}
+
+function getProductImage(thumbnail) {
+  if (!thumbnail) return '';
+  if (thumbnail.startsWith('http')) return thumbnail;
+  // Normalize path — remove leading slashes and 'storage/' prefix if present
+  const cleaned = thumbnail.replace(/^\/+/, '').replace(/^storage\//, '');
+  return `${BASE_URL}/storage/${cleaned}`;
+}
+
+function goToProduct(slug) {
+  if (slug) {
+    router.push(`/product/${slug}`);
+    isOpen.value = false;
+  }
+}
+
+function goToCategory(categoryName) {
+  if (categoryName) {
+    router.push({ path: '/products', query: { category: categoryName } });
+    isOpen.value = false;
+  }
+}
+
+function formatMessage(text) {
+  if (!text) return '';
+  // Basic markdown-like formatting
+  let formatted = text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br/>');
+  return formatted;
+}
+
+function sendQuickAction(text) {
+  if (text === 'Trở lại Chatbot AI') {
+    mode.value = 'ai';
+    showQuickActions.value = true;
+    messages.value.push({ role: 'assistant', content: 'Đã chuyển về AI thông minh. Tôi có thể giúp gì cho bạn?' });
+    scrollToBottom();
+    return;
+  }
+  if (text === 'Liên hệ nhân viên hỗ trợ') {
+    startLiveChat();
+    return;
+  }
+  inputMessage.value = text;
+  sendMessage();
+}
+
+async function startLiveChat() {
+  mode.value = 'live';
+  messages.value = []; // Xóa history AI
+  isConnecting.value = true;
+  showQuickActions.value = false;
+  
+  try {
+    const token = localStorage.getItem('auth_token');
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    
+    // Gọi API init session
+    const response = await api.post('/live-chat/init', {
+      session_token: sessionToken.value
+    }, { headers });
+    
+    if (response.data && response.data.session) {
+       sessionToken.value = response.data.session.session_token;
+       localStorage.setItem('ocean_live_chat_token', sessionToken.value);
+       
+       // Hiển thị mảng lịch sử cũ nếu có
+       if (response.data.messages && response.data.messages.length > 0) {
+          messages.value = response.data.messages.map(m => ({
+             role: m.sender_type === 'user' ? 'user' : 'assistant',
+             content: m.message
+          }));
+          scrollToBottom();
+       }
+       
+       connectLiveChat();
+    }
+  } catch (error) {
+    console.error("Lỗi khi kết nối Live Chat", error);
+    mode.value = 'ai'; // Fallback back to AI
+  } finally {
+    isConnecting.value = false;
+  }
+}
+
+function connectLiveChat() {
+  if (window.Echo && sessionToken.value && !isConnectedLiveChat) {
+    const channelName = `chat.${sessionToken.value}`;
+    // Rời kênh cũ (nếu có do hot-reload) để xóa toàn bộ event listeners
+    window.Echo.leave(channelName);
+    
+    window.Echo.channel(channelName)
+      .listen('.message.sent', (e) => {
+        if (e.senderType === 'admin') {
+           // Nếu là mã lệnh đóng phòng chat
+           if (e.message.message === 'SYSTEM_SESSION_CLOSED') {
+              messages.value.push({ role: 'assistant', content: 'Phiên hỗ trợ đã kết thúc.' });
+              mode.value = 'ai';
+              showQuickActions.value = true;
+              window.Echo.leave(channelName);
+              scrollToBottom();
+              return;
+           }
+           
+           messages.value.push({ role: 'assistant', content: e.message.message });
+           scrollToBottom();
+           if (!isOpen.value) hasUnread.value = true;
+        }
+      });
+      
+    isConnectedLiveChat = true;
+  }
+}
+
+async function sendMessage() {
+  const msg = inputMessage.value.trim();
+  if (!msg || isTyping.value) return;
+
+  // Add user message to UI
+  messages.value.push({
+    role: 'user',
+    content: msg,
+  });
+
+  // Add to conversation history (Gemini format)
+  conversationHistory.value.push({
+    role: 'user',
+    parts: [{ text: msg }],
+  });
+
+  inputMessage.value = '';
+  isTyping.value = true;
+  scrollToBottom();
+
+  try {
+    // Prepare headers — include JWT if logged in
+    const token = localStorage.getItem('auth_token');
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await api.post(
+      mode.value === 'live' ? '/live-chat/message' : '/chatbot/message', 
+      mode.value === 'live' ? { 
+        message: msg, 
+        session_token: sessionToken.value 
+      } : {
+        message: msg,
+        history: conversationHistory.value.slice(0, -1),
+      }, 
+      { headers }
+    );
+
+    const data = response.data;
+
+    // Phản hồi từ Live Chat API khác với Phản hồi của Bot
+    if (mode.value === 'live') {
+      if (data.success) {
+         // Tin nhắn live đã gửi, không cần Echo lại tin của mình
+      } else if (data.is_closed) {
+         messages.value.push({
+           role: 'assistant',
+           content: data.message || 'Phiên hỗ trợ đã kết thúc.'
+         });
+         mode.value = 'ai'; // Tự động trở về AI
+         showQuickActions.value = true;
+         if (window.Echo) {
+            window.Echo.leave(`chat.${sessionToken.value}`);
+         }
+         scrollToBottom();
+      }
+      return; 
+    }
+
+    if (data.success) {
+      const assistantMsg = {
+        role: 'assistant',
+        content: data.message,
+        data: data.data,
+        type: data.type,
+      };
+      messages.value.push(assistantMsg);
+
+      // Add to conversation history
+      conversationHistory.value.push({
+        role: 'model',
+        parts: [{ text: data.message }],
+      });
+
+      if (!isOpen.value) {
+        hasUnread.value = true;
+      }
+    } else {
+      messages.value.push({
+        role: 'assistant',
+        content: data.message || 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại!',
+      });
+    }
+  } catch (error) {
+    console.error('Chat error:', error);
+    messages.value.push({
+      role: 'assistant',
+      content: 'Xin lỗi, kết nối bị gián đoạn. Vui lòng thử lại sau!',
+    });
+  } finally {
+    isTyping.value = false;
+    scrollToBottom();
+  }
+}
+</script>
+
+<style scoped>
+/* ==================== CHATBOT WRAPPER ==================== */
+.chatbot-wrapper {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ==================== FLOATING BUBBLE ==================== */
+.chatbot-bubble {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1a56db 0%, #3b82f6 50%, #06b6d4 100%);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow:
+    0 4px 20px rgba(26, 86, 219, 0.4),
+    0 0 0 0 rgba(26, 86, 219, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  animation: bubble-pulse 2s ease-in-out infinite;
+}
+
+.chatbot-bubble:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(26, 86, 219, 0.5);
+}
+
+.chatbot-bubble.is-open {
+  animation: none;
+  background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes bubble-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(26, 86, 219, 0.4), 0 0 0 0 rgba(26, 86, 219, 0.3); }
+  50% { box-shadow: 0 4px 20px rgba(26, 86, 219, 0.4), 0 0 0 12px rgba(26, 86, 219, 0); }
+}
+
+.unread-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  animation: unread-blink 1s ease-in-out infinite;
+}
+
+@keyframes unread-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ==================== ICON TRANSITION ==================== */
+.icon-swap-enter-active, .icon-swap-leave-active {
+  transition: all 0.2s ease;
+}
+.icon-swap-enter-from { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+.icon-swap-leave-to { opacity: 0; transform: rotate(90deg) scale(0.5); }
+
+/* ==================== CHAT WINDOW ==================== */
+.chatbot-window {
+  position: absolute;
+  bottom: 72px;
+  right: 0;
+  width: 400px;
+  height: 580px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.15),
+    0 8px 32px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(229, 231, 235, 0.6);
+}
+
+/* Window transition */
+.chat-window-enter-active {
+  animation: window-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.chat-window-leave-active {
+  animation: window-out 0.25s ease-in;
+}
+
+@keyframes window-in {
+  0% { opacity: 0; transform: translateY(20px) scale(0.9); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes window-out {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(20px) scale(0.9); }
+}
+
+/* ==================== HEADER ==================== */
+.chat-header {
+  background: linear-gradient(135deg, #1a56db 0%, #2563eb 60%, #06b6d4 100%);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.chat-header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.chat-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.chat-subtitle {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 2px 0 0;
+}
+
+.chat-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.chat-close-btn:hover { background: rgba(255, 255, 255, 0.3); }
+
+/* ==================== MESSAGES ==================== */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #f8fafc;
+  scroll-behavior: smooth;
+}
+
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+
+/* Welcome */
+.welcome-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 16px;
+  gap: 8px;
+}
+.welcome-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.welcome-title { font-size: 1.05rem; font-weight: 700; color: #111827; margin: 0; }
+.welcome-desc { font-size: 0.85rem; color: #6b7280; margin: 0; line-height: 1.5; }
+
+/* Message items */
+.message-item {
+  display: flex;
+  gap: 8px;
+  max-width: 92%;
+}
+.message-item.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+.message-item.assistant {
+  align-self: flex-start;
+}
+
+.msg-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.msg-bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.msg-bubble.user {
+  background: linear-gradient(135deg, #1a56db, #2563eb);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.msg-bubble.assistant {
+  background: #fff;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.msg-text { white-space: pre-wrap; }
+
+/* ==================== PRODUCT CARDS ==================== */
+.product-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.product-card {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.product-card:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26, 86, 219, 0.08);
+}
+
+.product-card-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f1f5f9;
+  flex-shrink: 0;
+}
+
+.product-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-card-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.product-card-price {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #dc2626;
+  margin: 0;
+}
+
+.product-card-cat {
+  font-size: 0.7rem;
+  color: #6b7280;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 4px;
+}
+
+/* ==================== ORDER CARDS ==================== */
+.order-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.order-card {
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.order-code {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1a56db;
+}
+
+.order-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.status-pending { background: #fef3c7; color: #92400e; }
+.status-confirmed { background: #d1fae5; color: #065f46; }
+.status-shipping { background: #dbeafe; color: #1e40af; }
+.status-delivered { background: #e0e7ff; color: #3730a3; }
+.status-completed { background: #d1fae5; color: #065f46; }
+.status-cancelled { background: #fee2e2; color: #991b1b; }
+
+.order-card-body { padding: 10px 12px; }
+
+.order-item-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #4b5563;
+  padding: 2px 0;
+}
+.order-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: 8px;
+}
+.order-item-qty { font-weight: 600; flex-shrink: 0; }
+.order-more { font-size: 0.72rem; color: #9ca3af; margin: 4px 0 0; }
+
+.order-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e5e7eb;
+  font-size: 0.82rem;
+  color: #374151;
+}
+.order-total strong { color: #dc2626; font-size: 0.9rem; }
+
+/* ==================== COUPON CARDS ==================== */
+.coupon-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.coupon-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fff7ed, #fffbeb);
+  border: 1px dashed #fdba74;
+}
+
+.coupon-code {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #c2410c;
+  letter-spacing: 0.5px;
+}
+
+.coupon-desc {
+  font-size: 0.78rem;
+  color: #78350f;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.coupon-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #92400e;
+  margin-top: 6px;
+  opacity: 0.8;
+}
+
+/* ==================== TYPING INDICATOR ==================== */
+.typing-bubble {
+  padding: 12px 18px !important;
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.typing-indicator span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9ca3af;
+  animation: typing-dot 1.4s ease-in-out infinite;
+}
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* ==================== QUICK ACTIONS ==================== */
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #f0f0f0;
+}
+
+.quick-slide-enter-active, .quick-slide-leave-active {
+  transition: all 0.25s ease;
+  max-height: 80px;
+  overflow: hidden;
+}
+.quick-slide-enter-from, .quick-slide-leave-to {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
+
+.quick-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 12px;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+/* Toggle button */
+.quick-toggle-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1.5px solid #e5e7eb;
+  background: #f8fafc;
+  color: #9ca3af;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.quick-toggle-btn:hover {
+  border-color: #93c5fd;
+  color: #1a56db;
+  background: #eff6ff;
+}
+.quick-toggle-btn.active {
+  border-color: #1a56db;
+  color: #1a56db;
+  background: #eff6ff;
+}
+
+.quick-action-btn:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1a56db;
+}
+
+.quick-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+
+/* ==================== INPUT AREA ==================== */
+.chat-input-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  color: #1f2937;
+  background: #f8fafc;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chat-input:focus {
+  border-color: #1a56db;
+  background: #fff;
+}
+
+.chat-input::placeholder { color: #9ca3af; }
+.chat-input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.chat-send-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #1a56db, #2563eb);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.chat-send-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e40af, #1a56db);
+  transform: scale(1.05);
+}
+
+.chat-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ==================== PRODUCT DETAIL CARD ==================== */
+.product-detail-card {
+  margin-top: 10px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.pd-header {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+}
+
+.pd-img {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #f1f5f9;
+  flex-shrink: 0;
+}
+
+.pd-main-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pd-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+
+.pd-price {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #dc2626;
+  margin: 0 0 4px;
+}
+
+.pd-desc {
+  font-size: 0.78rem;
+  color: #4b5563;
+  padding: 0 12px 8px;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.pd-variants {
+  padding: 0 12px 8px;
+}
+
+.pd-variants-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pd-variant-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.78rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+.pd-variant-row:last-child { border-bottom: none; }
+
+.pd-variant-name {
+  flex: 1;
+  color: #374151;
+  font-weight: 500;
+}
+
+.pd-variant-price {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.pd-variant-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.pd-variant-status.in-stock { background: #d1fae5; color: #065f46; }
+.pd-variant-status.out-stock { background: #fee2e2; color: #991b1b; }
+
+.pd-view-btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  background: linear-gradient(135deg, #1a56db, #2563eb);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.pd-view-btn:hover {
+  background: linear-gradient(135deg, #1e40af, #1a56db);
+}
+
+/* ==================== CATEGORY CARDS ==================== */
+.category-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.category-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.category-card:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.cat-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cat-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.cat-count {
+  font-size: 0.72rem;
+  color: #6b7280;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.cat-children {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.cat-child-tag {
+  font-size: 0.7rem;
+  color: #1a56db;
+  background: #dbeafe;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 480px) {
+  .chatbot-wrapper {
+    bottom: 16px;
+    right: 16px;
+  }
+  .chatbot-window {
+    width: calc(100vw - 32px);
+    height: calc(100dvh - 100px);
+    bottom: 68px;
+    right: -16px;
+    border-radius: 16px;
+  }
+}
+</style>

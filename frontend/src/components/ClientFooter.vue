@@ -5,7 +5,7 @@
         <!-- Col 1: Brand + Newsletter -->
         <div class="footer-brand-col">
           <router-link to="/" class="footer-logo">
-              <img :src="BASE_URL + '/storage/logo/logo_OceanShop.png'" alt="logo-ocean" width="100">
+              <img src="../../public/favicon.ico" alt="logo-ocean" width="140" height="100">
           </router-link>
           <p class="footer-desc">Ocean Store — Nơi hội tụ các thương hiệu uy tín, mang đến trải nghiệm mua sắm tuyệt vời cho bạn.</p>
           
@@ -83,7 +83,6 @@ import { ref } from 'vue';
 import api from '../axios.js';
 
 const newsletterEmail = ref('');
-const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const submitNewsletter = async () => {
   if (!newsletterEmail.value) return;

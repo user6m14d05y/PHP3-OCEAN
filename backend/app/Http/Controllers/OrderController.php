@@ -11,6 +11,8 @@ use App\Models\Address;
 use App\Models\Coupon;
 use App\Models\UserCoupon;
 use App\Models\ProductVariant;
+use App\Models\Payment;
+use App\Services\VNPayService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -303,8 +305,52 @@ class OrderController extends Controller
             // Xóa các sản phẩm đã chọn khỏi giỏ
             CartItem::whereIn('cart_item_id', $cartItems->pluck('cart_item_id'))->delete();
 
-            DB::commit();
+            // ==================== XỬ LÝ VNPAY ====================
+            // [FIX P1] Di chuyển VNPay logic vào TRƯỚC DB::commit()
+            // Nếu createPaymentUrl() fail → order vẫn commit, trả warning để user retry
+            if ($request->payment_method === 'vnpay') {
+                // Tạo Payment record với status pending (nằm trong transaction)
+                Payment::create([
+                    'order_id' => $order->order_id,
+                    'payment_method' => 'vnpay',
+                    'amount' => $order->grand_total,
+                    'status' => 'pending',
+                ]);
 
+                // Generate VNPay payment URL — wrap try-catch riêng
+                try {
+                    $ipAddr = $request->ip();
+                    $vnpayUrl = VNPayService::createPaymentUrl($order, $ipAddr);
+                } catch (\Exception $e) {
+                    // VNPay URL generation failed → vẫn commit order, trả warning
+                    Log::error('VNPay URL generation failed: ' . $e->getMessage());
+                    DB::commit();
+                    return response()->json([
+                        'status' => 'warning',
+                        'message' => 'Đơn hàng đã tạo nhưng không thể kết nối VNPay. Vui lòng vào "Đơn hàng của tôi" để thử thanh toán lại.',
+                        'data' => [
+                            'order_code' => $order->order_code,
+                            'grand_total' => $order->grand_total
+                        ]
+                    ]);
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Đơn hàng đã tạo. Đang chuyển đến cổng thanh toán VNPay...',
+                    'payment_method' => 'vnpay',
+                    'vnpay_url' => $vnpayUrl,
+                    'data' => [
+                        'order_code' => $order->order_code,
+                        'grand_total' => $order->grand_total
+                    ]
+                ]);
+            }
+
+            // ==================== FLOW MẶC ĐỊNH (COD, Bank, MoMo) ====================
+            DB::commit();
             // Fire realtime event for admin (bọc try-catch để tránh treo thanh toán nếu websocket lỗi)
             try {
                 event(new \App\Events\OrderCreatedAdmin($order));

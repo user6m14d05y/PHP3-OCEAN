@@ -23,7 +23,6 @@ use App\Http\Controllers\PostController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PosController;
-use App\Http\Controllers\ProductCommentController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -96,9 +95,6 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{id}', [OrderController::class, 'show']);
     Route::put('/orders/{id}/cancel', [OrderController::class, 'cancel']);
-    
-    // Đánh giá sản phẩm
-    Route::post('/orders/feedback', [ProductCommentController::class, 'store']);
 });
 
 // Cart routes (Protected - cần JWT token user/admin)
@@ -159,6 +155,11 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
     Route::get('/pos/products/scan', [PosController::class, 'scanProduct']);
     Route::post('/pos/checkout', [PosController::class, 'checkout']);
 
+    // Admin Live Chat
+    Route::get('/live-chats', [\App\Http\Controllers\Admin\AdminChatController::class, 'getSessions']);
+    Route::get('/live-chats/{id}', [\App\Http\Controllers\Admin\AdminChatController::class, 'getMessages']);
+    Route::post('/live-chats/{id}/reply', [\App\Http\Controllers\Admin\AdminChatController::class, 'replyMessage']);
+    Route::post('/live-chats/{id}/close', [\App\Http\Controllers\Admin\AdminChatController::class, 'closeSession']);
 });
 // Business routes
 // Public resources (Chỉ cho phép GET public, các thao tác khác cần admin)
@@ -167,7 +168,6 @@ Route::get('categories/{id}', [CategoryController::class, 'show']);
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{id}', [ProductController::class, 'show']);
 Route::get('products/slug/{slug}', [ProductController::class, 'show']);
-Route::get('products/{product_id}/comments', [ProductCommentController::class, 'getByProduct']);
 Route::get('productFeatured', [ProductController::class, 'productFeatured']);
 
 // Admin/Staff only for modification
@@ -201,3 +201,14 @@ Route::prefix('location')->group(function () {
     Route::get('/search', [LocationController::class, 'search']);
 });
 Route::get('/posts', [PostController::class, 'index']);
+
+// AI Chatbot (Public — tự detect auth nếu có JWT token)
+Route::post('/chatbot/message', [\App\Http\Controllers\ChatbotController::class, 'sendMessage']);
+
+// Live Chat (Realtime - Public/User)
+Route::post('/live-chat/init', [\App\Http\Controllers\ChatController::class, 'initSession']);
+Route::post('/live-chat/message', [\App\Http\Controllers\ChatController::class, 'sendMessage']);
+
+// VNPay Payment Gateway (Public — VNPay redirect về đây, rate limiting chống brute-force)
+Route::middleware('throttle:30,1')->get('/payment/vnpay-return', [\App\Http\Controllers\VNPayController::class, 'vnpayReturn']);
+

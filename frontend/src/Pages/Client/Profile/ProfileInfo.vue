@@ -25,10 +25,10 @@
         <div class="avatar-section">
           <div class="avatar-wrapper">
             <img :src="previewAvatar || avatarUrl" :alt="user.full_name" class="avatar-img" />
-            <label v-if="isEditing" for="avatar-input" class="avatar-upload-btn" title="Đổi ảnh đại diện">
+            <label for="avatar-input" class="avatar-upload-btn" title="Đổi ảnh đại diện">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             </label>
-            <input v-if="isEditing" type="file" id="avatar-input" accept="image/jpeg,image/png,image/gif,image/jpg" class="sr-only" @change="onAvatarChange" />
+            <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/gif,image/jpg" class="sr-only" @change="onAvatarChange" />
           </div>
           <div class="avatar-info">
             <h4>Ảnh đại diện</h4>
@@ -210,6 +210,9 @@ const onAvatarChange = (e) => {
   }
   avatarFile.value = file;
   previewAvatar.value = URL.createObjectURL(file);
+  
+  // Tự động chuyển sang chế độ Sửa khi người dùng chọn xong ảnh
+  isEditing.value = true;
 };
 
 const syncUser = (data) => {

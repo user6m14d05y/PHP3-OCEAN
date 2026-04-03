@@ -16,4 +16,14 @@ class Category extends Model
         'sort_order',
         'is_active',
     ];
+
+    public function children()
+    {
+        return $this->hasMany(Category::class, 'parent_id', 'category_id');
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(Category::class, 'parent_id', 'category_id');
+    }
 }

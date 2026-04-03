@@ -8,12 +8,16 @@
     </main>
 
     <ClientFooter />
+
+    <!-- AI Chatbot Floating Widget -->
+    <ChatbotWidget />
   </div>
 </template>
 
 <script setup>
 import ClientHeader from '../components/ClientHeader.vue';
 import ClientFooter from '../components/ClientFooter.vue';
+import ChatbotWidget from '../components/ChatbotWidget.vue';
 </script>
 
 <style scoped>

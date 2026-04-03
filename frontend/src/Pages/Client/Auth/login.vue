@@ -118,10 +118,7 @@ const login = async () => {
       localStorage.setItem('auth_token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify({
         isLoggedIn: true,
-        id: response.data.user.id,
-        name: response.data.user.name,
-        email: response.data.user.email,
-        role: response.data.user.role
+        ...response.data.user
       }));
 
       // showToast('Đăng nhập thành công!', 'success');

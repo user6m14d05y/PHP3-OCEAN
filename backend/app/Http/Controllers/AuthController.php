@@ -253,14 +253,41 @@ class AuthController extends Controller
             // Bước 3: Tìm hoặc tạo user (Account Linking)
             $now = Carbon::now()->toDateTimeString();
 
+            // Bỏ điều kiện deleted_at IS NULL ở SQL để lấy được cả user đã xoá (soft delete)
             // Tìm bằng google_id trước
-            $user = DB::selectOne("SELECT * FROM users WHERE google_id = ? AND deleted_at IS NULL", [$googleId]);
+            $user = DB::selectOne("SELECT * FROM users WHERE google_id = ?", [$googleId]);
+
+            if ($user && $user->deleted_at !== null) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tài khoản của bạn đã bị xóa khỏi hệ thống!'
+                ], 403);
+            }
+            if ($user && isset($user->status) && $user->status !== 'active') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tài khoản của bạn đã bị vô hiệu hóa hoặc khóa!'
+                ], 403);
+            }
 
             if (!$user) {
                 // Tìm bằng email (account linking)
-                $user = DB::selectOne("SELECT * FROM users WHERE email = ? AND deleted_at IS NULL", [$googleEmail]);
+                $user = DB::selectOne("SELECT * FROM users WHERE email = ?", [$googleEmail]);
 
                 if ($user) {
+                    if ($user->deleted_at !== null) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Tài khoản liên kết với email này đã bị xóa!'
+                        ], 403);
+                    }
+                    if (isset($user->status) && $user->status !== 'active') {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Tài khoản liên kết với email này đã bị vô hiệu hóa!'
+                        ], 403);
+                    }
+
                     // Liên kết google_id vào tài khoản hiện tại
                     DB::update("UPDATE users SET google_id = ?, avatar_url = COALESCE(avatar_url, ?), updated_at = ? WHERE user_id = ?", [
                         $googleId, $googleAvatar, $now, $user->user_id
@@ -354,13 +381,39 @@ class AuthController extends Controller
             $now = Carbon::now()->toDateTimeString();
 
             // Tìm bằng facebook_id trước
-            $user = DB::selectOne("SELECT * FROM users WHERE facebook_id = ? AND deleted_at IS NULL", [$facebookId]);
+            $user = DB::selectOne("SELECT * FROM users WHERE facebook_id = ?", [$facebookId]);
+
+            if ($user && $user->deleted_at !== null) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tài khoản của bạn đã bị xóa khỏi hệ thống!'
+                ], 403);
+            }
+            if ($user && isset($user->status) && $user->status !== 'active') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tài khoản của bạn đã bị vô hiệu hóa hoặc khóa!'
+                ], 403);
+            }
 
             if (!$user) {
                 // Tìm bằng email (account linking)
-                $user = DB::selectOne("SELECT * FROM users WHERE email = ? AND deleted_at IS NULL", [$facebookEmail]);
+                $user = DB::selectOne("SELECT * FROM users WHERE email = ?", [$facebookEmail]);
 
                 if ($user) {
+                    if ($user->deleted_at !== null) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Tài khoản liên kết với email này đã bị xóa!'
+                        ], 403);
+                    }
+                    if (isset($user->status) && $user->status !== 'active') {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Tài khoản liên kết với email này đã bị vô hiệu hóa!'
+                        ], 403);
+                    }
+
                     // Liên kết facebook_id vào tài khoản hiện tại
                     DB::update("UPDATE users SET facebook_id = ?, avatar_url = COALESCE(avatar_url, ?), updated_at = ? WHERE user_id = ?", [
                         $facebookId, $facebookAvatar, $now, $user->user_id

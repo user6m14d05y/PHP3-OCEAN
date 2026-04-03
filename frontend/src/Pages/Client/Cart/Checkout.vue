@@ -14,7 +14,7 @@ const SHOPID_GHN = import.meta.env.VITE_SHOPID_GHN;
 const addresses = ref([]);
 const selectedAddressId = ref(null);
 const showAddAddressForm = ref(false);
-// const addressSelectorKey = ref(0);
+const addressSelectorKey = ref(0);
 const formAddress = ref({
     recipient_name: '',
     phone: '',
@@ -301,20 +301,24 @@ const discount = computed(() => {
     
     let disc = 0;
     const type = appliedCoupon.value.type;
-    const val = appliedCoupon.value.value;
+    const value = parseFloat(appliedCoupon.value.value) || 0;
+    const maxDiscount = parseFloat(appliedCoupon.value.max_discount_value) || 0;
 
-    if (type === 'percent') {
-        disc = (subtotal.value * val) / 100;
-        if (appliedCoupon.value.max_discount_value) {
-            disc = Math.min(disc, appliedCoupon.value.max_discount_value);
+    if (type === 'percent' || type === 'percentage') {
+        disc = (subtotal.value * value) / 100;
+        if (maxDiscount > 0 && disc > maxDiscount) {
+            disc = maxDiscount;
         }
-    } else if (type === 'fixed') {
-        disc = val;
+        return Math.min(disc, subtotal.value);
     } else if (type === 'free_ship') {
-        disc = shippingFee.value;
+        disc = value;
+        // With free_ship, it applies to shipping fee
+        return Math.min(disc, shippingFee.value); 
+    } else {
+        // fixed
+        disc = value;
+        return Math.min(disc, subtotal.value);
     }
-
-    return Math.min(disc, subtotal.value + shippingFee.value);
 });
 
 const total = computed(() => {
@@ -403,6 +407,16 @@ const placeOrder = async () => {
     try {
         const res = await api.post('/profile/orders', payload);
         if (res.data.status === 'success') {
+            // === VNPay: redirect sang cổng thanh toán ===
+            if (res.data.payment_method === 'vnpay' && res.data.vnpay_url) {
+                showToast('Đang chuyển đến cổng thanh toán VNPay...', 'success');
+                setTimeout(() => {
+                    window.location.href = res.data.vnpay_url;
+                }, 500);
+                return; // Không set placingOrder = false, giữ loading state
+            }
+
+            // === Flow mặc định (COD, Bank, MoMo) ===
             showToast('Đặt hàng thành công! Vui lòng kiểm tra email.', 'success');
             setTimeout(() => {
                 router.push('/profile/orders');
@@ -646,9 +660,8 @@ onMounted(async () => {
                                             <div class="radio-dot"></div>
                                         </div>
                                     </div>
-                                    <div class="payment-icon">
-                                        <span
-                                            style="font-weight: 800; font-size: 0.8rem; color: #0288d1; text-align: center; width: 100%; display: inline-block;">COD</span>
+                                    <div class="payment-icon cod-icon">
+                                        <span>COD</span>
                                     </div>
                                     <div class="payment-info">
                                         <span class="payment-name">Thanh toán khi nhận hàng (COD)</span>
@@ -666,9 +679,8 @@ onMounted(async () => {
                                             <div class="radio-dot"></div>
                                         </div>
                                     </div>
-                                    <div class="payment-icon">
-                                        <span
-                                            style="font-weight: 800; font-size: 0.8rem; color: #0288d1; text-align: center; width: 100%; display: inline-block;">BANK</span>
+                                    <div class="payment-icon bank-icon">
+                                        <span>BANK</span>
                                     </div>
                                     <div class="payment-info">
                                         <span class="payment-name">Chuyển khoản ngân hàng</span>
@@ -683,9 +695,8 @@ onMounted(async () => {
                                             <div class="radio-dot"></div>
                                         </div>
                                     </div>
-                                    <div class="payment-icon">
-                                        <span
-                                            style="font-weight: 800; font-size: 0.8rem; color: #d82d8b; text-align: center; width: 100%; display: inline-block;">MoMo</span>
+                                    <div class="payment-icon momo-icon">
+                                        <span>MoMo</span>
                                     </div>
                                     <div class="payment-info">
                                         <span class="payment-name">Ví MoMo</span>
@@ -700,9 +711,8 @@ onMounted(async () => {
                                             <div class="radio-dot"></div>
                                         </div>
                                     </div>
-                                    <div class="payment-icon">
-                                        <span
-                                            style="font-weight: 800; font-size: 0.8rem; color: #005a9e; text-align: center; width: 100%; display: inline-block;">VNPAY</span>
+                                    <div class="payment-icon vnpay-icon">
+                                        <span>VNPAY</span>
                                     </div>
                                     <div class="payment-info">
                                         <span class="payment-name">VNPay</span>
@@ -797,7 +807,7 @@ onMounted(async () => {
                                 </div>
 
                                 <button class="btn-place-order" @click="placeOrder"
-                                    :disabled="placingOrder || !selectedAddressId">
+                                    :disabled="placingOrder || (!showAddAddressForm && !selectedAddressId)">
                                     <div v-if="placingOrder" class="spinner-small"></div>
                                     <span v-else><svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                                             class="lock-icon" stroke="currentColor" stroke-width="2.5">
@@ -866,11 +876,11 @@ onMounted(async () => {
 
 <style scoped>
 .checkout-page {
-    padding: 30px 0 80px;
+    padding: 40px 0 80px;
     font-family: var(--font-inter, 'Inter', sans-serif);
     color: #0f172a;
     min-height: 80vh;
-    background-color: #f8fafc;
+    background-color: #fafbfd; /* Sạch sẽ mượt mà hơn */
 }
 
 /* Base states & Header */
@@ -988,20 +998,26 @@ h2 {
 }
 
 .block-border {
-    background: white;
+    background: #ffffff;
     border-radius: 16px;
     padding: 24px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
-    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 40px rgba(2, 136, 209, 0.04);
+    border: 1px solid rgba(2, 136, 209, 0.1);
+    transition: box-shadow 0.3s ease;
+}
+.block-border:hover {
+    box-shadow: 0 15px 50px rgba(2, 136, 209, 0.08);
 }
 
-/* Tabs */
+/* Segmented Control Tabs (Kiểu Apple) */
 .address-tabs {
     display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #f8fafc;
-    padding-bottom: 16px;
+    background: #f1f5f9;
+    padding: 6px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    gap: 4px;
+    position: relative;
 }
 
 .add-tab {
@@ -1013,23 +1029,24 @@ h2 {
     padding: 12px 16px;
     font-weight: 600;
     font-size: 0.95rem;
-    background: #f8fafc;
-    color: #0f172a;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 12px;
+    background: transparent;
+    color: #64748b;
+    border: none;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 1;
 }
 
-.add-tab:hover {
-    background: #f1f5f9;
+.add-tab:hover:not(.active) {
+    color: #0f172a;
 }
 
 .add-tab.active {
-    background: #0288d1;
-    color: white;
-    border-color: #0288d1;
-    box-shadow: 0 4px 12px rgba(2, 136, 209, 0.2);
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0,0,0,0.05);
 }
 
 .badge {
@@ -1042,21 +1059,23 @@ h2 {
 }
 
 .add-tab.active .badge {
-    background: white;
-    color: #ef4444;
+    background: #ef4444;
+    color: white;
 }
 
 /* Form Elements */
 .form-box {
-    background: #f8fafc;
-    padding: 20px;
-    border-radius: 12px;
-    border: 1.5px dashed #0288d1;
+    background: #ffffff;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1.5px solid #e2e8f0;
+    position: relative;
 }
+
 
 .form-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
 }
 
@@ -1072,22 +1091,31 @@ h2 {
     font-size: 0.9rem;
     font-weight: 600;
     color: #334155;
+    margin-left: 2px;
 }
 
 .form-input {
-    padding: 12px 14px;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px 16px;
+    border: 1.5px solid transparent;
+    border-radius: 12px;
     font-family: inherit;
     font-size: 0.95rem;
     outline: none;
-    transition: border-color 0.2s;
-    background: white;
+    transition: all 0.2s ease;
+    background: #f1f5f9;
+    color: #0f172a;
 }
 
 .form-input:focus {
+    background: #ffffff;
     border-color: #0288d1;
-    box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.1);
+    box-shadow: 0 4px 15px rgba(2, 136, 209, 0.08);
+}
+
+.form-input::placeholder {
+    color: #94a3b8;
 }
 
 textarea.note-input {
@@ -1188,9 +1216,9 @@ textarea.note-input {
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 16px 20px;
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
+    padding: 18px 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
     cursor: pointer;
     transition: all 0.25s ease;
     background: #ffffff;
@@ -1204,40 +1232,44 @@ textarea.note-input {
 .address-card:hover {
     border-color: #7dd3fc;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(2, 136, 209, 0.1);
+    box-shadow: 0 8px 20px rgba(2, 136, 209, 0.06);
 }
 
 .address-card.is-selected {
     border-color: #0288d1;
-    background: #f0f9ff;
+    background: #f4faff;
+    box-shadow: 0 4px 15px rgba(2, 136, 209, 0.08);
 }
 
 .radio-indicator {
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    border: 2px solid #cbd5e1;
+    border: 1.5px solid #cbd5e1;
     display: flex;
     align-items: center;
     justify-content: center;
     background: white;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
 }
 
 .radio-dot {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background: transparent;
-    transition: background 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: scale(0);
 }
 
 .is-selected .radio-indicator {
     border-color: #0288d1;
+    background: #ffffff;
 }
 
 .is-selected .radio-dot {
     background: #0288d1;
+    transform: scale(1);
 }
 
 .addr-card-content {
@@ -1385,9 +1417,9 @@ textarea.note-input {
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 16px 20px;
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
+    padding: 18px 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
     cursor: pointer;
     transition: all 0.25s;
     background: #ffffff;
@@ -1396,24 +1428,45 @@ textarea.note-input {
 .payment-card:hover {
     border-color: #7dd3fc;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(2, 136, 209, 0.1);
+    box-shadow: 0 8px 20px rgba(2, 136, 209, 0.06);
 }
 
 .payment-card.is-selected {
     border-color: #0288d1;
-    background: #f0f9ff;
+    background: #f4faff;
+    box-shadow: 0 4px 15px rgba(2, 136, 209, 0.08);
 }
 
 .payment-icon {
-    width: 44px;
-    height: 44px;
+    width: 60px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 4px;
+    flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.payment-icon span {
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
+.cod-icon span, .bank-icon span {
+    color: #0288d1;
+}
+
+.momo-icon span {
+    color: #d82d8b;
+}
+
+.vnpay-icon span {
+    color: #005a9e;
 }
 
 .payment-icon img {
@@ -1442,14 +1495,14 @@ textarea.note-input {
 
 .badge-popular {
     position: absolute;
-    top: 12px;
-    right: -24px;
-    background: #ef4444;
-    color: white;
-    font-size: 0.65rem;
-    font-weight: 800;
-    padding: 4px 24px;
-    transform: rotate(45deg);
+    top: 16px;
+    right: 16px;
+    background: #fee2e2;
+    color: #ef4444;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
     letter-spacing: 0.5px;
 }
 
@@ -1460,15 +1513,17 @@ textarea.note-input {
 }
 
 .bill-summary-card {
-    background: white;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-radius: 16px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(2, 136, 209, 0.15);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.04);
     overflow: hidden;
 }
 
 .bill-header {
-    background: #f8fafc;
+    background: transparent;
     padding: 20px 24px;
     font-size: 1.25rem;
     font-weight: 700;
@@ -1476,7 +1531,7 @@ textarea.note-input {
     display: flex;
     align-items: center;
     gap: 12px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px dashed rgba(2, 136, 209, 0.15);
 }
 
 .bill-body {
@@ -1607,7 +1662,7 @@ textarea.note-input {
 .btn-apply-coupon {
     padding: 0 20px;
     font-weight: 600;
-    background: #0f172a;
+    background: #014168;
     color: white;
     border: none;
     border-radius: 10px;
@@ -1616,12 +1671,13 @@ textarea.note-input {
 }
 
 .btn-apply-coupon:hover:not(:disabled) {
-    background: #1e293b;
+    background: #012b45;
 }
 
 .btn-apply-coupon:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+    background: #94a3b8;
 }
 
 .coupon-applied-box {
@@ -1734,17 +1790,17 @@ textarea.note-input {
 
 .btn-place-order {
     width: 100%;
-    background: #0288d1;
+    background: #014168; /* Deep elegant ocean blue */
     color: white;
     border: none;
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 18px;
     font-size: 1.15rem;
     font-weight: 700;
     letter-spacing: 0.5px;
     cursor: pointer;
     transition: all 0.3s;
-    box-shadow: 0 4px 15px rgba(2, 136, 209, 0.2);
+    box-shadow: 0 6px 20px rgba(1, 65, 104, 0.2);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1752,9 +1808,9 @@ textarea.note-input {
 }
 
 .btn-place-order:hover:not(:disabled) {
-    background: #0277bd;
+    background: #012b45; /* Darker deep blue on hover */
     transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(2, 136, 209, 0.3);
+    box-shadow: 0 10px 25px rgba(1, 65, 104, 0.3);
 }
 
 .btn-place-order:disabled {
@@ -1854,14 +1910,14 @@ textarea.note-input {
 .coupon-list {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    max-height: 50vh;
+    gap: 16px;
+    max-height: 450px;
     overflow-y: auto;
-    padding-right: 6px;
+    padding: 4px 8px 8px 4px;
 }
 
 .coupon-list::-webkit-scrollbar {
-    width: 5px;
+    width: 6px;
 }
 
 .coupon-list::-webkit-scrollbar-thumb {
@@ -1871,28 +1927,37 @@ textarea.note-input {
 
 .coupon-card {
     display: flex;
-    border: 2px solid #e2e8f0;
-    border-radius: 16px;
-    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    align-items: stretch;
     position: relative;
-    transition: all 0.2s;
     background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition: all 0.2s ease;
+}
+
+.coupon-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 .coupon-card.is-applied {
     border-color: #0288d1;
-    box-shadow: 0 4px 15px rgba(2, 136, 209, 0.15);
+    background: #f0f9ff;
+    box-shadow: 0 4px 12px rgba(2, 136, 209, 0.12);
 }
 
 .cp-left {
     background: #f8fafc;
-    width: 66px;
+    width: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.8rem;
+    font-size: 2rem;
     border-right: 2px dashed #e2e8f0;
     position: relative;
+    border-top-left-radius: 11px;
+    border-bottom-left-radius: 11px;
 }
 
 .cp-left::before,
@@ -1904,7 +1969,8 @@ textarea.note-input {
     background: #ffffff;
     border-radius: 50%;
     right: -9px;
-    border: 2px solid #e2e8f0;
+    border: 1px solid #e2e8f0;
+    z-index: 2;
 }
 
 .cp-left::before {
@@ -1923,21 +1989,22 @@ textarea.note-input {
 
 .coupon-card.is-applied .cp-left::before,
 .coupon-card.is-applied .cp-left::after {
-    background: white;
+    background: #ffffff;
     border-color: #0288d1;
 }
 
 .coupon-card.is-applied .cp-left {
-    border-color: #0288d1;
-    background: #f0f9ff;
+    border-right-color: #0288d1;
+    background: #e0f2fe;
 }
 
 .cp-right {
     flex: 1;
-    padding: 14px 16px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    padding-right: 120px; /* Ensures text never overlaps the button */
 }
 
 .cp-code {
@@ -1946,6 +2013,7 @@ textarea.note-input {
     font-weight: 800;
     color: #0f172a;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .cp-desc {
@@ -1969,20 +2037,28 @@ textarea.note-input {
     background: #0288d1;
     color: white;
     border: none;
-    padding: 8px 16px;
-    border-radius: 10px;
-    font-size: 0.85rem;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 0.9rem;
     font-weight: 700;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(2, 136, 209, 0.2);
 }
 
 .btn-select-cp:hover {
     background: #0277bd;
+    box-shadow: 0 4px 8px rgba(2, 136, 209, 0.3);
 }
 
 .coupon-card.is-applied .btn-select-cp {
-    background: #16a34a;
+    background: #10b981; /* Green success color */
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.coupon-card.is-applied .btn-select-cp:hover {
+    background: #059669;
 }
 
 /* Toast */
@@ -2111,7 +2187,7 @@ textarea.note-input {
 /* GHN Selector Styles */
 .form-group-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     width: 100%;
 }

@@ -3,7 +3,7 @@
     <!-- Brand -->
     <div class="sidebar-brand">
       <div class="brand-icon">
-        <img :src="BASE_URL + '/storage/logo/logo_OceanShop.png'" alt="logo-ocean" width="100" height="60">
+        <img src="../../public/favicon.ico" alt="logo-ocean" width="100" height="60">
       </div>
       <h2 class="brand-title">Admin</h2>
     </div>
@@ -103,6 +103,15 @@
         </div>
       </transition>
 
+      <router-link to="/admin/chat" class="nav-item" active-class="nav-item--active">
+        <div class="nav-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <span>Tin nhắn</span>
+      </router-link>
+
       <router-link to="/admin/contact" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -130,7 +139,6 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
-const BASE_URL = import.meta.env.VITE_BASE_URL;
 const router = useRouter();
 const userName = ref('Admin');
 const userEmail = ref('');
@@ -146,10 +154,14 @@ onMounted(() => {
       const user = JSON.parse(userData);
       const path = user.avatar_url;
       const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
-      // alert ( ' BASE_URL' + BASE_URL + path)
-      userName.value = user.full_name || 'Admin';
+      
+      userName.value = user.full_name || user.name || 'Admin';
       userEmail.value = user.email || '';
-      userAvatar.value = path.startsWith('http') ? path : `${BASE_URL}${path}`; 
+      if (path) {
+        userAvatar.value = path.startsWith('http') ? path : `${BASE_URL}${path}`; 
+      } else {
+        userAvatar.value = ''; // Hoặc path ảnh mặc định sau này nếu cần
+      }
       userRole.value = user.role === 'admin' ? 'Super Admin' : (user.role === 'staff' ? 'Staff' : 'Manager');
     } catch (e) {
       console.error("Failed to parse user data", e);
