@@ -21,6 +21,7 @@ class Payment extends Model
     protected $casts = [
         'paid_at' => 'datetime',
         'amount' => 'decimal:2',
+        'gateway_response' => 'array',
     ];
 
     public function order()

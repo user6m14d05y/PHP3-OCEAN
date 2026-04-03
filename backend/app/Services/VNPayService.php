@@ -18,10 +18,11 @@ class VNPayService
      */
     public static function createPaymentUrl(Order $order, string $ipAddr): string
     {
-        $vnpTmnCode = env('VNP_TMN_CODE');
-        $vnpHashSecret = env('VNP_HASH_SECRET');
-        $vnpUrl = env('VNP_URL');
-        $vnpReturnUrl = env('VNP_RETURN_URL');
+        // [FIX P0] Dùng config() thay vì env() — hoạt động đúng khi config:cache
+        $vnpTmnCode    = config('vnpay.tmn_code');
+        $vnpHashSecret = config('vnpay.hash_secret');
+        $vnpUrl        = config('vnpay.url');
+        $vnpReturnUrl  = config('vnpay.return_url');
 
         // VNPay yêu cầu amount tính theo đơn vị nhỏ nhất (VND × 100)
         $vnpAmount = (int)($order->grand_total * 100);
@@ -67,13 +68,10 @@ class VNPayService
         $vnpSecureHash = hash_hmac('sha512', $hashData, $vnpHashSecret);
         $paymentUrl = $vnpUrl . "?" . $query . 'vnp_SecureHash=' . $vnpSecureHash;
 
+        // [FIX P0] Chỉ log thông tin cần thiết, KHÔNG log hashData, URL (chứa secure hash)
         Log::info('VNPay payment URL created', [
             'order_code' => $order->order_code,
-            'amount' => $order->grand_total,
-            'tmn_code' => $vnpTmnCode,
-            'hash_secret_prefix' => substr($vnpHashSecret, 0, 8),
-            'hashData' => $hashData,
-            'url' => $paymentUrl,
+            'amount'     => $order->grand_total,
         ]);
 
         return $paymentUrl;
@@ -90,7 +88,8 @@ class VNPayService
      */
     public static function verifyReturn(array $queryParams): array
     {
-        $vnpHashSecret = env('VNP_HASH_SECRET');
+        // [FIX P0] Dùng config() thay vì env()
+        $vnpHashSecret = config('vnpay.hash_secret');
         $vnpSecureHash = $queryParams['vnp_SecureHash'] ?? '';
 
         // Loại bỏ các trường hash/type khỏi data trước khi verify
@@ -118,20 +117,20 @@ class VNPayService
         $isValid = hash_equals($secureHash, $vnpSecureHash);
 
         Log::info('VNPay verify return', [
-            'txnRef' => $queryParams['vnp_TxnRef'] ?? 'N/A',
+            'txnRef'       => $queryParams['vnp_TxnRef'] ?? 'N/A',
             'responseCode' => $queryParams['vnp_ResponseCode'] ?? 'N/A',
-            'isValid' => $isValid,
+            'isValid'      => $isValid,
         ]);
 
         return [
-            'isValid'      => $isValid,
-            'responseCode' => $queryParams['vnp_ResponseCode'] ?? '',
-            'txnRef'       => $queryParams['vnp_TxnRef'] ?? '',
-            'amount'       => isset($queryParams['vnp_Amount']) ? (int)$queryParams['vnp_Amount'] / 100 : 0,
+            'isValid'       => $isValid,
+            'responseCode'  => $queryParams['vnp_ResponseCode'] ?? '',
+            'txnRef'        => $queryParams['vnp_TxnRef'] ?? '',
+            'amount'        => isset($queryParams['vnp_Amount']) ? (int)$queryParams['vnp_Amount'] / 100 : 0,
             'transactionNo' => $queryParams['vnp_TransactionNo'] ?? '',
-            'bankCode'     => $queryParams['vnp_BankCode'] ?? '',
-            'payDate'      => $queryParams['vnp_PayDate'] ?? '',
-            'orderInfo'    => $queryParams['vnp_OrderInfo'] ?? '',
+            'bankCode'      => $queryParams['vnp_BankCode'] ?? '',
+            'payDate'       => $queryParams['vnp_PayDate'] ?? '',
+            'orderInfo'     => $queryParams['vnp_OrderInfo'] ?? '',
         ];
     }
 }
