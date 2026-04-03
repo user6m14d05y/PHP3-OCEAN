@@ -298,7 +298,7 @@ watch(selectedAddressId, (newVal) => {
 
 const discount = computed(() => {
     if (!appliedCoupon.value) return 0;
-    
+
     let disc = 0;
     const type = appliedCoupon.value.type;
     const val = appliedCoupon.value.value;
@@ -742,7 +742,7 @@ onMounted(async () => {
                                             <h4 class="bill-item-name">{{ item.product?.name }}</h4>
                                             <p class="bill-item-variant">
                                                 {{ item.variant?.color || '' }} {{ item.variant?.color &&
-                                                item.variant?.size ? '/' : '' }} {{ item.variant?.size || '' }}
+                                                    item.variant?.size ? '/' : '' }} {{ item.variant?.size || '' }}
                                             </p>
                                         </div>
                                         <div class="bill-item-price">{{ formatPrice((item.variant?.price || 0) *
@@ -840,7 +840,8 @@ onMounted(async () => {
                             </div>
                             <div v-else-if="availableCoupons.length > 0" class="coupon-list">
                                 <div v-for="coupon in availableCoupons" :key="coupon.id" class="coupon-card"
-                                    :class="{ 'is-applied': appliedCoupon?.code === coupon.code }">
+                                    :class="{ 'is-applied': appliedCoupon?.code === coupon.code }"
+                                    @click="selectCoupon(coupon)">
                                     <div class="cp-left"><span class="cp-icon">🎟️</span></div>
                                     <div class="cp-right">
                                         <h4 class="cp-code">{{ coupon.code }}</h4>
@@ -849,7 +850,7 @@ onMounted(async () => {
                                         <p v-if="coupon.min_order_value" class="cp-min">Đơn tối thiểu: {{
                                             formatPrice(coupon.min_order_value) }}</p>
                                     </div>
-                                    <button class="btn-select-cp" @click="selectCoupon(coupon)">{{ appliedCoupon?.code
+                                    <button class="btn-select-cp">{{ appliedCoupon?.code
                                         === coupon.code ? 'Đang dùng' : 'Sử dụng' }}</button>
                                 </div>
                             </div>
@@ -869,7 +870,7 @@ onMounted(async () => {
     padding: 30px 0 80px;
     font-family: var(--font-inter, 'Inter', sans-serif);
     color: #0f172a;
-    min-height: 80vh;
+    min-height: 50vh;
     background-color: #f8fafc;
 }
 
@@ -1662,17 +1663,10 @@ textarea.note-input {
     font-size: 0.85rem;
     font-weight: 700;
     color: #0288d1;
-    background: none;
+    transition: all 0.2s;
+    margin-top: 8px;
     border: none;
-    cursor: pointer;
-    transition: color 0.2s;
-    padding: 4px;
-    margin-top: 4px;
-}
-
-.btn-select-coupon:hover {
-    color: #039be5;
-    text-decoration: underline;
+    background-color: transparent;
 }
 
 /* Totals */
@@ -1793,15 +1787,15 @@ textarea.note-input {
 
 .modal-content {
     background: white;
-    border-radius: 20px;
+    border-radius: 24px;
     width: 100%;
-    max-width: 480px;
+    max-width: 520px;
     max-height: 85vh;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
     border: 1px solid #e2e8f0;
+    overflow: hidden;
 }
 
 .modal-header {
@@ -1849,15 +1843,30 @@ textarea.note-input {
     padding: 24px;
     flex: 1;
     background: #ffffff;
+    overflow-y: auto;
+}
+
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }
 
 .coupon-list {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    max-height: 50vh;
-    overflow-y: auto;
-    padding-right: 6px;
+    gap: 16px;
 }
 
 .coupon-list::-webkit-scrollbar {
@@ -1871,12 +1880,18 @@ textarea.note-input {
 
 .coupon-card {
     display: flex;
+    align-items: center;
     border: 2px solid #e2e8f0;
     border-radius: 16px;
     overflow: hidden;
-    position: relative;
     transition: all 0.2s;
     background: white;
+    cursor: pointer;
+}
+
+.coupon-card:hover {
+    border-color: #0288d1;
+    background: #f8fafc;
 }
 
 .coupon-card.is-applied {
@@ -1886,11 +1901,11 @@ textarea.note-input {
 
 .cp-left {
     background: #f8fafc;
-    width: 66px;
+    width: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.8rem;
+    font-size: 1.5rem;
     border-right: 2px dashed #e2e8f0;
     position: relative;
 }
@@ -1934,23 +1949,23 @@ textarea.note-input {
 
 .cp-right {
     flex: 1;
-    padding: 14px 16px;
+    padding: 10px 14px;
     display: flex;
     flex-direction: column;
     justify-content: center;
 }
 
 .cp-code {
-    margin: 0 0 6px;
-    font-size: 1.15rem;
+    margin: 0 0 4px;
+    font-size: 1.05rem;
     font-weight: 800;
     color: #0f172a;
     text-transform: uppercase;
 }
 
 .cp-desc {
-    margin: 0 0 4px;
-    font-size: 0.95rem;
+    margin: 0 0 2px;
+    font-size: 0.9rem;
     font-weight: 600;
     color: #0288d1;
 }
@@ -1962,23 +1977,22 @@ textarea.note-input {
 }
 
 .btn-select-cp {
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
+    margin-left: auto;
+    margin-right: 16px;
     background: #0288d1;
     color: white;
     border: none;
-    padding: 8px 16px;
-    border-radius: 10px;
-    font-size: 0.85rem;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
     font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .btn-select-cp:hover {
     background: #0277bd;
+    transform: scale(1.05);
 }
 
 .coupon-card.is-applied .btn-select-cp {
@@ -2157,9 +2171,17 @@ textarea.note-input {
 }
 
 @keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.6; }
-    100% { opacity: 1; }
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
 
 @media (max-width: 768px) {
