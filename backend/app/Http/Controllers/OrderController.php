@@ -11,6 +11,8 @@ use App\Models\Address;
 use App\Models\Coupon;
 use App\Models\UserCoupon;
 use App\Models\ProductVariant;
+use App\Models\Payment;
+use App\Services\VNPayService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -305,6 +307,33 @@ class OrderController extends Controller
 
             DB::commit();
 
+            // ==================== XỬ LÝ VNPAY ====================
+            if ($request->payment_method === 'vnpay') {
+                // Tạo Payment record với status pending
+                Payment::create([
+                    'order_id' => $order->order_id,
+                    'payment_method' => 'vnpay',
+                    'amount' => $order->grand_total,
+                    'status' => 'pending',
+                ]);
+
+                // Generate VNPay payment URL
+                $ipAddr = $request->ip();
+                $vnpayUrl = VNPayService::createPaymentUrl($order, $ipAddr);
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Đơn hàng đã tạo. Đang chuyển đến cổng thanh toán VNPay...',
+                    'payment_method' => 'vnpay',
+                    'vnpay_url' => $vnpayUrl,
+                    'data' => [
+                        'order_code' => $order->order_code,
+                        'grand_total' => $order->grand_total
+                    ]
+                ]);
+            }
+
+            // ==================== FLOW MẶC ĐỊNH (COD, Bank, MoMo) ====================
             // Fire realtime event for admin (bọc try-catch để tránh treo thanh toán nếu websocket lỗi)
             try {
                 event(new \App\Events\OrderCreatedAdmin($order));

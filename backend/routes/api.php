@@ -208,3 +208,7 @@ Route::post('/chatbot/message', [\App\Http\Controllers\ChatbotController::class,
 // Live Chat (Realtime - Public/User)
 Route::post('/live-chat/init', [\App\Http\Controllers\ChatController::class, 'initSession']);
 Route::post('/live-chat/message', [\App\Http\Controllers\ChatController::class, 'sendMessage']);
+
+// VNPay Payment Gateway (Public — VNPay redirect về đây)
+Route::get('/payment/vnpay-return', [\App\Http\Controllers\VNPayController::class, 'vnpayReturn']);
+

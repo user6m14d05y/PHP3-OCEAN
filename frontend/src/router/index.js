@@ -15,6 +15,7 @@ const ProductDetail = () => import("../Pages/Client/Home/productDetail.vue");
 const Coupon = () => import("../Pages/Client/Home/Coupon.vue")
 const Cart = () => import("../Pages/Client/Cart/Index.vue")
 const Checkout = () => import("../Pages/Client/Cart/Checkout.vue")
+const PaymentResult = () => import("../Pages/Client/Payment/PaymentResult.vue")
 
 // Profile
 const ProfileLayout = () => import("../Pages/Client/Profile/ProfileLayout.vue");
@@ -72,6 +73,7 @@ const routes = [
             { path: "coupon", name: "coupon", component: Coupon, meta: { title: 'Mã giảm giá' } },
             { path: "cart", name: "cart", component: Cart, meta: { requiresAuth: true, title: 'Giỏ hàng' } },
             { path: "checkout", name: "checkout", component: Checkout, meta: { requiresAuth: true, title: 'Thanh toán' } },
+            { path: "payment/result", name: "payment-result", component: PaymentResult, meta: { title: 'Kết quả thanh toán' } },
             // Profile routes (nested layout)
             {
                 path: "profile",

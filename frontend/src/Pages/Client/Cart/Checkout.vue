@@ -407,6 +407,16 @@ const placeOrder = async () => {
     try {
         const res = await api.post('/profile/orders', payload);
         if (res.data.status === 'success') {
+            // === VNPay: redirect sang cổng thanh toán ===
+            if (res.data.payment_method === 'vnpay' && res.data.vnpay_url) {
+                showToast('Đang chuyển đến cổng thanh toán VNPay...', 'success');
+                setTimeout(() => {
+                    window.location.href = res.data.vnpay_url;
+                }, 500);
+                return; // Không set placingOrder = false, giữ loading state
+            }
+
+            // === Flow mặc định (COD, Bank, MoMo) ===
             showToast('Đặt hàng thành công! Vui lòng kiểm tra email.', 'success');
             setTimeout(() => {
                 router.push('/profile/orders');
