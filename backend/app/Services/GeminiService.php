@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 class GeminiService
 {
     private array $apiKeys = [];
-    private string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash';
+    private string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash';
 
     /**
      * System prompt cấu hình "tính cách" cho chatbot Ocean Store
@@ -25,10 +25,19 @@ NGUYÊN TẮC GIAO TIẾP:
 QUY TẮC QUAN TRỌNG - BẮT BUỘC TUÂN THỦ:
 - Khi user gửi yêu cầu CHUNG CHUNG, MƠ HỒ (ví dụ: "Tìm sản phẩm", "Tôi muốn mua đồ", "Tra cứu đơn hàng", "Liên hệ hỗ trợ"), KHÔNG ĐƯỢC gọi function ngay. Thay vào đó, hãy HỎI LẠI để làm rõ nhu cầu cụ thể.
 - CHỈ gọi function khi user đã cung cấp ĐỦ THÔNG TIN CỤ THỂ (ví dụ: "Tìm áo khoác đen", "Đơn hàng ORD-123456", "Có mã giảm giá nào không?").
-- Ví dụ cách hỏi lại:
+- NGOẠI LỆ — Các yêu cầu sau ĐÃ ĐỦ RÕ RÀNG, gọi function ngay KHÔNG cần hỏi lại:
+  + "Gợi ý sản phẩm bán chạy", "Sản phẩm nổi bật", "Sản phẩm hot" → Gọi search_products (sẽ tự sắp xếp theo sold_count)
+  + "Chính sách đổi trả", "Chính sách vận chuyển", "Liên hệ", "Thanh toán" → Gọi get_store_info với topic tương ứng
+  + "Có mã giảm giá nào không?", "Voucher", "Khuyến mãi" → Gọi get_available_coupons
+  + "Xem đơn hàng của tôi" (khi đã đăng nhập) → Gọi get_order_status
+- Ví dụ cách hỏi lại (CHỈ khi yêu cầu thực sự mơ hồ):
   + "Tìm sản phẩm" → Hỏi: "Bạn muốn tìm loại sản phẩm nào? (áo, quần, giày...) Có yêu cầu về màu sắc, size hay khoảng giá không?"
-  + "Tra cứu đơn hàng" → Hỏi: "Bạn vui lòng cho tôi biết mã đơn hàng để tra cứu nhé."
-  + "Liên hệ hỗ trợ" → Hỏi: "Bạn cần hỗ trợ về vấn đề gì? (đơn hàng, sản phẩm, đổi trả, vận chuyển...)"
+  + "Tra cứu đơn hàng" (chưa đăng nhập) → Hỏi: "Bạn vui lòng cho tôi biết mã đơn hàng để tra cứu nhé."
+
+QUY TẮC VỀ CHÍNH SÁCH CỬA HÀNG:
+- Khi user hỏi về chính sách (đổi trả, vận chuyển, thanh toán, liên hệ), BẮT BUỘC gọi function get_store_info để lấy thông tin đầy đủ.
+- KHÔNG ĐƯỢC tự trả lời sơ sài từ kiến thức có sẵn. Luôn gọi function để đảm bảo thông tin chính xác và chi tiết.
+- Khi trả lời, liệt kê đầy đủ các điểm chính sách, không bỏ sót.
 
 THÔNG TIN CỬA HÀNG:
 - Tên: Ocean Store
@@ -37,17 +46,11 @@ THÔNG TIN CỬA HÀNG:
 - Email: contact@oceanstore.vn
 - Giờ làm việc: 8:00 - 22:00 hàng ngày
 
-CHÍNH SÁCH:
-- Miễn phí vận chuyển cho đơn từ 500.000đ
-- Đổi trả trong 30 ngày nếu sản phẩm còn nguyên tem mác
-- Thanh toán: COD, chuyển khoản ngân hàng
-- Bảo hành theo chính sách của từng thương hiệu
-
 KHẢ NĂNG CỦA BẠN:
 1. Tìm kiếm và gợi ý sản phẩm phù hợp
 2. Tra cứu đơn hàng (user đã đăng nhập hoặc dùng mã đơn + email/SĐT)
 3. Cung cấp thông tin mã giảm giá đang có
-4. Trả lời câu hỏi về chính sách, vận chuyển, đổi trả
+4. Trả lời câu hỏi về chính sách, vận chuyển, đổi trả (luôn dùng get_store_info)
 5. Hướng dẫn mua hàng
 
 QUY TẮC TRA ĐƠN HÀNG:
@@ -225,6 +228,9 @@ PROMPT;
                 'temperature' => 0.7,
                 'top_p' => 0.95,
                 'max_output_tokens' => 1024,
+                'thinking_config' => [
+                    'thinking_budget' => 0,
+                ],
             ],
         ];
 
@@ -238,7 +244,7 @@ PROMPT;
                     $apiKey = $this->getApiKey($attempt);
                     $url = "{$this->baseUrl}:generateContent?key={$apiKey}";
                 }
-                $response = Http::timeout(30)->post($url, $payload);
+                $response = Http::timeout(60)->post($url, $payload);
 
                 if ($response->status() === 429 && $attempt < $maxRetries) {
                     // Rate limit — exponential backoff
@@ -378,6 +384,9 @@ PROMPT;
                 'temperature' => 0.7,
                 'top_p' => 0.95,
                 'max_output_tokens' => 1024,
+                'thinking_config' => [
+                    'thinking_budget' => 0,
+                ],
             ],
         ];
 
@@ -390,7 +399,7 @@ PROMPT;
                     $apiKey = $this->getApiKey($attempt);
                     $url = "{$this->baseUrl}:generateContent?key={$apiKey}";
                 }
-                $response = Http::timeout(30)->post($url, $payload);
+                $response = Http::timeout(60)->post($url, $payload);
 
                 if ($response->status() === 429 && $attempt < $maxRetries) {
                     Log::warning("Gemini function result rate limit, retry attempt " . ($attempt + 1));
