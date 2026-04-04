@@ -217,3 +217,6 @@ Route::post('/live-chat/message', [\App\Http\Controllers\ChatController::class, 
 // VNPay Payment Gateway (Public — VNPay redirect về đây, rate limiting chống brute-force)
 Route::middleware('throttle:30,1')->get('/payment/vnpay-return', [\App\Http\Controllers\VNPayController::class, 'vnpayReturn']);
 
+// MoMo Payment Gateway
+Route::middleware('throttle:30,1')->get('/payment/momo-return', [\App\Http\Controllers\MoMoController::class, 'momoReturn']);
+Route::post('/payment/momo-ipn', [\App\Http\Controllers\MoMoController::class, 'momoIpn']);
