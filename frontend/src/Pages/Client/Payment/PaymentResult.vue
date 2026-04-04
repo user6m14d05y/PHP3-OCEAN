@@ -17,13 +17,24 @@ const error = ref(null);
 const verifyPayment = async () => {
     try {
         const queryString = window.location.search;
-        if (!queryString || !queryString.includes('vnp_')) {
+        if (!queryString) {
             error.value = 'Không tìm thấy thông tin thanh toán.';
             loading.value = false;
             return;
         }
 
-        const res = await api.get('/payment/vnpay-return' + queryString);
+        let endpoint = '';
+        if (queryString.includes('vnp_')) {
+            endpoint = '/payment/vnpay-return' + queryString;
+        } else if (queryString.includes('partnerCode=') && queryString.includes('orderId=')) {
+            endpoint = '/payment/momo-return' + queryString;
+        } else {
+            error.value = 'Đường dẫn thanh toán không hợp lệ.';
+            loading.value = false;
+            return;
+        }
+
+        const res = await api.get(endpoint);
         paymentResult.value = res.data;
     } catch (err) {
         console.error('Payment verify error:', err);
@@ -109,7 +120,7 @@ onMounted(() => {
                     <span class="detail-value price">{{ formatPrice(paymentResult.data?.grand_total) }}</span>
                 </div>
                 <div class="detail-row" v-if="paymentResult.data?.transaction_no">
-                    <span class="detail-label">Mã giao dịch VNPay</span>
+                    <span class="detail-label">Mã giao dịch (TransID)</span>
                     <span class="detail-value">{{ paymentResult.data?.transaction_no }}</span>
                 </div>
                 <div class="detail-row" v-if="paymentResult.data?.bank_code">
