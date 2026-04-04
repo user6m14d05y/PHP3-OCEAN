@@ -35,6 +35,15 @@ class AdminOrderController extends Controller
             });
         }
 
+        // --- BỔ SUNG LỌC THEO NGÀY ĐẶT HÀNG ---
+        if ($request->has('date_from') && $request->date_from) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        
+        if ($request->has('date_to') && $request->date_to) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
         $orders = $query->paginate($request->per_page ?? 10);
 
         return response()->json([

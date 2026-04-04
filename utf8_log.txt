@@ -1,0 +1,756 @@
+﻿commit 4582c6beca778401fdd285525941726c3308e463
+Merge: d27bd001 7fe856ff
+Author: B├╣i Ch├¡ B├¼nh <binhbcpk03952@gmail.com>
+Date:   Tue Mar 31 14:02:10 2026 +0700
+
+    Merge branch 'chibinh' of https://github.com/user6m14d05y/PHP3-OCEAN into chibinh
+
+commit 7fe856ffac5415ea68dd18f6f354f1eee7ac0225
+Author: B├╣i Ch├¡ B├¼nh <binhbcpk03952@gmail.com>
+Date:   Tue Mar 31 13:12:25 2026 +0700
+
+    POS: Th├¬m t├¡nh n─âng input barcode v├á auto generate qr code cho mß╗ùi biß║┐n thß╗â sß║ún phß║⌐m
+
+diff --git a/backend/app/Http/Controllers/OrderController.php b/backend/app/Http/Controllers/OrderController.php
+index 1419b70d..9aafcb5e 100644
+--- a/backend/app/Http/Controllers/OrderController.php
++++ b/backend/app/Http/Controllers/OrderController.php
+@@ -283,6 +283,13 @@ public function store(Request $request)
+ 
+             DB::commit();
+ 
++            // Fire realtime event for admin (bß╗ìc try-catch ─æß╗â tr├ính treo thanh to├ín nß║┐u websocket lß╗ùi)
++            try {
++                event(new \App\Events\OrderCreatedAdmin($order));
++            } catch (\Exception $e) {
++                Log::error('Realtime event dispatch failed: ' . $e->getMessage());
++            }
++
+             // Gß╗¡i email
+             $this->sendOrderConfirmationEmail($order);
+ 
+@@ -305,11 +312,45 @@ public function store(Request $request)
+         }
+     }
+ 
++    /**
++     * Kh├ích h├áng: Xem chi tiß║┐t ─æ╞ín h├áng
++     */
++    public function show($id)
++    {
++        $userId = $this->getUserId();
++        if (!$userId) {
++            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
++        }
++
++        $order = Order::with(['items.product.images', 'items.variant', 'statusHistories'])
++            ->where('user_id', $userId)
++            ->where('order_id', $id)
++            ->first();
++
++        if (!$order) {
++            return response()->json([
++                'status' => 'error',
++                'message' => 'Kh├┤ng t├¼m thß║Ñy ─æ╞ín h├áng hoß║╖c ─æ╞ín h├áng kh├┤ng thuß╗Öc vß╗ü bß║ín!'
++            ], 404);
++        }
++
++        return response()->json([
++            'status' => 'success',
++            'data' => $order
++        ]);
++    }
++
+     /**
+      * Kh├ích h├áng: Hß╗ºy ─æ╞ín h├áng
+      */
+-    public function cancel($id)
++    public function cancel(Request $request, $id)
+     {
++        $request->validate([
++            'cancel_reason' => 'required|string|max:500',
++        ], [
++            'cancel_reason.required' => 'Vui l├▓ng chß╗ìn hoß║╖c nhß║¡p l├╜ do hß╗ºy ─æ╞ín h├áng.',
++        ]);
++
+         $userId = $this->getUserId();
+         if (!$userId) return response()->json(['status' => 'error'], 401);
+ 
+@@ -323,19 +364,21 @@ public function cancel($id)
+             return response()->json(['status' => 'error', 'message' => 'Bß║ín chß╗ë c├│ thß╗â hß╗ºy ─æ╞ín h├áng khi ─æang chß╗¥ x├íc nhß║¡n!'], 400);
+         }
+ 
++        $cancelReason = $request->cancel_reason;
++
+         DB::beginTransaction();
+         try {
+             $order->update([
+                 'fulfillment_status' => 'cancelled',
+                 'cancelled_at' => now(),
+-                'cancel_reason' => 'Kh├ích h├áng y├¬u cß║ºu hß╗ºy'
++                'cancel_reason' => $cancelReason
+             ]);
+ 
+             OrderStatusHistory::create([
+                 'order_id' => $order->order_id,
+                 'old_status' => 'pending',
+                 'new_status' => 'cancelled',
+-                'note' => 'Kh├ích h├áng tß╗▒ hß╗ºy ─æ╞ín',
++                'note' => 'Kh├ích h├áng hß╗ºy ─æ╞ín: ' . $cancelReason,
+             ]);
+ 
+             // Ho├án lß║íi tß╗ôn kho
+@@ -437,7 +480,7 @@ private function sendOrderConfirmationEmail(Order $order): bool
+                         <p><strong>Ph╞░╞íng thß╗⌐c TT:</strong> ' . strtoupper($order->payment_method) . '</p>
+ 
+                         <div style="text-align: center; margin-top: 30px;">
+-                            <a href="http://localhost:3000/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lß╗ïch sß╗¡ ─æ╞ín h├áng</a>
++                            <a href="http://localhost:3302/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lß╗ïch sß╗¡ ─æ╞ín h├áng</a>
+                         </div>
+                     </div>
+                 </div>
+
+commit dae100fc53c72115c22aed59c366d600cf1eb72b
+Author: NGUYEN VAN THANH <thanhnvpk04053@gmail.com>
+Date:   Mon Mar 30 21:28:10 2026 +0700
+
+    GHN FB
+
+diff --git a/backend/app/Http/Controllers/OrderController.php b/backend/app/Http/Controllers/OrderController.php
+index 1419b70d..ec77a545 100644
+--- a/backend/app/Http/Controllers/OrderController.php
++++ b/backend/app/Http/Controllers/OrderController.php
+@@ -73,18 +73,40 @@ public function store(Request $request)
+         }
+ 
+         $request->validate([
+-            'address_id' => 'required|exists:addresses,address_id',
++            'address_id' => 'required_without:recipient_name|nullable|exists:addresses,address_id',
++            'recipient_name' => 'required_without:address_id|nullable|string|max:255',
++            'phone' => 'required_without:address_id|nullable|string|max:20',
++            'province' => 'required_without:address_id|nullable|string|max:100',
++            'district' => 'required_without:address_id|nullable|string|max:100',
++            'ward' => 'required_without:address_id|nullable|string|max:100',
++            'address_line' => 'required_without:address_id|nullable|string|max:255',
+             'payment_method' => 'required|in:cod,vnpay,momo,bank_transfer',
+             'coupon_applied' => 'nullable|string',
+             'note' => 'nullable|string|max:500'
+         ]);
+ 
+-        $address = Address::where('address_id', $request->address_id)
+-            ->where('user_id', $userId)
+-            ->first();
++        if ($request->address_id) {
++            $address = Address::where('address_id', $request->address_id)
++                ->where('user_id', $userId)
++                ->first();
+ 
+-        if (!$address) {
+-            return response()->json(['status' => 'error', 'message' => '─Éß╗ïa chß╗ë kh├┤ng hß╗úp lß╗ç!'], 400);
++            if (!$address) {
++                return response()->json(['status' => 'error', 'message' => '─Éß╗ïa chß╗ë kh├┤ng hß╗úp lß╗ç!'], 400);
++            }
++        } else {
++            $address = Address::create([
++                'user_id' => $userId,
++                'recipient_name' => $request->recipient_name,
++                'phone' => $request->phone,
++                'province' => $request->province,
++                'district' => $request->district,
++                'ward' => $request->ward,
++                'address_line' => $request->address_line,
++                'province_code' => $request->province_code,
++                'district_code' => $request->district_code,
++                'ward_code' => $request->ward_code,
++                'is_default' => false,
++            ]);
+         }
+ 
+         // Lß║Ñy giß╗Å h├áng active
+
+commit 1b93bf72030f3e589950d70a65ea8c25d9ef681b
+Author: sunny <duongndpk03823@gmail.com>
+Date:   Sat Mar 28 10:08:20 2026 +0000
+
+    feat: fix coupon, cart badge, product images, category filtering
+    
+    - Fix admin coupon usage: display customer names correctly
+    - Filter used coupons from user's coupon list
+    - Cart badge: red styling, distinct product count, auto-update via events
+    - Fix product image URLs on Home and Product pages (prepend storage base URL)
+    - Fix variant price display: show selected variant price dynamically
+    - Home page: display products per category instead of same featured list
+    - Backend: add category_id filter to ProductController@index (incl. subcategories)
+    - Add ProfileOrders page
+    - Fix Vue v-if/v-for priority issue on Home page
+
+diff --git a/backend/app/Http/Controllers/OrderController.php b/backend/app/Http/Controllers/OrderController.php
+index 4b3487ca..1419b70d 100644
+--- a/backend/app/Http/Controllers/OrderController.php
++++ b/backend/app/Http/Controllers/OrderController.php
+@@ -3,63 +3,459 @@
+ namespace App\Http\Controllers;
+ 
+ use App\Models\Order;
++use App\Models\OrderItem;
++use App\Models\OrderStatusHistory;
++use App\Models\Cart;
++use App\Models\CartItem;
++use App\Models\Address;
++use App\Models\Coupon;
++use App\Models\UserCoupon;
++use App\Models\ProductVariant;
+ use Illuminate\Http\Request;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Log;
++use Illuminate\Support\Facades\Auth;
+ 
+ class OrderController extends Controller
+ {
+     /**
+-     * Display a listing of the resource.
++     * Lß║Ñy user id hiß╗çn tß║íi
+      */
+-    public function index()
++    private function getUserId()
+     {
+-        //
++        $user = auth('api')->user();
++        if ($user) return $user->user_id;
++
++        if (auth('admin')->check()) {
++            return auth('admin')->user()->getKey();
++        }
++
++        return null;
+     }
+ 
+     /**
+-     * Show the form for creating a new resource.
++     * Kh├ích h├áng: Xem danh s├ích ─æ╞ín h├áng cß╗ºa m├¼nh
+      */
+-    public function create()
++    public function index(Request $request)
+     {
+-        //
++        $userId = $this->getUserId();
++        if (!$userId) {
++            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
++        }
++
++        $query = Order::with(['items.product', 'items.variant' => function ($q) {
++                // ─æß╗â lß║Ñy h├¼nh ß║únh ri├¬ng cß╗ºa variant nß║┐u c├│
++            }])
++            ->where('user_id', $userId)
++            ->orderBy('created_at', 'desc');
++            
++        // C├│ thß╗â lß╗ìc theo status (pending, completed, v.v.)
++        if ($request->has('status') && $request->status !== 'all') {
++            $query->where('fulfillment_status', $request->status);
++        }
++
++        $orders = $query->paginate(10);
++
++        return response()->json([
++            'status' => 'success',
++            'data' => $orders
++        ]);
+     }
+ 
+     /**
+-     * Store a newly created resource in storage.
++     * Kh├ích h├áng: ─Éß║╖t h├áng (Checkout)
+      */
+     public function store(Request $request)
+     {
+-        //
+-    }
++        $userId = $this->getUserId();
++        if (!$userId) {
++            return response()->json(['status' => 'error', 'message' => 'Bß║ín cß║ºn ─æ─âng nhß║¡p ─æß╗â ─æß║╖t h├áng!'], 401);
++        }
+ 
+-    /**
+-     * Display the specified resource.
+-     */
+-    public function show(Order $order)
+-    {
+-        //
+-    }
++        $request->validate([
++            'address_id' => 'required|exists:addresses,address_id',
++            'payment_method' => 'required|in:cod,vnpay,momo,bank_transfer',
++            'coupon_applied' => 'nullable|string',
++            'note' => 'nullable|string|max:500'
++        ]);
+ 
+-    /**
+-     * Show the form for editing the specified resource.
+-     */
+-    public function edit(Order $order)
+-    {
+-        //
++        $address = Address::where('address_id', $request->address_id)
++            ->where('user_id', $userId)
++            ->first();
++
++        if (!$address) {
++            return response()->json(['status' => 'error', 'message' => '─Éß╗ïa chß╗ë kh├┤ng hß╗úp lß╗ç!'], 400);
++        }
++
++        // Lß║Ñy giß╗Å h├áng active
++        $cart = Cart::where('user_id', $userId)->where('status', 'active')->first();
++        if (!$cart) {
++            return response()->json(['status' => 'error', 'message' => 'Giß╗Å h├áng trß╗æng!'], 400);
++        }
++
++        // Lß║Ñy c├íc sß║ún phß║⌐m ─æ╞░ß╗úc chß╗ìn
++        $cartItems = CartItem::with(['variant.product'])
++            ->where('cart_id', $cart->cart_id)
++            ->where('selected', true)
++            ->get();
++
++        if ($cartItems->isEmpty()) {
++            return response()->json(['status' => 'error', 'message' => 'Vui l├▓ng chß╗ìn sß║ún phß║⌐m ─æß╗â thanh to├ín!'], 400);
++        }
++
++        // T├¡nh to├ín tß╗òng tiß╗ün
++        $subtotal = 0;
++        foreach ($cartItems as $item) {
++            $subtotal += $item->variant->price * $item->quantity;
++            // Kiß╗âm tra tß╗ôn kho
++            if ($item->variant->stock < $item->quantity) {
++                return response()->json([
++                    'status' => 'error',
++                    'message' => 'Sß║ún phß║⌐m ' . $item->variant->product->name . ' kh├┤ng ─æß╗º tß╗ôn kho!'
++                ], 400);
++            }
++        }
++
++        // Xß╗¡ l├╜ m├ú giß║úm gi├í
++        $discountAmount = 0;
++        $couponId = null;
++        if ($request->coupon_applied) {
++            $coupon = Coupon::where('code', $request->coupon_applied)
++                ->where('is_active', true)
++                ->first();
++
++            if ($coupon) {
++                // T├¡nh to├ín giß║úm gi├í
++                if ($coupon->type === 'percent') {
++                    $disc = ($subtotal * $coupon->value) / 100;
++                    if ($coupon->max_discount_value) {
++                        $disc = min($disc, $coupon->max_discount_value);
++                    }
++                    $discountAmount = $disc;
++                } elseif ($coupon->type === 'fixed') {
++                    $discountAmount = min($coupon->value, $subtotal);
++                } elseif ($coupon->type === 'free_ship') {
++                    // Xß╗¡ l├╜ freeship sau ß╗ƒ phß║ºn ph├¡ vß║¡n chuyß╗ân
++                }
++                
++                // Thu nhß╗Å discountAmount sao cho kh├┤ng v╞░ß╗út subtotal
++                $discountAmount = min($discountAmount, $subtotal);
++                $couponId = $coupon->id;
++            }
++        }
++
++        // T├¡nh ph├¡ vß║¡n chuyß╗ân ─æß╗Öng dß╗▒a tr├¬n ShippingZone
++        $shippingFee = 30000; // Mß║╖c ─æß╗ïnh nß║┐u kh├┤ng t├¼m thß║Ñy
++        $zones = \App\Models\ShippingZone::where('is_active', true)
++            ->orderByDesc('priority')
++            ->get();
++            
++        $matchedZone = null;
++        foreach ($zones as $zone) {
++            if (empty($zone->provinces)) {
++                if (!$matchedZone) $matchedZone = $zone; // Fallback
++                continue;
++            }
++            
++            // ─Éß║úm bß║úo provinces l├á mß║úng (Xß╗¡ l├╜ tr╞░ß╗¥ng hß╗úp DB l╞░u l├á json string hoß║╖c comma-separated)
++            $provincesArray = [];
++            if (is_array($zone->provinces)) {
++                $provincesArray = $zone->provinces;
++            } elseif (is_string($zone->provinces)) {
++                $decoded = json_decode($zone->provinces, true);
++                if (is_array($decoded)) {
++                    $provincesArray = $decoded;
++                } else {
++                    $provincesArray = array_map('trim', explode(',', $zone->provinces));
++                }
++            }
++
++            $inProvince = false;
++            foreach ($provincesArray as $p) {
++                if (empty($p)) continue;
++                $provName = mb_strtolower($p, 'UTF-8');
++                $addrProv = mb_strtolower($address->province ?? '', 'UTF-8');
++                $addrDist = $address->district ? mb_strtolower($address->district, 'UTF-8') : '';
++                
++                if (str_contains($addrProv, $provName) || str_contains($provName, $addrProv) ||
++                    ($addrDist && (str_contains($addrDist, $provName) || str_contains($provName, $addrDist)))) {
++                    $inProvince = true;
++                    break;
++                }
++            }
++            
++            if ($inProvince) {
++                $matchedZone = $zone;
++                break;
++            }
++        }
++        
++        if ($matchedZone) {
++            if ($matchedZone->free_ship_threshold && $subtotal >= $matchedZone->free_ship_threshold) {
++                $shippingFee = 0;
++            } else {
++                $shippingFee = $matchedZone->shipping_fee;
++            }
++        }
++
++        if (isset($coupon) && $coupon->type === 'free_ship') {
++            $shippingFee = 0; // ├üp dß╗Ñng coupon freeship
++        }
++
++        $grandTotal = $subtotal + $shippingFee - $discountAmount;
++
++        // Bß║»t ─æß║ºu transaction
++        DB::beginTransaction();
++        try {
++            // Chuß╗ùi ─æß╗ïa chß╗ë
++            $fullAddress = implode(', ', array_filter([
++                $address->address_line,
++                $address->ward,
++                $address->district,
++                $address->province
++            ]));
++
++            // Tß║ío order
++            $order = Order::create([
++                'order_code' => 'ORD' . strtoupper(uniqid()) . rand(10, 99),
++                'user_id' => $userId,
++                'address_id' => $address->address_id,
++                'promotion_id' => $couponId,
++                'recipient_name' => $address->recipient_name,
++                'recipient_phone' => $address->phone,
++                'shipping_address' => $fullAddress,
++                'note' => $request->note,
++                'payment_method' => $request->payment_method,
++                'payment_status' => 'unpaid',
++                'fulfillment_status' => 'pending',
++                'subtotal' => $subtotal,
++                'discount_amount' => $discountAmount,
++                'shipping_fee' => $shippingFee,
++                'grand_total' => $grandTotal,
++            ]);
++
++            // Tß║ío order items v├á cß║¡p nhß║¡t tß╗ôn kho
++            foreach ($cartItems as $cItem) {
++                OrderItem::create([
++                    'order_id' => $order->order_id,
++                    'product_id' => $cItem->variant->product_id,
++                    'variant_id' => $cItem->variant_id,
++                    'product_name' => $cItem->variant->product->name,
++                    'variant_name' => $cItem->variant->variant_name,
++                    'sku' => $cItem->variant->sku,
++                    'color' => $cItem->variant->color,
++                    'size' => $cItem->variant->size,
++                    'quantity' => $cItem->quantity,
++                    'unit_price' => $cItem->variant->price,
++                    'line_total' => $cItem->variant->price * $cItem->quantity,
++                ]);
++
++                // Trß╗½ tß╗ôn kho
++                $cItem->variant->decrement('stock', $cItem->quantity);
++            }
++
++            // Ghi nhß║¡n lß╗ïch sß╗¡
++            OrderStatusHistory::create([
++                'order_id' => $order->order_id,
++                'new_status' => 'pending',
++                'note' => 'Kh├ích h├áng ─æß║╖t ─æ╞ín h├áng mß╗¢i',
++            ]);
++
++            // Cß║¡p nhß║¡t l╞░ß╗út d├╣ng coupon nß║┐u c├│
++            if ($couponId) {
++                $coupon->increment('used_count');
++                // L╞░u v├áo user_coupons
++                $userCoupon = UserCoupon::where('user_id', $userId)->where('coupon_id', $couponId)->first();
++                if ($userCoupon) {
++                    $userCoupon->increment('used_count');
++                } else {
++                    UserCoupon::create([
++                        'user_id' => $userId, 
++                        'coupon_id' => $couponId, 
++                        'used_count' => 1,
++                        'is_saved' => false
++                    ]);
++                }
++            }
++
++            // X├│a c├íc sß║ún phß║⌐m ─æ├ú chß╗ìn khß╗Åi giß╗Å
++            CartItem::whereIn('cart_item_id', $cartItems->pluck('cart_item_id'))->delete();
++
++            DB::commit();
++
++            // Gß╗¡i email
++            $this->sendOrderConfirmationEmail($order);
++
++            return response()->json([
++                'status' => 'success',
++                'message' => '─Éß║╖t h├áng th├ánh c├┤ng!',
++                'data' => [
++                    'order_code' => $order->order_code,
++                    'grand_total' => $order->grand_total
++                ]
++            ]);
++
++        } catch (\Exception $e) {
++            DB::rollBack();
++            Log::error('Order creation failed: ' . $e->getMessage());
++            return response()->json([
++                'status' => 'error',
++                'message' => '─É├ú xß║úy ra lß╗ùi khi tß║ío ─æ╞ín h├áng. Vui l├▓ng thß╗¡ lß║íi sau.'
++            ], 500);
++        }
+     }
+ 
+     /**
+-     * Update the specified resource in storage.
++     * Kh├ích h├áng: Hß╗ºy ─æ╞ín h├áng
+      */
+-    public function update(Request $request, Order $order)
++    public function cancel($id)
+     {
+-        //
++        $userId = $this->getUserId();
++        if (!$userId) return response()->json(['status' => 'error'], 401);
++
++        $order = Order::where('order_id', $id)->where('user_id', $userId)->first();
++        
++        if (!$order) {
++            return response()->json(['status' => 'error', 'message' => 'Kh├┤ng t├¼m thß║Ñy ─æ╞ín h├áng!'], 404);
++        }
++
++        if ($order->fulfillment_status !== 'pending') {
++            return response()->json(['status' => 'error', 'message' => 'Bß║ín chß╗ë c├│ thß╗â hß╗ºy ─æ╞ín h├áng khi ─æang chß╗¥ x├íc nhß║¡n!'], 400);
++        }
++
++        DB::beginTransaction();
++        try {
++            $order->update([
++                'fulfillment_status' => 'cancelled',
++                'cancelled_at' => now(),
++                'cancel_reason' => 'Kh├ích h├áng y├¬u cß║ºu hß╗ºy'
++            ]);
++
++            OrderStatusHistory::create([
++                'order_id' => $order->order_id,
++                'old_status' => 'pending',
++                'new_status' => 'cancelled',
++                'note' => 'Kh├ích h├áng tß╗▒ hß╗ºy ─æ╞ín',
++            ]);
++
++            // Ho├án lß║íi tß╗ôn kho
++            $orderItems = OrderItem::where('order_id', $order->order_id)->get();
++            foreach ($orderItems as $item) {
++                ProductVariant::where('variant_id', $item->variant_id)->increment('stock', $item->quantity);
++            }
++
++            DB::commit();
++            
++            return response()->json([
++                'status' => 'success',
++                'message' => '─É├ú hß╗ºy ─æ╞ín h├áng th├ánh c├┤ng!'
++            ]);
++        } catch (\Exception $e) {
++            DB::rollBack();
++            Log::error('Order cancel error: ' . $e->getMessage());
++            return response()->json(['status' => 'error', 'message' => 'Lß╗ùi khi hß╗ºy ─æ╞ín.'], 500);
++        }
+     }
+ 
+     /**
+-     * Remove the specified resource from storage.
++     * Gß╗¡i email x├íc nhß║¡n ─æ╞ín h├áng 
+      */
+-    public function destroy(Order $order)
++    private function sendOrderConfirmationEmail(Order $order): bool
+     {
+-        //
++        try {
++            $user = auth('api')->user() ?? auth('admin')->user();
++            if (!$user || empty($user->email)) return false;
++
++            $emailUser = env('EMAIL_USER');
++            $emailPass = env('EMAIL_PASS');
++
++            if (!$emailUser || !$emailPass) {
++                Log::warning('Skip sending email as EMAIL_USER missing.');
++                return false;
++            }
++
++            $transport = new \Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport(
++                'smtp.gmail.com',
++                587,
++                false
++            );
++            $transport->setUsername($emailUser);
++            $transport->setPassword($emailPass);
++            $mailer = new \Symfony\Component\Mailer\Mailer($transport);
++
++            $order->load('items');
++
++            $itemsHtml = '';
++            foreach ($order->items as $item) {
++                $variantInfo = $item->variant_name ? '(' . $item->color . '/' . $item->size . ')' : '';
++                $itemsHtml .= '
++                <tr>
++                    <td style="padding: 10px; border-bottom: 1px solid #eee;">' . htmlspecialchars($item->product_name) . ' ' . $variantInfo . ' x' . $item->quantity . '</td>
++                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">' . number_format($item->line_total, 0, ',', '.') . '─æ</td>
++                </tr>';
++            }
++
++            $htmlBody = '
++            <!DOCTYPE html>
++            <html>
++            <head><meta charset="UTF-8"></head>
++            <body style="font-family: Arial, sans-serif; background: #f9fafb; padding: 20px;">
++                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
++                    <div style="background: #0288d1; padding: 20px; text-align: center; color: white;">
++                        <h2 style="margin: 0;">Cß║úm ╞ín bß║ín ─æ├ú ─æß║╖t h├áng!</h2>
++                        <p style="margin: 5px 0 0;">─É╞ín h├áng cß╗ºa bß║ín ─æ├ú ─æ╞░ß╗úc ghi nhß║¡n</p>
++                    </div>
++                    <div style="padding: 20px;">
++                        <p>Xin ch├áo <strong>' . htmlspecialchars($order->recipient_name) . '</strong>,</p>
++                        <p>Ocean Store xin th├┤ng b├ío ─æ╞ín h├áng <strong>' . $order->order_code . '</strong> cß╗ºa bß║ín ─æ├ú ─æ╞░ß╗úc tß║ío th├ánh c├┤ng v├áo l├║c ' . now()->format('H:i d/m/Y') . '.</p>
++                        
++                        <h3 style="border-bottom: 2px solid #0288d1; padding-bottom: 5px; color: #333;">Chi tiß║┐t ─æ╞ín h├áng</h3>
++                        <table width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;">
++                            ' . $itemsHtml . '
++                            <tr>
++                                <td style="padding: 10px; text-align: right;">Tß║ím t├¡nh:</td>
++                                <td style="padding: 10px; text-align: right;">' . number_format($order->subtotal, 0, ',', '.') . '─æ</td>
++                            </tr>
++                            <tr>
++                                <td style="padding: 10px; text-align: right;">Ph├¡ vß║¡n chuyß╗ân:</td>
++                                <td style="padding: 10px; text-align: right;">' . number_format($order->shipping_fee, 0, ',', '.') . '─æ</td>
++                            </tr>
++                            <tr>
++                                <td style="padding: 10px; text-align: right;">Khuyß║┐n m├úi:</td>
++                                <td style="padding: 10px; text-align: right; color: green;">-' . number_format($order->discount_amount, 0, ',', '.') . '─æ</td>
++                            </tr>
++                            <tr>
++                                <td style="padding: 10px; text-align: right; font-weight: bold; font-size: 16px;">Tß╗öNG Cß╗ÿNG:</td>
++                                <td style="padding: 10px; text-align: right; font-weight: bold; font-size: 16px; color: #e53e3e;">' . number_format($order->grand_total, 0, ',', '.') . '─æ</td>
++                            </tr>
++                        </table>
++
++                        <h3 style="border-bottom: 2px solid #0288d1; padding-bottom: 5px; color: #333;">Th├┤ng tin giao h├áng</h3>
++                        <p><strong>Ng╞░ß╗¥i nhß║¡n:</strong> ' . htmlspecialchars($order->recipient_name) . '</p>
++                        <p><strong>─Éiß╗çn thoß║íi:</strong> ' . htmlspecialchars($order->recipient_phone) . '</p>
++                        <p><strong>─Éß╗ïa chß╗ë:</strong> ' . htmlspecialchars($order->shipping_address) . '</p>
++                        <p><strong>Ph╞░╞íng thß╗⌐c TT:</strong> ' . strtoupper($order->payment_method) . '</p>
++
++                        <div style="text-align: center; margin-top: 30px;">
++                            <a href="http://localhost:3000/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lß╗ïch sß╗¡ ─æ╞ín h├áng</a>
++                        </div>
++                    </div>
++                </div>
++            </body>
++            </html>
++            ';
++
++            $emailMessage = (new \Symfony\Component\Mime\Email())
++                ->from($emailUser)
++                ->to($user->email)
++                ->subject('≡ƒôª X├íc nhß║¡n ─æ╞ín h├áng ─æß║╖t th├ánh c├┤ng ' . $order->order_code)
++                ->html($htmlBody);
++
++            $mailer->send($emailMessage);
++            return true;
++        } catch (\Exception $e) {
++            Log::error("Failed to send order email: " . $e->getMessage());
++            return false;
++        }
+     }
+ }
+
+commit 13b15c9b9aeaf9087072359748684f263adadb04
+Author: sunny <duongndpk03823@gmail.com>
+Date:   Tue Mar 17 02:42:50 2026 +0000
+
+    update
+
+diff --git a/backend/app/Http/Controllers/OrderController.php b/backend/app/Http/Controllers/OrderController.php
+new file mode 100644
+index 00000000..4b3487ca
+--- /dev/null
++++ b/backend/app/Http/Controllers/OrderController.php
+@@ -0,0 +1,65 @@
++<?php
++
++namespace App\Http\Controllers;
++
++use App\Models\Order;
++use Illuminate\Http\Request;
++
++class OrderController extends Controller
++{
++    /**
++     * Display a listing of the resource.
++     */
++    public function index()
++    {
++        //
++    }
++
++    /**
++     * Show the form for creating a new resource.
++     */
++    public function create()
++    {
++        //
++    }
++
++    /**
++     * Store a newly created resource in storage.
++     */
++    public function store(Request $request)
++    {
++        //
++    }
++
++    /**
++     * Display the specified resource.
++     */
++    public function show(Order $order)
++    {
++        //
++    }
++
++    /**
++     * Show the form for editing the specified resource.
++     */
++    public function edit(Order $order)
++    {
++        //
++    }
++
++    /**
++     * Update the specified resource in storage.
++     */
++    public function update(Request $request, Order $order)
++    {
++        //
++    }
++
++    /**
++     * Remove the specified resource from storage.
++     */
++    public function destroy(Order $order)
++    {
++        //
++    }
++}

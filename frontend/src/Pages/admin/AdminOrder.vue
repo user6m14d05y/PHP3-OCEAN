@@ -1,6 +1,5 @@
-
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import api from '@/axios';
 import Swal from 'sweetalert2';
 
@@ -12,14 +11,14 @@ const toast = {
 
 const orders = ref([]);
 const loading = ref(true);
-const currentStatus = ref('all');
+const currentStatus = ref('');
 const searchQuery = ref('');
+const dateFrom = ref('');
+const dateTo = ref('');
 
 const pagination = ref({
     current_page: 1,
     last_page: 1,
-    next_page_url: null,
-    prev_page_url: null
 });
 
 const statuses = [
@@ -57,8 +56,10 @@ const fetchOrders = async (page = 1) => {
     const res = await api.get('/admin/orders', {
       params: {
         page: page,
-        status: currentStatus.value,
-        search: searchQuery.value || null
+        status: currentStatus.value || 'all',
+        search: searchQuery.value || null,
+        date_from: dateFrom.value || null,
+        date_to: dateTo.value || null
       },
       headers: {
         'Cache-Control': 'no-cache',
@@ -71,8 +72,6 @@ const fetchOrders = async (page = 1) => {
       pagination.value = {
         current_page: res.data.data.current_page,
         last_page: res.data.data.last_page,
-        next_page_url: res.data.data.next_page_url,
-        prev_page_url: res.data.data.prev_page_url
       };
     }
   } catch (error) {
@@ -83,9 +82,21 @@ const fetchOrders = async (page = 1) => {
   }
 };
 
-const changeFilter = (status) => {
-  currentStatus.value = status;
-  fetchOrders(1);
+const handleSearch = () => {
+    fetchOrders(1);
+};
+
+const handleClearFilters = () => {
+    searchQuery.value = '';
+    dateFrom.value = '';
+    dateTo.value = '';
+    currentStatus.value = '';
+    fetchOrders(1);
+};
+
+const handleFilterStatus = (status) => {
+    currentStatus.value = currentStatus.value === status ? '' : status;
+    fetchOrders(1);
 };
 
 const changePage = (page) => {
@@ -158,11 +169,9 @@ const showCancelReasonModal = async () => {
 const updateOrderFulfillment = async (order) => {
   const oldStatus = order._prevFulfillmentStatus || 'pending';
   
-  // Nếu chọn hủy → bắt buộc nhập lý do
   if (order.fulfillment_status === 'cancelled') {
     const cancelReason = await showCancelReasonModal();
     if (!cancelReason) {
-      // User đóng modal → rollback
       order.fulfillment_status = oldStatus;
       return;
     }
@@ -182,7 +191,6 @@ const updateOrderFulfillment = async (order) => {
     return;
   }
 
-  // Các trạng thái khác → cập nhật bình thường
   try {
     const res = await api.put(`/admin/orders/${order.order_id}/status`, {
       fulfillment_status: order.fulfillment_status
@@ -216,42 +224,30 @@ const formatPrice = (price) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 };
 
-const formatDate = (dateString) => {
+const formatDate = (dateString, includeTime=true) => {
   const date = new Date(dateString);
-  return date.toLocaleString('vi-VN', { hour: '2-digit', minute:'2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+  if (includeTime) {
+      return date.toLocaleString('vi-VN', { hour: '2-digit', minute:'2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const getStatusColor = (status) => {
-  switch (status) {
-    case 'pending': return 'text-warning';
-    case 'confirmed': return 'text-primary';
-    case 'shipping': return 'text-info';
-    case 'completed': return 'text-success';
-    case 'cancelled': return 'text-danger';
-    default: return '';
-  }
-};
+const getStatusLabel = (status) => statuses.find(s => s.value === status)?.label || status;
 
 onMounted(() => {
   fetchOrders();
 
-  // Setup Real-time Echo Connection
   if (window.Echo) {
-    // Sử dụng custom authorizer được cấu hình sẵn trong echo.js
     window.Echo.private('admin-notifications')
       .listen('.OrderCreatedAdmin', (event) => {
-        console.log('Real-time order received:', event);
         toast.info(`🛒 Có đơn hàng mới: ${event.order_code}`);
-        
-        // Add order to top of list if we're on page 1
-        if (pagination.value.current_page === 1 && (currentStatus.value === 'all' || currentStatus.value === 'pending')) {
+        if (pagination.value.current_page === 1 && (!currentStatus.value || currentStatus.value === 'pending')) {
             orders.value.unshift({ 
                 ...event, 
                 order_id: event.order_id,
                 is_new: true 
             });
-            // remove last item if array gets too big for the page
-            if (orders.value.length > 10) orders.value.pop();
+            if (orders.value.length > 15) orders.value.pop();
         }
       });
   }
@@ -263,121 +259,296 @@ onUnmounted(() => {
   }
 });
 </script>
+
 <template>
-  <div class="admin-orders">
-    <div class="admin-header">
-      <div>
-        <h1 class="admin-title">Quản lý Đơn hàng</h1>
-        <p class="admin-subtitle">Theo dõi và cập nhật trạng thái các đơn đặt hàng</p>
-      </div>
-      <div>
-        <input type="text" v-model="searchQuery" @keyup.enter="fetchOrders" placeholder="Tìm mã đơn, sđt..." class="form-control" style="width: 250px">
-      </div>
+  <div class="orders-page">
+    <!-- Page Header -->
+    <div class="page-header animate-in">
+        <div class="header-info">
+            <h1 class="page-title">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--ocean-blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="16" y1="4" x2="16" y2="20" />
+                    <line x1="8" y1="4" x2="8" y2="20" />
+                    <line x1="3" y1="8" x2="21" y2="8" />
+                    <line x1="3" y1="16" x2="21" y2="16" />
+                </svg>
+                Quản Lý Đơn Hàng
+            </h1>
+            <p class="page-subtitle">Theo dõi và cập nhật trạng thái các đơn đặt hàng</p>
+        </div>
+        <div class="header-btns">
+            <!-- Tương lai có thể thêm nút Export CSV ở đây -->
+        </div>
     </div>
 
-    <!-- Filters -->
-    <div class="status-filters mb-4">
-      <button v-for="st in statuses" :key="st.value" 
-          class="btn filter-btn btn-sm" 
-          :class="{ 'btn-primary': currentStatus === st.value, 'btn-outline-primary': currentStatus !== st.value }"
-          @click="changeFilter(st.value)">
-        {{ st.label }}
-      </button>
+    <!-- Filters & Search -->
+    <div class="filters-bar ocean-card animate-in" style="animation-delay: 0.1s">
+        <div class="search-date-wrap">
+            <div class="search-box">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input 
+                    type="text" 
+                    v-model="searchQuery"
+                    @keyup.enter="handleSearch"
+                    placeholder="Tìm mã đơn, tên khách, SĐT..." 
+                    class="search-input"
+                />
+            </div>
+            
+            <div class="date-picker-box">
+                <span class="date-lbl">Từ</span>
+                <input type="date" v-model="dateFrom" class="date-input" @change="handleSearch" />
+                <span class="date-lbl">Đến</span>
+                <input type="date" v-model="dateTo" class="date-input" @change="handleSearch" />
+            </div>
+
+            <button v-if="searchQuery || dateFrom || dateTo || currentStatus" class="btn-clear-filters" @click="handleClearFilters" title="Xóa bộ lọc">
+                ❌
+            </button>
+        </div>
+
+        <div class="filter-actions mt-2">
+            <button class="filter-btn" :class="{ active: !currentStatus }" @click="handleFilterStatus('')">Tất cả</button>
+            <button class="filter-btn" :class="{ active: currentStatus === 'pending' }" @click="handleFilterStatus('pending')">Chờ duyệt</button>
+            <button class="filter-btn" :class="{ active: currentStatus === 'confirmed' }" @click="handleFilterStatus('confirmed')">Đã duyệt</button>
+            <button class="filter-btn" :class="{ active: currentStatus === 'packing' }" @click="handleFilterStatus('packing')">Đóng gói</button>
+            <button class="filter-btn" :class="{ active: currentStatus === 'shipping' }" @click="handleFilterStatus('shipping')">Đang giao</button>
+            <button class="filter-btn" :class="{ active: currentStatus === 'delivered' }" @click="handleFilterStatus('delivered')">Đã giao</button>
+            <button class="filter-btn" :class="{ active: currentStatus === 'completed' }" @click="handleFilterStatus('completed')">Hoàn thành</button>
+            <button class="filter-btn" :class="{ active: currentStatus === 'cancelled' }" @click="handleFilterStatus('cancelled')">Đã hủy</button>
+        </div>
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="text-center py-5">
-      <div class="spinner-border text-primary" role="status"></div>
+    <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Đang tải đơn hàng...</p>
     </div>
 
     <!-- Table -->
-    <div v-else class="table-responsive bg-white rounded shadow-sm">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="bg-light">
-          <tr>
-            <th>Mã đơn</th>
-            <th>Khách hàng</th>
-            <th>Ngày đặt</th>
-            <th>Tổng tiền</th>
-            <th>Xử lý đơn (Fulfillment)</th>
-            <th>Thanh toán</th>
-            <th>Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="orders.length === 0">
-            <td colspan="7" class="text-center py-4 text-muted">Không có đơn hàng nào</td>
-          </tr>
-          <tr v-for="order in orders" :key="order.order_id" :class="{'bg-warning bg-opacity-10 fw-bold': order.is_new}">
-            <td class="text-primary">{{ order.order_code }}</td>
-            <td>
-              <div>{{ order.recipient_name }}</div>
-              <small class="text-muted">{{ order.recipient_phone }}</small>
-            </td>
-            <td>{{ formatDate(order.created_at) }}</td>
-            <td class="text-danger fw-bold">{{ formatPrice(order.grand_total) }}</td>
-            <td>
-              <select class="form-select form-select-sm" :class="getStatusColor(order.fulfillment_status)" v-model="order.fulfillment_status" @change="updateOrderFulfillment(order)" :disabled="order.fulfillment_status === 'completed' || order.fulfillment_status === 'cancelled'">
-                <option v-for="s in getAllowedFulfillmentOptions(order._prevFulfillmentStatus || order.fulfillment_status)" :key="s.value" :value="s.value">{{ s.label }}</option>
-              </select>
-            </td>
-            <td>
-              <select class="form-select form-select-sm" v-model="order.payment_status" @change="updateOrderPayment(order)">
-                <option value="unpaid">Chưa TT</option>
-                <option value="paid">Đã TT</option>
-                <option value="failed">Thất bại</option>
-                <option value="refunded">Hoàn tiền</option>
-              </select>
-            </td>
-            <td>
-              <router-link :to="{ name: 'admin-order-detail', params: { id: order.order_id } }" class="btn btn-sm btn-outline-secondary">Chi tiết</router-link>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    
-    <!-- Paginator -->
-    <div class="d-flex justify-content-between align-items-center mt-4" v-if="pagination.last_page > 1">
-        <button class="btn btn-sm btn-outline-secondary" :disabled="!pagination.prev_page_url" @click="changePage(pagination.current_page - 1)">Trang trước</button>
-        <span class="text-muted">Trang {{ pagination.current_page }} / {{ pagination.last_page }}</span>
-        <button class="btn btn-sm btn-outline-secondary" :disabled="!pagination.next_page_url" @click="changePage(pagination.current_page + 1)">Trang tiếp</button>
-    </div>
+    <div v-else class="table-container ocean-card animate-in" style="animation-delay: 0.2s">
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Mã đơn & Ngày đặt</th>
+                        <th>Khách hàng</th>
+                        <th>Tổng tiền</th>
+                        <th>Trạng thái (Fulfillment)</th>
+                        <th>Thanh toán</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="orders.length === 0">
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <span class="empty-emoji">📦</span>
+                                <h3>Không tìm thấy đơn hàng</h3>
+                                <p>Thử tìm kiếm với từ khóa hoặc ngày khác.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr v-for="order in orders" :key="order.order_id" :class="{'is-new-order': order.is_new}">
+                        <td>
+                            <div class="order-code-cell">
+                                <span class="badge-id">#{{ order.order_code }}</span>
+                                <span class="order-date">{{ formatDate(order.created_at) }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="customer-cell">
+                                <span class="cus-name">{{ order.recipient_name }}</span>
+                                <span class="cus-phone">{{ order.recipient_phone }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="val-price">{{ formatPrice(order.grand_total) }}</span>
+                        </td>
+                        <td>
+                            <!-- Chỉnh CSS cho đẹp như badge, dùng thẻ select nhưng style sang chảnh -->
+                            <div class="status-select-wrap" :class="'f-'+order.fulfillment_status">
+                                <select class="status-select" v-model="order.fulfillment_status" @change="updateOrderFulfillment(order)" :disabled="order.fulfillment_status === 'completed' || order.fulfillment_status === 'cancelled'">
+                                    <option v-for="s in getAllowedFulfillmentOptions(order._prevFulfillmentStatus || order.fulfillment_status)" :key="s.value" :value="s.value">{{ s.label }}</option>
+                                </select>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="status-select-wrap" :class="'p-'+order.payment_status">
+                                <select class="status-select" v-model="order.payment_status" @change="updateOrderPayment(order)">
+                                    <option value="unpaid">Chưa TT</option>
+                                    <option value="paid">Đã TT</option>
+                                    <option value="failed">Thất bại</option>
+                                    <option value="refunded">Hoàn tiền</option>
+                                </select>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="actions-cell">
+                                <router-link :to="{ name: 'admin-order-detail', params: { id: order.order_id } }" class="btn-icon view" title="Chi tiết">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </router-link>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
+        <!-- Pagination -->
+        <div v-if="pagination.last_page > 1" class="pagination">
+            <button class="page-btn" :disabled="pagination.current_page === 1" @click="changePage(pagination.current_page - 1)">‹</button>
+            <button
+                v-for="page in pagination.last_page"
+                :key="page"
+                class="page-btn"
+                :class="{ active: page === pagination.current_page }"
+                @click="changePage(page)"
+            >{{ page }}</button>
+            <button class="page-btn" :disabled="pagination.current_page === pagination.last_page" @click="changePage(pagination.current_page + 1)">›</button>
+        </div>
+    </div>
   </div>
 </template>
 
-
 <style scoped>
-.admin-orders {
-  padding: 24px;
-  background-color: #f8f9fa;
-  min-height: calc(100vh - 60px);
+.orders-page { font-family: var(--font-inter); }
+
+/* Header */
+.page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px;
 }
-.admin-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+.page-title {
+    font-size: 1.5rem; font-weight: 800; color: var(--text-main);
+    display: flex; align-items: center; gap: 12px; margin: 0;
 }
-.admin-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0;
+.page-subtitle { font-size: 0.9rem; color: var(--text-muted); margin-top: 4px; font-weight: 500; margin-bottom: 0;}
+
+/* Filters */
+.filters-bar {
+    padding: 18px 20px; margin-bottom: 24px;
 }
-.admin-subtitle {
-  color: #6c757d;
-  margin: 0;
-  font-size: 0.95rem;
+.search-date-wrap {
+    display: flex; align-items: center; justify-content: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 14px;
 }
+.search-box {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--ocean-deepest); border: 1px solid var(--border-color);
+    border-radius: 8px; padding: 10px 16px; min-width: 320px;
+    transition: border-color 0.2s;
+}
+.search-box:focus-within { border-color: var(--ocean-blue); background: white; box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.1); }
+.search-box svg { color: var(--text-light); }
+.search-input { background: none; border: none; outline: none; color: var(--text-main); font-family: var(--font-inter); font-size: 0.9rem; width: 100%; }
+.search-input::placeholder { color: var(--text-light); }
+
+.date-picker-box {
+    display: flex; align-items: center; gap: 8px; background: white; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color);
+}
+.date-lbl { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+.date-input {
+    border: none; outline: none; background: transparent; font-family: var(--font-inter); font-size: 0.85rem; color: var(--text-main); cursor: pointer;
+}
+.btn-clear-filters {
+    background: none; border: none; font-size: 1.1rem; cursor: pointer; line-height: 1; padding: 4px 8px; border-radius: 4px; transition: background 0.2s;
+}
+.btn-clear-filters:hover { background: #fef2f2; }
+
+.filter-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .filter-btn {
-  margin-right: 8px;
-  margin-bottom: 8px;
-  border-radius: 6px;
-  font-weight: 500;
+    padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border-color);
+    background: var(--ocean-deepest); color: var(--text-muted);
+    font-family: var(--font-inter); font-size: 0.8rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
 }
-select.form-select-sm {
-  font-size: 0.85rem;
-  padding: 0.25rem 2rem 0.25rem 0.5rem;
+.filter-btn:hover { border-color: var(--ocean-blue); color: var(--ocean-blue); }
+.filter-btn.active { background: rgba(2, 136, 209, 0.1); border-color: rgba(2, 136, 209, 0.3); color: var(--ocean-blue); }
+
+/* Loading */
+.loading-state { text-align: center; padding: 60px 20px; color: var(--text-muted); font-weight: 600; }
+.spinner { width: 30px; height: 30px; border: 3px solid var(--border-color); border-top-color: var(--ocean-blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Table */
+.table-wrapper { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; text-align: left; }
+.data-table th {
+    padding: 14px 24px; font-size: 0.72rem; font-weight: 700;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;
+    border-bottom: 1px solid var(--border-color); background: var(--ocean-deepest);
 }
+.data-table td { padding: 16px 24px; border-bottom: 1px solid var(--border-color); transition: background 0.15s; vertical-align: middle; }
+.data-table tbody tr:hover td { background: var(--hover-bg); }
+.is-new-order td { background: rgba(251, 191, 36, 0.05); }
+
+.order-code-cell { display: flex; flex-direction: column; gap: 4px; align-items: flex-start;}
+.badge-id { padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; background: rgba(2, 136, 209, 0.1); color: var(--ocean-blue); }
+.order-date { font-size: 0.75rem; color: var(--text-muted); }
+
+.customer-cell { display: flex; flex-direction: column; gap: 2px; }
+.cus-name { font-size: 0.95rem; font-weight: 700; color: var(--text-main); }
+.cus-phone { font-size: 0.8rem; color: var(--text-light); }
+
+.val-price { font-size: 0.95rem; font-weight: 800; color: var(--coral); }
+
+/* Select Badges */
+.status-select-wrap {
+    display: inline-block; border-radius: 6px; padding: 2px;
+}
+.status-select {
+    border: none; background: transparent; font-family: var(--font-inter); font-size: 0.8rem; font-weight: 700; padding: 4px 24px 4px 8px; cursor: pointer; outline: none; appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat; background-position: right 6px center; background-size: 14px;
+}
+.status-select-wrap:focus-within { box-shadow: 0 0 0 2px rgba(0,0,0,0.1); }
+
+/* Colors for Fulfillment */
+.f-pending { background: rgba(255, 167, 38, 0.15); color: #e65100; }
+.f-confirmed { background: rgba(3, 169, 244, 0.15); color: #0288d1; }
+.f-packing, .f-shipping { background: rgba(0, 188, 212, 0.15); color: #0097a7; }
+.f-delivered, .f-completed { background: rgba(38, 166, 154, 0.15); color: #167a70; }
+.f-cancelled { background: rgba(239, 83, 80, 0.15); color: #c62828; }
+.status-select-wrap select { color: inherit; }
+
+/* Colors for Payment */
+.p-unpaid { background: rgba(255, 167, 38, 0.15); color: #e65100; }
+.p-paid { background: rgba(38, 166, 154, 0.15); color: #167a70; }
+.p-failed { background: rgba(239, 83, 80, 0.15); color: #c62828; }
+.p-refunded { background: rgba(158, 158, 158, 0.15); color: #616161; }
+
+.actions-cell { display: flex; gap: 6px; }
+.btn-icon {
+    width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border-color);
+    background: var(--ocean-deepest); color: var(--text-muted);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; text-decoration: none;
+}
+.btn-icon:hover { border-color: currentColor; background: white;}
+.view:hover { color: #8e24aa; border-color: #8e24aa; background: rgba(142, 36, 170, 0.05); }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+.empty-emoji { font-size: 3rem; display: block; margin-bottom: 16px; }
+.empty-state h3 { font-size: 1.2rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px; }
+
+/* Pagination */
+.pagination {
+    display: flex; justify-content: center; align-items: center; gap: 8px; padding: 20px;
+    border-top: 1px solid var(--border-color);
+}
+.page-btn {
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; border: 1px solid var(--border-color); background: white;
+    font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.2s; font-family: var(--font-inter);
+}
+.page-btn:hover:not(:disabled) { border-color: var(--ocean-blue); color: var(--ocean-blue); }
+.page-btn.active { background: var(--ocean-blue); color: white; border-color: var(--ocean-blue); }
+.page-btn:disabled { opacity: 0.5; cursor: not-allowed; background: var(--ocean-deepest); }
 </style>

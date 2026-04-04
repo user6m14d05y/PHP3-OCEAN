@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue';
+import { ref, reactive, nextTick, onMounted, onBeforeUnmount, computed } from 'vue';
 import api from '../../../axios.js';
 import { useRouter } from 'vue-router';
 import { Toast } from 'bootstrap';
@@ -14,6 +14,12 @@ const router = useRouter();
 const toast = ref({ message: '', type: 'success' });
 const turnstileToken = ref('');
 let turnstileWidgetId = null;
+
+const isFormValid = computed(() => {
+  return email.value.trim() !== '' && 
+         password.value.trim() !== '' && 
+         !fieldErrors.email && !fieldErrors.password;
+});
 
 // Field-level validation errors
 const fieldErrors = reactive({ email: '', password: '' });
@@ -121,8 +127,6 @@ const login = async () => {
         ...response.data.user
       }));
 
-      // showToast('Đăng nhập thành công!', 'success');
-
       if (response.data.user.role === 'admin' || response.data.user.role === 'staff') {
         router.push('/admin');
       } else {
@@ -150,78 +154,116 @@ const login = async () => {
     <ClientHeader />
 
     <main class="auth-main">
-      <div class="auth-page">
-        <div class="auth-card">
-          <!-- Icon -->
-          <div class="auth-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-            </svg>
-          </div>
-
-          <h1 class="auth-title">Đăng nhập</h1>
-
-          <form @submit.prevent="login" class="auth-form" novalidate>
-            <!-- Email -->
-            <div class="form-group" :class="{ 'has-error': touched.email && fieldErrors.email }">
-              <label for="login-email">Email</label>
-              <input id="login-email" type="email" v-model="email" placeholder="your@email.com" :disabled="isSubmitting" @blur="onBlur('email')" @input="validateField('email')" />
-              <p v-if="touched.email && fieldErrors.email" class="field-error">{{ fieldErrors.email }}</p>
-            </div>
-
-            <!-- Password -->
-            <div class="form-group" :class="{ 'has-error': touched.password && fieldErrors.password }">
-              <label for="login-password">Mật khẩu</label>
-              <div class="input-password">
-                <input id="login-password" :type="showPassword ? 'text' : 'password'" v-model="password" placeholder="Mật khẩu" :disabled="isSubmitting" @blur="onBlur('password')" @input="validateField('password')" />
-                <button type="button" class="toggle-pw" @click="showPassword = !showPassword" tabindex="-1">
-                  <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                </button>
+      <div class="container d-flex justify-content-center">
+        <!-- Bootstrap container wrapping the boxed layout -->
+        <div class="auth-box-classic">
+        
+        <!-- LEFT: Editorial Form Column -->
+        <div class="auth-form-column">
+          <div class="auth-form-card">
+            
+            <div class="brand">
+              <div class="brand-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill="#0288d1" d="M2.5 12c0-5.25 4.25-9.5 9.5-9.5s9.5 4.25 9.5 9.5c0 4.14-2.65 7.63-6.38 8.97a1 1 0 0 1-1.25-.66 1 1 0 0 1 .66-1.25 7.5 7.5 0 1 0-10.02 0 1 1 0 0 1-1.25.66A9.46 9.46 0 0 1 2.5 12z"/><path fill="#0cc0df" d="M12 4.5a7.5 7.5 0 0 0-7.39 8.78 1 1 0 0 1-1.94.44A9.5 9.5 0 0 1 21.5 12a9.5 9.5 0 0 1-5.18 8.44 1 1 0 0 1-1.87-.71A7.5 7.5 0 0 0 12 4.5z"/></svg>
               </div>
-              <p v-if="touched.password && fieldErrors.password" class="field-error">{{ fieldErrors.password }}</p>
+              <span class="brand-text">Ocean Store</span>
             </div>
 
-            <!-- Remember + Forgot -->
-            <div class="form-row">
-              <label class="checkbox-label">
-                <input type="checkbox" /> Ghi nhớ đăng nhập
-              </label>
-              <router-link to="/client/forgot" class="forgot-link">Quên mật khẩu?</router-link>
+            <div class="auth-header">
+                <h1 class="auth-title">Welcome back</h1>
+                <p class="auth-subtitle">Vui lòng đăng nhập để tiếp tục khám phá đại dương.</p>
             </div>
 
-            <!-- Cloudflare Turnstile CAPTCHA -->
-            <div class="turnstile-wrapper">
-              <div id="turnstile-login"></div>
-            </div>
+            <form @submit.prevent="login" class="auth-form" novalidate>
+              
+              <!-- Setup Fields -->
+              <div class="form-fields">
+                <!-- Email -->
+                <div class="form-field-item" :class="{ 'has-error': touched.email && fieldErrors.email }">
+                  <div class="input-modern-wrapper">
+                    <span class="icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    </span>
+                    <input id="login-email" type="email" v-model="email" placeholder="Địa chỉ Email" :disabled="isSubmitting" @blur="onBlur('email')" @input="validateField('email')" />
+                  </div>
+                  <p v-if="touched.email && fieldErrors.email" class="field-error">{{ fieldErrors.email }}</p>
+                </div>
 
-            <!-- Submit -->
-            <button type="submit" class="btn-primary" :disabled="isSubmitting || !turnstileToken">
-              <span v-if="isSubmitting" class="spinner"></span>
-              {{ isSubmitting ? 'Đang xử lý...' : 'Đăng nhập' }}
-            </button>
-          </form>
+                <!-- Password -->
+                <div class="form-field-item" :class="{ 'has-error': touched.password && fieldErrors.password }">
+                  <div class="input-modern-wrapper input-password">
+                    <span class="icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    </span>
+                    <input id="login-password" :type="showPassword ? 'text' : 'password'" v-model="password" placeholder="Mật khẩu của bạn" :disabled="isSubmitting" @blur="onBlur('password')" @input="validateField('password')" />
+                    <button type="button" class="toggle-pw" @click="showPassword = !showPassword" tabindex="-1">
+                      <svg v-if="!showPassword" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
+                  </div>
+                  <p v-if="touched.password && fieldErrors.password" class="field-error">{{ fieldErrors.password }}</p>
+                </div>
+              </div>
 
-          <!-- Divider -->
-          <div class="divider"><span>HOẶC</span></div>
+              <!-- Options -->
+              <div class="form-options">
+                <label class="remember-me">
+                    <input type="checkbox" />
+                    <span class="checkmark"></span>
+                    <span>Ghi nhớ đăng nhập</span>
+                </label>
+                <router-link to="/client/forgot" class="recover-link">Quên mật khẩu?</router-link>
+              </div>
 
-          <!-- Social -->
-          <div class="social-buttons">
-            <button class="btn-social" @click="loginWithGoogle" type="button">
-              <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" width="20" height="20" />
-              Google
-            </button>
-            <button class="btn-social" @click="loginWithFacebook" type="button">
-              <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" width="20" height="20" />
-              Facebook
-            </button>
+              <!-- CAPTCHA -->
+              <div class="turnstile-container">
+                 <div class="captcha-box" v-show="!turnstileToken">
+                    <div class="turnstile-wrapper">
+                      <!-- Ensure valid turnstile rendering here -->
+                      <div id="turnstile-login"></div>
+                    </div>
+                 </div>
+                 <div class="captcha-box success" v-if="turnstileToken">
+                    <span class="icon text-success">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    </span>
+                    <span class="captcha-text">Xác thực thành công</span>
+                 </div>
+              </div>
+
+              <!-- Action -->
+              <button type="submit" class="btn-primary" :disabled="!isFormValid || isSubmitting || !turnstileToken">
+                <span v-if="isSubmitting" class="spinner"></span>
+                <span>{{ isSubmitting ? 'ĐANG TIẾN HÀNH...' : 'ĐĂNG NHẬP' }}</span>
+                <svg v-if="!isSubmitting" class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+              </button>
+
+              <div class="divider">
+                  <span>Hoặc tiếp tục bằng</span>
+              </div>
+              
+              <!-- Social -->
+              <div class="social-login-grid">
+                 <button class="btn-social google" @click="loginWithGoogle" type="button">
+                   <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" width="20" height="20" />
+                   Google
+                 </button>
+                 <button class="btn-social facebook" @click="loginWithFacebook" type="button">
+                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877f2" xmlns="http://www.w3.org/2000/svg"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                   Facebook
+                 </button>
+              </div>
+
+              <p class="register-hint">Chưa có tài khoản? <router-link to="/client/register">Tạo tài khoản</router-link></p>
+            </form>
           </div>
+        </div>
 
-          <!-- Register link -->
-          <p class="auth-switch">
-            Chưa có tài khoản?
-            <router-link to="/client/register">Đăng ký ngay</router-link>
-          </p>
+        <!-- RIGHT: Full Coverage Image Tile -->
+        <div class="auth-art-column" style="background-image: url('/images/ocean_bg.png');">
+           <!-- Image acts as cover background instead of floating element -->
+        </div>
+        
         </div>
       </div>
     </main>
@@ -242,47 +284,169 @@ const login = async () => {
 
 <style scoped>
 .page-wrapper { min-height: 100vh; display: flex; flex-direction: column; }
-.auth-main { flex: 1; background: #f5f7fb; display: flex; flex-direction: column; }
-.auth-page { flex: 1; padding: 48px 24px; display: flex; align-items: center; justify-content: center; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-.auth-card { width: 100%; max-width: 440px; background: #fff; border-radius: 16px; padding: 40px 36px 36px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04); }
-.auth-icon { width: 56px; height: 56px; border-radius: 14px; background: #eef2ff; color: #4f6ef7; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
-.auth-title { text-align: center; font-size: 1.5rem; font-weight: 700; color: #1a1a2e; margin-bottom: 28px; }
-.auth-form { display: flex; flex-direction: column; gap: 18px; }
-.form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #333; margin-bottom: 6px; }
-.form-group input { width: 100%; padding: 12px 14px; border: 1.5px solid #e0e4ec; border-radius: 10px; font-size: 0.9rem; font-family: inherit; color: #1a1a2e; background: #f8f9fc; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
-.form-group input:focus { border-color: #4f6ef7; box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.1); background: #fff; }
-.form-group input::placeholder { color: #a0a8c0; }
 
-/* Error state */
-.form-group.has-error input { border-color: #ef4444; }
-.form-group.has-error input:focus { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1); }
-.field-error { font-size: 0.78rem; color: #ef4444; margin-top: 5px; display: flex; align-items: center; gap: 4px; }
+.auth-main {
+    flex: 1;
+    background: #f1f5f9; /* Classic soft background */
+    padding: 60px 0;
+    font-family: var(--font-inter, 'Inter', sans-serif);
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+}
+
+.auth-box-classic {
+    width: 100%;
+    max-width: 1000px;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08); /* Clean boxed shadow */
+    display: flex;
+    overflow: hidden; /* This makes the image cleanly cropped inside the box */
+}
+
+/* LEFT COLUMN - Editorial Form Area */
+.auth-form-column {
+    flex: 1; /* 50% width */
+    padding: 48px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+.auth-form-card {
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+.brand-logo { background: linear-gradient(135deg, #e0f2fe, #bae6fd); padding: 12px; border-radius: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(186, 230, 253, 0.5);}
+.brand-text { color: #0f172a; font-weight: 800; font-size: 1.3rem; letter-spacing: -0.5px; }
+
+.auth-header { margin-bottom: 32px; }
+.auth-title { font-size: 1.8rem; font-weight: 800; color: #020617; margin-bottom: 8px; letter-spacing: -0.5px; }
+.auth-subtitle { color: #64748b; font-size: 0.95rem; line-height: 1.5; font-weight: 500; }
+
+.auth-form { display: flex; flex-direction: column; gap: 18px; }
+.form-fields { display: flex; flex-direction: column; gap: 14px; }
+
+.form-field-item { display: block; width: 100%; position: relative;}
+
+.input-modern-wrapper {
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 0 14px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    height: 48px;
+    width: 100%;
+}
+.input-modern-wrapper:focus-within {
+    background: #ffffff;
+    border-color: #bae6fd;
+    box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.1);
+}
+.form-field-item.has-error .input-modern-wrapper { border-color: #ef4444; }
+
+.input-modern-wrapper input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 0;
+    font-size: 0.95rem;
+    color: #0f172a;
+    outline: none;
+    font-weight: 500;
+    height: 100%;
+    width: 100%;
+}
+.input-modern-wrapper input::placeholder { color: #94a3b8; font-weight: 400; }
+.input-modern-wrapper .icon { color: #94a3b8; display: flex; margin-right: 12px; align-items: center; justify-content: center; }
+.input-modern-wrapper:focus-within .icon { color: #0288d1; }
 
 .input-password { position: relative; }
-.input-password input { padding-right: 44px; }
-.toggle-pw { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #a0a8c0; display: flex; padding: 4px; transition: color 0.2s; }
-.toggle-pw:hover { color: #4f6ef7; }
-.form-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; }
-.checkbox-label { display: flex; align-items: center; gap: 6px; color: #555; cursor: pointer; }
-.checkbox-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: #4f6ef7; cursor: pointer; }
-.forgot-link { color: #4f6ef7; text-decoration: none; font-weight: 500; transition: color 0.2s; }
-.forgot-link:hover { color: #3b5de7; text-decoration: underline; }
+.toggle-pw { 
+    background: none; border: none; cursor: pointer; color: #64748b; font-size: 0.8rem;
+    display: flex; align-items: center; justify-content: center; padding: 4px; transition: color 0.2s; margin-left: 8px;
+}
+.toggle-pw:hover { color: #0288d1; }
 
-.turnstile-wrapper { display: flex; justify-content: center; margin: 4px 0; }
+.field-error { font-size: 0.82rem; color: #ef4444; margin-top: 6px; padding-left: 4px; margin-bottom: 0; display: block;}
 
-.btn-primary { width: 100%; padding: 13px; border: none; border-radius: 10px; background: #4f6ef7; color: #fff; font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
-.btn-primary:hover:not(:disabled) { background: #3b5de7; }
-.btn-primary:active:not(:disabled) { transform: scale(0.98); }
-.btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
-.spinner { width: 18px; height: 18px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.divider { display: flex; align-items: center; gap: 16px; margin: 24px 0; }
-.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e0e4ec; }
-.divider span { font-size: 0.75rem; font-weight: 600; color: #a0a8c0; letter-spacing: 1px; }
-.social-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.btn-social { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; border: 1.5px solid #e0e4ec; border-radius: 10px; background: #fff; font-size: 0.85rem; font-weight: 500; font-family: inherit; color: #333; cursor: pointer; transition: background 0.2s, border-color 0.2s; }
-.btn-social:hover { background: #f5f7fb; border-color: #c8cee0; }
-.auth-switch { text-align: center; font-size: 0.85rem; color: #666; margin-top: 24px; }
-.auth-switch a { color: #4f6ef7; font-weight: 600; text-decoration: underline; transition: color 0.2s; }
-.auth-switch a:hover { color: #3b5de7; }
+.form-options { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
+.remember-me { display: flex; align-items: center; gap: 8px; color: #475569; cursor: pointer; position: relative; font-weight: 500;}
+.remember-me input { position: absolute; opacity: 0; cursor: pointer; }
+.remember-me .checkmark { height: 16px; width: 16px; background-color: #f8fafc; border-radius: 4px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border: 1px solid #cbd5e1; }
+.remember-me:hover input ~ .checkmark { border-color: #0288d1; }
+.remember-me input:checked ~ .checkmark { background-color: #0288d1; border-color: #0288d1; }
+.remember-me input:checked ~ .checkmark:after { content: ""; width: 3px; height: 7px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); display: block; margin-bottom: 2px;}
+
+.recover-link { color: #0288d1; font-weight: 600; text-decoration: none; transition: 0.2s; }
+.recover-link:hover { text-decoration: underline; }
+
+.captcha-box { display: flex; justify-content: flex-start; }
+.captcha-box.success { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px;}
+.captcha-text { color: #15803d; font-weight: 600; font-size: 0.85rem; }
+.text-success { color: #22c55e !important; }
+
+.btn-primary {
+    background: #020617; 
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    width: 100%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+.btn-primary:hover:not(:disabled) { background: #1e293b; transform: translateY(-2px); box-shadow: 0 8px 16px rgba(2, 6, 23, 0.15); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-primary .btn-icon { opacity: 0.7; transition: opacity 0.3s; }
+.btn-primary:hover .btn-icon { opacity: 1; }
+
+.divider { display: flex; align-items: center; margin: 6px 0; }
+.divider::before, .divider::after { content: ""; flex: 1; border-bottom: 1px solid #e2e8f0; }
+.divider span { padding: 0 16px; font-size: 0.8rem; color: #94a3b8; font-weight: 600; }
+
+.social-login-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.btn-social {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 0.85rem;
+    font-weight: 600; cursor: pointer; transition: all 0.2s; background: #ffffff; color: #334155;
+}
+.btn-social:hover { border-color: #cbd5e1; background: #f8fafc; }
+
+.register-hint { text-align: center; font-size: 0.9rem; color: #64748b; margin-top: 4px; font-weight: 500; }
+.register-hint a { color: #0288d1; font-weight: 700; text-decoration: none; position: relative; }
+.register-hint a:hover { text-decoration: underline; }
+
+/* RIGHT COLUMN - Fully covered Image */
+.auth-art-column {
+    flex: 1;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    /* Image fills the entire right column without floating */
+}
+
+@media (max-width: 992px) {
+    .auth-box-classic { flex-direction: column; max-width: 500px; }
+    .auth-art-column { display: none; /* or define a fixed height for mobile, e.g. height: 250px; */ }
+}
+
+@media (max-width: 576px) {
+    .auth-form-column { padding: 32px 24px; }
+}
 </style>
