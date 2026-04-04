@@ -30,6 +30,27 @@ const priceRanges = ref([
 const currentPage = ref(1);
 const totalPages = ref(1);
 
+const visiblePages = computed(() => {
+    const total = totalPages.value;
+    const current = currentPage.value;
+    
+    if (total <= 7) {
+        const pages = [];
+        for (let i = 1; i <= total; i++) pages.push(i);
+        return pages;
+    }
+    
+    if (current <= 4) {
+        return [1, 2, 3, 4, 5, '...', total];
+    }
+    
+    if (current >= total - 3) {
+        return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    }
+    
+    return [1, '...', current - 1, current, current + 1, '...', total];
+});
+
 const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
 
 const getImageUrl = (path) => {
@@ -301,7 +322,10 @@ onMounted(async () => {
                         </div>
                         <div class="pagination" v-if="totalPages > 1">
                             <button class="page-btn" :disabled="currentPage <= 1" @click="prevPage">Trước</button>
-                            <button v-for="page in totalPages" :key="page" class="page-btn" :class="{ 'page-btn--active': page === currentPage }" @click="goToPage(page)">{{ page }}</button>
+                            <template v-for="(item, index) in visiblePages" :key="index">
+                                <span v-if="item === '...'" class="page-dots">...</span>
+                                <button v-else class="page-btn" :class="{ 'page-btn--active': item === currentPage }" @click="goToPage(item)">{{ item }}</button>
+                            </template>
                             <button class="page-btn" :disabled="currentPage >= totalPages" @click="nextPage">Sau</button>
                         </div>
                     </div>
@@ -623,6 +647,12 @@ onMounted(async () => {
     background: var(--ocean-blue, #0288d1) !important;
     color: #fff !important;
     border-color: var(--ocean-blue, #0288d1) !important;
+}
+
+.page-dots {
+    color: #475569;
+    font-weight: 700;
+    padding: 0 4px;
 }
 
 .product-card {

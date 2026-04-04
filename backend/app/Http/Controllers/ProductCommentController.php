@@ -89,7 +89,7 @@ class ProductCommentController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Đánh giá sản phẩm thành công.',
-                'data' => $comment->load('user:user_id,name,avatar_url')
+                'data' => $comment->load('user:user_id,full_name,avatar_url')
             ], 201);
         } catch (Exception $e) {
             DB::rollBack();
