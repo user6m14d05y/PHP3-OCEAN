@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/axios';
+import { useFavorites } from '@/composables/useFavorites';
 const route = useRoute();
 const router = useRouter();
 const slug = route.params.slug;
@@ -12,6 +13,12 @@ const selectedSize = ref(null);
 const addingToCart = ref(false);
 const toast = ref({ show: false, message: '', type: 'success' });
 const showSizeGuide = ref(false);
+
+const { isFavorited, toggleFavorite } = useFavorites();
+const handleToggleFav = async () => {
+    if (!product.value || !product.value.product_id) return;
+    await toggleFavorite(product.value.product_id);
+};
 
 const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
 const getImageUrl = (path) => {
@@ -324,7 +331,16 @@ onMounted(() => {
             <span v-else>Thêm vào giỏ</span>
           </button>
         </div>
-        <button class="btn-primary btn-buyNow">Mua ngay</button>
+        <div class="action-buttons-row">
+          <button class="btn-primary btn-buyNow">Mua ngay</button>
+          <button class="btn-outline btn-hero-fav" 
+                  :class="{'is-active': product && isFavorited(product.product_id)}" 
+                  @click="handleToggleFav" 
+                  title="Yêu thích">
+            <i class="fas fa-heart" v-if="product && isFavorited(product.product_id)"></i>
+            <i class="far fa-heart" v-else></i>
+          </button>
+        </div>
 
         <!-- Tiện ích đi kèm -->
         <div class="service-perks">
@@ -693,12 +709,40 @@ onMounted(() => {
   font-size: 1.05rem;
 }
 .btn-buyNow {
-  width: 100%;
+  flex: 1;
   height: 48px;
   background: var(--text-main, #102a43);
-  margin-bottom: 30px;
 }
 .btn-buyNow:hover { background: #0b1d30; }
+
+.action-buttons-row {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 30px;
+}
+.btn-hero-fav {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 1.25rem;
+  color: #9ca3af;
+  flex-shrink: 0;
+  padding: 0;
+}
+.btn-hero-fav:hover {
+  background: #fdf2f8;
+  color: #db2777;
+  border-color: #fbcfe8;
+}
+.btn-hero-fav.is-active {
+  color: #db2777;
+  border-color: #fbcfe8;
+  background: #fdf2f8;
+}
 
 /* Perks */
 .service-perks {

@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { useFavorites } from '@/composables/useFavorites';
 
 const props = defineProps({
     product: {
@@ -7,6 +8,22 @@ const props = defineProps({
         required: true,
     },
 });
+
+const emit = defineEmits(['unfavorite']);
+const { isFavorited, toggleFavorite } = useFavorites();
+
+const handleToggleFav = async () => {
+    const pId = props.product.id || props.product.product_id;
+    if (!pId) return;
+    
+    // Check old state
+    const wasFavorited = isFavorited(pId);
+    
+    const success = await toggleFavorite(pId);
+    if (success && wasFavorited) {
+        emit('unfavorite', pId); // Notify parent if it was removed
+    }
+};
 
 </script>
 
@@ -41,6 +58,13 @@ const props = defineProps({
                 
                 <!-- Quick Actions (Hover) -->
                 <div class="product-hover-action d-flex align-items-center gap-3">
+                    <button class="btn-icon btn-fav" 
+                            :class="{'is-active': isFavorited(props.product.id || props.product.product_id)}" 
+                            @click.prevent="handleToggleFav" 
+                            title="Yêu thích">
+                        <i class="fas fa-heart" v-if="isFavorited(props.product.id || props.product.product_id)"></i>
+                        <i class="far fa-heart" v-else></i>
+                    </button>
                     <button class="btn-icon btn-cart" title="Xem chi tiết">
                         <i class="fas fa-shopping-bag"></i>
                     </button>
@@ -157,6 +181,21 @@ const props = defineProps({
     background: var(--ocean-blue, #0288d1);
     color: white;
     transform: translateY(-4px) scale(1.05);
+}
+
+.btn-fav {
+    color: #9ca3af;
+}
+
+.btn-fav:hover {
+    background: #fdf2f8;
+    color: #db2777;
+    transform: translateY(-4px) scale(1.05);
+}
+
+.btn-fav.is-active {
+    background: #fdf2f8;
+    color: #db2777;
 }
 
 .product-info {
