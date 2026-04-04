@@ -1,8 +1,90 @@
 <?php
 
+/**
+ * =====================================================================
+ * routes/console.php — Đăng ký Scheduled Tasks (Cron Jobs)
+ * =====================================================================
+ *
+ * File này là nơi đăng ký các command chạy tự động theo lịch.
+ * Laravel Scheduler sẽ kiểm tra file này MỖI PHÚT (qua crontab)
+ * và thực thi các command nào đến giờ chạy.
+ *
+ * CÚ PHÁP:
+ *   Schedule::command('tên-command')->frequency();
+ *
+ * CÁC FREQUENCY PHỔ BIẾN:
+ *   ->everyMinute()      — Mỗi phút
+ *   ->hourly()           — Mỗi giờ (phút 0)
+ *   ->dailyAt('00:00')   — Mỗi ngày lúc 00:00
+ *   ->weekly()           — Mỗi tuần (Chủ nhật 00:00)
+ *   ->monthly()          — Mỗi tháng (ngày 1, 00:00)
+ *
+ * CÁC OPTION BỔ SUNG:
+ *   ->withoutOverlapping()  — Không chạy nếu lần trước chưa xong
+ *   ->onOneServer()         — Chỉ chạy trên 1 server (khi deploy nhiều server)
+ *   ->appendOutputTo(path)  — Ghi output ra file log
+ *
+ * CÁCH HOẠT ĐỘNG VỚI DOCKER:
+ *   Crontab trong container chạy mỗi phút:
+ *   * * * * * cd /var/www && php artisan schedule:run >> /var/www/storage/logs/cron.log 2>&1
+ *   → Laravel sẽ check xem command nào cần chạy tại thời điểm đó → thực thi
+ */
+
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
+// ── Command mặc định của Laravel (có thể xóa) ──
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// =====================================================================
+// ██ SCHEDULED TASKS — CÁC TÁC VỤ TỰ ĐỘNG
+// =====================================================================
+
+/**
+ * ── 1. Chúc mừng sinh nhật ──
+ *
+ * Chạy lúc 00:00 (nửa đêm) mỗi ngày
+ * Quét bảng users, tìm user có sinh nhật hôm nay
+ * → Tạo mã giảm giá + gửi email + notification inbox
+ *
+ * ->dailyAt('00:00')       → chạy 1 lần/ngày lúc 0h
+ * ->withoutOverlapping()   → nếu lần trước chưa chạy xong thì không chạy lại
+ * ->appendOutputTo(...)    → ghi log output ra file để debug
+ */
+Schedule::command('app:send-birthday-wishes')
+    ->dailyAt('00:00')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/scheduler.log'));
+
+/**
+ * ── 2. Nhắc nhở giỏ hàng bỏ quên ──
+ *
+ * [TEST MODE] Chạy mỗi PHÚT để test nhanh (giỏ hàng > 5 phút = bỏ quên)
+ * Production: đổi lại ->hourly() và ABANDONED_MINUTES = 240
+ *
+ * ->everyMinute()           → chạy mỗi phút (TEST)
+ * ->withoutOverlapping()    → tránh chạy chồng chéo
+ * ->appendOutputTo(...)     → ghi log
+ */
+Schedule::command('app:remind-abandoned-cart')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/scheduler.log'));
+
+/**
+ * ── 3. Gửi email xác nhận đơn hàng (nền) ──
+ *
+ * Chạy mỗi phút, quét đơn hàng đã tạo >= 5 phút và chưa gửi email
+ * → Gửi email xác nhận qua SMTP (không chặn response đặt hàng)
+ *
+ * ->everyMinute()           → kiểm tra mỗi phút
+ * ->withoutOverlapping()    → tránh gửi trùng
+ */
+Schedule::command('app:send-order-emails')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/scheduler.log'));
+

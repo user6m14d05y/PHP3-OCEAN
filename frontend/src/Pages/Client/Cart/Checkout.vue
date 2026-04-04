@@ -427,7 +427,7 @@ const placeOrder = async () => {
             // === Flow mặc định (COD, Bank, MoMo) ===
             showToast('Đặt hàng thành công! Vui lòng kiểm tra email.', 'success');
             setTimeout(() => {
-                router.push('/profile/orders');
+                router.push({ name: 'order-success', params: { order_code: res.data.data.order_code } });
             }, 1000);
         }
     } catch (error) {

@@ -28,6 +28,8 @@ class User extends Authenticatable implements JWTSubject
         'password',
         'phone',
         'avatar_url',
+        'date_of_birth',
+        'reward_points',
         'google_id',
         'facebook_id',
         'role',
@@ -53,7 +55,8 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'date_of_birth'     => 'date',
+            'password'          => 'hashed',
         ];
     }
 
@@ -63,6 +66,22 @@ class User extends Authenticatable implements JWTSubject
     public function addresses()
     {
         return $this->hasMany(\App\Models\Address::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Quan hệ: User có 1 Cart (giỏ hàng)
+     */
+    public function cart()
+    {
+        return $this->hasOne(Cart::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Quan hệ: User có nhiều UserCoupon (mã giảm giá đã lưu)
+     */
+    public function userCoupons()
+    {
+        return $this->hasMany(UserCoupon::class, 'user_id', 'user_id');
     }
 
     // ==================== JWT Methods ====================

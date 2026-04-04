@@ -1,3 +1,132 @@
+<script setup>
+import { ref, onMounted } from 'vue';
+import api from '../../axios.js';
+
+const staff = ref([]);
+const loading = ref(true);
+const searchQuery = ref('');
+const isSubmitting = ref(false);
+const formError = ref('');
+const showCreateModal = ref(false);
+const showDeleteModal = ref(false);
+const deletingMember = ref(null);
+const toastVisible = ref(false);
+
+let searchTimer = null;
+let toastTimer = null;
+
+const newStaff = ref({ full_name: '', email: '', password: '', role: 'staff' });
+const toast = ref({ message: '', type: 'success' });
+
+const showToast = (message, type = 'success') => {
+  toast.value = { message, type };
+  toastVisible.value = true;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastVisible.value = false; }, 3000);
+};
+
+const debouncedFetch = () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => fetchStaff(), 500);
+};
+
+const fetchStaff = async () => {
+  try {
+    loading.value = true;
+    const response = await api.get('/admin/sellers', { params: { search: searchQuery.value } });
+    staff.value = response.data.data;
+  } catch (error) {
+    showToast('Lỗi tải danh sách nhân sự!', 'error');
+  } finally {
+    loading.value = false;
+  }
+};
+
+const updateRole = async (adminId, newRole) => {
+  try {
+    const result = await api.put(`/admin/sellers/${adminId}`, { role: newRole });
+    showToast(result.data.message, 'success');
+    fetchStaff();
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Lỗi cập nhật role!', 'error');
+    fetchStaff();
+  }
+};
+
+const openCreateModal = () => {
+  newStaff.value = { full_name: '', email: '', password: '', role: 'staff' };
+  formError.value = '';
+  showCreateModal.value = true;
+};
+
+const createStaff = async () => {
+  if (!newStaff.value.full_name || !newStaff.value.email || !newStaff.value.password) {
+    formError.value = 'Vui lòng nhập đầy đủ Họ tên, Email và Mật khẩu.';
+    return;
+  }
+  if (newStaff.value.password.length < 6) {
+    formError.value = 'Mật khẩu phải có ít nhất 6 ký tự.';
+    return;
+  }
+  formError.value = '';
+  isSubmitting.value = true;
+  try {
+    await api.post('/admin/sellers', newStaff.value);
+    showCreateModal.value = false;
+    showToast('Đã tạo nhân sự mới thành công!', 'success');
+    fetchStaff();
+  } catch (error) {
+    formError.value = error.response?.data?.message || 'Không thể tạo nhân sự.';
+  } finally {
+    isSubmitting.value = false;
+  }
+};
+
+const openDeleteConfirm = (member) => {
+  deletingMember.value = member;
+  showDeleteModal.value = true;
+};
+
+const confirmDelete = async () => {
+  if (!deletingMember.value) return;
+  try {
+    const id = deletingMember.value.user_id || deletingMember.value.admin_id;
+    await api.delete(`/admin/sellers/${id}`);
+    showDeleteModal.value = false;
+    showToast('Đã xóa tài khoản nhân sự thành công!', 'success');
+    fetchStaff();
+  } catch (error) {
+    showDeleteModal.value = false;
+    showToast(error.response?.data?.message || 'Không thể xóa nhân sự.', 'error');
+  }
+};
+
+const toggleStatus = async (member) => {
+  const currentIsActive = member.status === 'active' || member.status === 1;
+  const newStatus = currentIsActive ? 'inactive' : 'active';
+  const prevStatus = member.status; // save state for rollback
+  
+  // Optimistic UI update for immediate response feeling
+  member.status = newStatus;
+  
+  const id = member.user_id || member.admin_id;
+  try {
+    // Assuming backend endpoint defaults to seller or users update
+    await api.put(`/admin/sellers/${id}`, { status: newStatus });
+    showToast(`Tài khoản đã chuyển sang: ${newStatus === 'active' ? 'Hoạt động' : 'Tạm khóa'}`, 'success');
+  } catch (error) {
+    member.status = prevStatus; // Rollback
+    showToast(error.response?.data?.message || 'Lỗi cập nhật trạng thái!', 'error');
+  }
+};
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+onMounted(fetchStaff);
+</script>
 <template>
   <div class="admin-staff animate-in">
     <div class="page-header">
@@ -30,8 +159,8 @@
             <th>ID</th>
             <th>Họ tên</th>
             <th>Email</th>
-            <th>Vai trò</th>
-            <th>Ngày tạo</th>
+            <th>Tham gia</th>
+            <th class="status-th">Trạng thái</th>
             <th class="actions-th">Thao tác</th>
           </tr>
         </thead>
@@ -39,8 +168,8 @@
           <tr v-if="staff.length === 0">
             <td colspan="6" class="empty-cell">Chưa có nhân sự nào.</td>
           </tr>
-          <tr v-for="member in staff" :key="member.admin_id" class="user-row">
-            <td class="id-cell">#{{ member.admin_id }}</td>
+          <tr v-for="member in staff" :key="member.user_id || member.admin_id" class="user-row" :class="{'row-inactive': member.status === 'inactive' || member.status === 0}">
+            <td class="id-cell">#{{ member.user_id || member.admin_id }}</td>
             <td>
               <div class="user-info-cell">
                 <div class="avatar-circle" :class="'avatar-' + member.role">{{ (member.full_name || '?')[0].toUpperCase() }}</div>
@@ -57,10 +186,16 @@
               >
                 <option value="admin">Quản trị viên</option>
                 <option value="staff">Nhân viên</option>
-                <option value="seller">Người bán</option>
+                <option value="seller">Seller (Hệ thống)</option>
               </select>
             </td>
             <td class="date-cell">{{ formatDate(member.created_at) }}</td>
+            <td class="status-cell">
+              <label class="staff-toggle" :title="member.status === 'active' || member.status === 1 ? 'Đang hoạt động' : 'Tạm khóa'">
+                <input type="checkbox" :checked="member.status === 'active' || member.status === 1" @change="toggleStatus(member)" />
+                <span class="staff-slider"></span>
+              </label>
+            </td>
             <td class="actions-cell">
               <button @click="openDeleteConfirm(member)" class="btn-delete" title="Xóa nhân sự">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -166,115 +301,7 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue';
-import api from '../../axios.js';
 
-const staff = ref([]);
-const loading = ref(true);
-const searchQuery = ref('');
-const isSubmitting = ref(false);
-const formError = ref('');
-const showCreateModal = ref(false);
-const showDeleteModal = ref(false);
-const deletingMember = ref(null);
-const toastVisible = ref(false);
-
-let searchTimer = null;
-let toastTimer = null;
-
-const newStaff = ref({ full_name: '', email: '', password: '', role: 'staff' });
-const toast = ref({ message: '', type: 'success' });
-
-const showToast = (message, type = 'success') => {
-  toast.value = { message, type };
-  toastVisible.value = true;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toastVisible.value = false; }, 3000);
-};
-
-const debouncedFetch = () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => fetchStaff(), 500);
-};
-
-const fetchStaff = async () => {
-  try {
-    loading.value = true;
-    const response = await api.get('/admin/staff', { params: { search: searchQuery.value } });
-    staff.value = response.data.data;
-  } catch (error) {
-    showToast('Lỗi tải danh sách nhân sự!', 'error');
-  } finally {
-    loading.value = false;
-  }
-};
-
-const updateRole = async (adminId, newRole) => {
-  try {
-    const result = await api.put(`/admin/staff/${adminId}/role`, { role: newRole });
-    showToast(result.data.message, 'success');
-    fetchStaff();
-  } catch (error) {
-    showToast(error.response?.data?.message || 'Lỗi cập nhật role!', 'error');
-    fetchStaff();
-  }
-};
-
-const openCreateModal = () => {
-  newStaff.value = { full_name: '', email: '', password: '', role: 'staff' };
-  formError.value = '';
-  showCreateModal.value = true;
-};
-
-const createStaff = async () => {
-  if (!newStaff.value.full_name || !newStaff.value.email || !newStaff.value.password) {
-    formError.value = 'Vui lòng nhập đầy đủ Họ tên, Email và Mật khẩu.';
-    return;
-  }
-  if (newStaff.value.password.length < 6) {
-    formError.value = 'Mật khẩu phải có ít nhất 6 ký tự.';
-    return;
-  }
-  formError.value = '';
-  isSubmitting.value = true;
-  try {
-    await api.post('/admin/staff', newStaff.value);
-    showCreateModal.value = false;
-    showToast('Đã tạo nhân sự mới thành công!', 'success');
-    fetchStaff();
-  } catch (error) {
-    formError.value = error.response?.data?.message || 'Không thể tạo nhân sự.';
-  } finally {
-    isSubmitting.value = false;
-  }
-};
-
-const openDeleteConfirm = (member) => {
-  deletingMember.value = member;
-  showDeleteModal.value = true;
-};
-
-const confirmDelete = async () => {
-  if (!deletingMember.value) return;
-  try {
-    await api.delete(`/admin/staff/${deletingMember.value.admin_id}`);
-    showDeleteModal.value = false;
-    showToast('Đã xóa tài khoản nhân sự thành công!', 'success');
-    fetchStaff();
-  } catch (error) {
-    showDeleteModal.value = false;
-    showToast(error.response?.data?.message || 'Không thể xóa nhân sự.', 'error');
-  }
-};
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
-
-onMounted(fetchStaff);
-</script>
 
 <style scoped>
 /* ===== Page Header ===== */
@@ -340,6 +367,26 @@ onMounted(fetchStaff);
 
 .actions-th { text-align: center !important; }
 .actions-cell { text-align: center; }
+.status-th { text-align: center !important; }
+.status-cell { text-align: center; }
+
+/* Switch Toggle CSS */
+.staff-toggle { position: relative; display: inline-block; width: 44px; height: 24px; vertical-align: middle; }
+.staff-toggle input { opacity: 0; width: 0; height: 0; }
+.staff-slider {
+  position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ffcdd2; transition: .3s; border-radius: 24px;
+}
+.staff-slider:before {
+  position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+  background-color: white; transition: .3s; border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.staff-toggle input:checked + .staff-slider { background-color: var(--seafoam, #26a69a); }
+.staff-toggle input:checked + .staff-slider:before { transform: translateX(20px); }
+
+.row-inactive { opacity: 0.6; filter: grayscale(80%); }
+
 .btn-delete {
   background: #ffebee; color: var(--coral); border: 1.5px solid #ffcdd2;
   width: 34px; height: 34px; border-radius: 8px;

@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Log;
 use App\Models\CartItem;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Writer\PngWriter;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\ProductsImport;
+use App\Exports\ProductsTemplateExport;
 
 class ProductController extends Controller
 {
@@ -764,5 +767,59 @@ class ProductController extends Controller
                 'message' => 'Failed to delete: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Import sản phẩm từ file Excel
+     *
+     * === FLOW ===
+     * 1. Validate: file phải là .xlsx hoặc .xls, tối đa 10MB
+     * 2. Gọi ProductsImport để đọc từng dòng và tạo sản phẩm
+     * 3. Trả kết quả: số SP thành công, số lỗi, chi tiết lỗi từng dòng
+     */
+    public function importExcel(Request $request)
+    {
+        $request->validate([
+            'excel_file' => 'required|file|mimes:xlsx,xls|max:10240',
+        ], [
+            'excel_file.required' => 'Vui lòng chọn file Excel.',
+            'excel_file.mimes'    => 'File phải có định dạng .xlsx hoặc .xls.',
+            'excel_file.max'      => 'File không được vượt quá 10MB.',
+        ]);
+
+        try {
+            $import = new ProductsImport();
+            Excel::import($import, $request->file('excel_file'));
+
+            $successCount = $import->getSuccessCount();
+            $errors = $import->getErrors();
+
+            return response()->json([
+                'success'       => true,
+                'message'       => "Import hoàn tất: {$successCount} sản phẩm thành công.",
+                'success_count' => $successCount,
+                'error_count'   => count($errors),
+                'errors'        => $errors,
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error('[ProductImportExcel] ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi import: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Tải file Excel mẫu để người dùng tải về điền dữ liệu
+     *
+     * === FLOW ===
+     * 1. Gọi ProductsTemplateExport → sinh file .xlsx trong memory
+     * 2. Trả về response download (không lưu tạm trên server)
+     */
+    public function downloadTemplate()
+    {
+        return Excel::download(new ProductsTemplateExport(), 'mau_import_san_pham.xlsx');
     }
 }

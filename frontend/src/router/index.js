@@ -15,7 +15,7 @@ const ProductDetail = () => import("../Pages/Client/Home/productDetail.vue");
 const Coupon = () => import("../Pages/Client/Home/Coupon.vue")
 const Cart = () => import("../Pages/Client/Cart/Index.vue")
 const Checkout = () => import("../Pages/Client/Cart/Checkout.vue")
-const PaymentResult = () => import("../Pages/Client/Payment/PaymentResult.vue")
+const OrderSuccess = () => import("../Pages/Client/Cart/OrderSuccess.vue")
 
 // Profile
 const ProfileLayout = () => import("../Pages/Client/Profile/ProfileLayout.vue");
@@ -73,7 +73,7 @@ const routes = [
             { path: "coupon", name: "coupon", component: Coupon, meta: { title: 'Mã giảm giá' } },
             { path: "cart", name: "cart", component: Cart, meta: { requiresAuth: true, title: 'Giỏ hàng' } },
             { path: "checkout", name: "checkout", component: Checkout, meta: { requiresAuth: true, title: 'Thanh toán' } },
-            { path: "payment/result", name: "payment-result", component: PaymentResult, meta: { title: 'Kết quả thanh toán' } },
+            { path: "order-success/:order_code", name: "order-success", component: OrderSuccess, meta: { requiresAuth: true, title: 'Đặt hàng thành công' } },
             // Profile routes (nested layout)
             {
                 path: "profile",
@@ -83,10 +83,10 @@ const routes = [
                     { path: "", name: "profile", component: ProfileInfo },
                     { path: "addresses", name: "profile-addresses", component: ProfileAddress },
                     { path: "address", name: "profile-address", component: Address },
-                    { path: "orders", name: "profile-orders", component: ProfileOrders }, 
+                    { path: "orders", name: "profile-orders", component: ProfileOrders },
                     { path: "orders/:id", name: "profile-order-detail", component: ProfileOrderDetail },
                     { path: "wishlist", name: "profile-wishlist", component: ProfileInfo }, // placeholder
-                    { path: "change-password", name: "profile-change-password", component: ProfileChangePassword }, 
+                    { path: "change-password", name: "profile-change-password", component: ProfileChangePassword },
                     { path: "coupon", name: "profile-coupon", component: ProfileCoupon },
                 ],
             },
@@ -131,49 +131,49 @@ const routes = [
     {
         path: "/admin",
         component: AdminLayout,
-        meta: { requiresAuth: true, roles: ['admin', 'staff'] },
+        meta: { requiresAuth: true, roles: ['admin', 'staff', 'seller'] },
         children: [
             {
                 path: "",
                 name: "admin",
                 component: AdminHome,
-                meta: { title: 'Tổng quan' },
+                meta: { roles: ['admin', 'staff'], title: 'Tổng quan' },
             },
             {
                 path: "product",
                 name: "admin-product",
                 component: AdminProduct,
-                meta: { title: 'Quản lý sản phẩm' },
+                meta: { roles: ['admin', 'staff'], title: 'Quản lý sản phẩm' },
             },
             {
                 path: "product/create",
                 name: "admin-product-create",
                 component: AdminCreateProduct,
-                meta: { title: 'Thêm sản phẩm' },
+                meta: { roles: ['admin', 'staff'], title: 'Thêm sản phẩm' },
             },
             {
                 path: "pos",
                 name: "admin-pos",
                 component: () => import("../Pages/admin/AdminPOS.vue"),
-                meta: { title: 'Bán Hàng Trực Tiếp (POS)' },
+                meta: { roles: ['admin', 'staff', 'seller'], title: 'Bán Hàng Trực Tiếp (POS)' },
             },
             {
                 path: "order",
                 name: "admin-order",
                 component: () => import("../Pages/admin/AdminOrder.vue"),
-                meta: { title: 'Quản lý Đơn hàng' },
+                meta: { roles: ['admin', 'staff', 'seller'], title: 'Quản lý Đơn hàng' },
             },
             {
                 path: "order/:id",
                 name: "admin-order-detail",
                 component: () => import("../Pages/admin/AdminOrderDetail.vue"),
-                meta: { title: 'Chi tiết Đơn hàng' },
+                meta: { roles: ['admin', 'staff', 'seller'], title: 'Chi tiết Đơn hàng' },
             },
             {
                 path: "product/edit/:id",
                 name: "admin-product-edit",
                 component: () => import("../Pages/admin/AdminEditProduct.vue"),
-                meta: { title: 'Sửa sản phẩm' },
+                meta: { roles: ['admin', 'staff'], title: 'Sửa sản phẩm' },
             },
             {
                 path: "users",
@@ -185,7 +185,7 @@ const routes = [
                 path: "category",
                 name: "admin-category",
                 component: AdminCategory,
-                meta: { title: 'Quản lý danh mục' },
+                meta: { roles: ['admin', 'staff'], title: 'Quản lý danh mục' },
             },
             {
                 path: "staff",
@@ -197,7 +197,7 @@ const routes = [
                 path: "contact",
                 name: "admin-contact",
                 component: AdminContact,
-                meta: { title: 'Quản lý liên hệ' },
+                meta: { roles: ['admin', 'staff'], title: 'Quản lý liên hệ' },
             },
             {
                 path: "chat",
@@ -209,43 +209,43 @@ const routes = [
                 path: "coupon",
                 name: "admin-coupon",
                 component: AdminCoupon,
-                meta: { title: 'Quản lý mã giảm giá' },
+                meta: { roles: ['admin', 'staff'], title: 'Quản lý mã giảm giá' },
             },
             {
                 path: "shipping",
                 name: "admin-shipping",
                 component: () => import("../Pages/admin/AdminShipping.vue"),
-                meta: { title: 'Quản lý phí vận chuyển' },
+                meta: { roles: ['admin', 'staff'], title: 'Quản lý phí vận chuyển' },
             },
             {
                 path: "post",
                 name: "admin-post",
                 component: () => import("../Pages/admin/AdminPost.vue"),
-                meta: { title: 'Quản lý bài viết' },
+                meta: { roles: ['admin', 'staff'], title: 'Quản lý bài viết' },
             },
             {
                 path: "post/create",
                 name: "admin-post-create",
                 component: () => import("../Pages/admin/AdminCreatePost.vue"),
-                meta: { title: 'Thêm bài viết' },
+                meta: { roles: ['admin', 'staff'], title: 'Thêm bài viết' },
             },
             {
                 path: "post/edit/:id",
                 name: "admin-post-edit",
                 component: () => import("../Pages/admin/AdminEditPost.vue"),
-                meta: { title: 'Sửa bài viết' },
+                meta: { roles: ['admin', 'staff'], title: 'Sửa bài viết' },
             },
             {
                 path: "post-category",
                 name: "admin-post-category",
                 component: () => import("../Pages/admin/AdminPostCategory.vue"),
-                meta: { title: 'Danh mục bài viết' },
+                meta: { roles: ['admin', 'staff'], title: 'Danh mục bài viết' },
             },
             {
                 path: "post-category/create",
                 name: "admin-post-category-create",
                 component: () => import("../Pages/admin/AdminCreatePostCategory.vue"),
-                meta: { title: 'Thêm danh mục bài viết' },
+                meta: { roles: ['admin', 'staff'], title: 'Thêm danh mục bài viết' },
             },
         ],
     },
@@ -286,6 +286,8 @@ router.beforeEach((to, from) => {
         if (token && user) {
             if (user.role === 'admin' || user.role === 'staff') {
                 return { name: 'admin' };
+            } else if (user.role === 'seller') {
+                return { name: 'admin-pos' };
             }
             return { name: 'home' };
         }
