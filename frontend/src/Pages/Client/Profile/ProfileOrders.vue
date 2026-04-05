@@ -312,13 +312,16 @@ onMounted(() => {
             >
               ↻ Mua lại
             </button>
-            <button
-               v-if="order.fulfillment_status === 'completed' || order.fulfillment_status === 'delivered'"
-               class="btn-action btn-feedback"
-               @click="openFeedback(order)"
-            >
-               ★ Đánh giá
-            </button>
+            <template v-if="order.fulfillment_status === 'completed' || order.fulfillment_status === 'delivered'">
+              <button 
+                v-if="!order.is_reviewed"
+                class="btn-action btn-feedback"
+                @click="openFeedback(order)"
+              >
+                ★ Đánh giá
+              </button>
+              <p v-else class="evaluation-status-text">Bạn đã đánh giá</p>
+            </template>
             <router-link :to="{ name: 'profile-order-detail', params: { id: order.order_id } }" class="btn-action btn-detail mt-2">
               Xem chi tiết
             </router-link>
@@ -583,6 +586,13 @@ onMounted(() => {
 .btn-feedback:hover {
   background: #fef3c7;
   border-color: #fbbf24;
+}
+
+.evaluation-status-text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #16a34a;
+  margin: 4px 0;
 }
 
 .btn-detail {
