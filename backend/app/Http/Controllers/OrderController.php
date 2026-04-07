@@ -45,9 +45,7 @@ class OrderController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
         }
 
-        $query = Order::with(['items.product', 'items.variant' => function ($q) {
-                // để lấy hình ảnh riêng của variant nếu có
-            }])
+        $query = Order::with(['items.product', 'items.variant', 'items.comment'])
             ->where('user_id', $userId)
             ->orderBy('created_at', 'desc');
             
@@ -57,6 +55,14 @@ class OrderController extends Controller
         }
 
         $orders = $query->paginate(10);
+
+        // Thêm flag is_reviewed cho mỗi order
+        $orders->getCollection()->transform(function ($order) {
+            // Một đơn hàng được coi là đã đánh giá nếu CÓ ÍT NHẤT 1 sản phẩm được đánh giá
+            // Hoặc có thể yêu cầu TẤT CẢ sản phẩm được đánh giá tùy theo yêu cầu
+            $order->is_reviewed = $order->items->contains(fn($item) => $item->comment !== null);
+            return $order;
+        });
 
         return response()->json([
             'status' => 'success',

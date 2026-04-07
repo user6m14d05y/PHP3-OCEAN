@@ -247,6 +247,12 @@ const routes = [
                 component: () => import("../Pages/admin/AdminCreatePostCategory.vue"),
                 meta: { title: 'Thêm danh mục bài viết' },
             },
+            {
+                path: "review",
+                name: "admin-review",
+                component: () => import("../Pages/admin/AdminReview.vue"),
+                meta: { title: 'Quản lý đánh giá' },
+            },
         ],
     },
 ];

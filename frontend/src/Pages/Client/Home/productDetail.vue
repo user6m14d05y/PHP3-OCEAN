@@ -17,6 +17,10 @@ const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').r
 const getImageUrl = (path) => {
     if (!path || path === '0') return 'https://placehold.co/600x600?text=No+Image';
     if (path.startsWith('http')) return path;
+    if (path.startsWith('/storage/') || path.startsWith('storage/')) {
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `${BASE_URL}${cleanPath}`;
+    }
     return `${BASE_URL}/storage/${path}`;
 };
 

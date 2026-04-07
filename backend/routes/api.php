@@ -164,6 +164,12 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
     Route::get('/live-chats/{id}', [\App\Http\Controllers\Admin\AdminChatController::class, 'getMessages']);
     Route::post('/live-chats/{id}/reply', [\App\Http\Controllers\Admin\AdminChatController::class, 'replyMessage']);
     Route::post('/live-chats/{id}/close', [\App\Http\Controllers\Admin\AdminChatController::class, 'closeSession']);
+
+    // Quản lý Đánh giá sản phẩm
+    Route::get('/reviews', [ProductCommentController::class, 'adminIndex']);
+    Route::put('/reviews/{id}/approve', [ProductCommentController::class, 'approve']);
+    Route::put('/reviews/{id}/reject', [ProductCommentController::class, 'reject']);
+    Route::delete('/reviews/{id}', [ProductCommentController::class, 'destroy']);
 });
 // Business routes
 // Public resources (Chỉ cho phép GET public, các thao tác khác cần admin)
