@@ -63,14 +63,14 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        // // Verify Cloudflare Turnstile
-        // $turnstileToken = $request->input('turnstile_token');
-        // if (!$this->verifyTurnstile($turnstileToken)) {
-        //     return response()->json([
-        //         'status' => 'error',
-        //         'message' => 'Xác thực CAPTCHA thất bại! Vui lòng thử lại.'
-        //     ], 422);
-        // }
+        // Verify Cloudflare Turnstile
+        $turnstileToken = $request->input('turnstile_token');
+        if (!$this->verifyTurnstile($turnstileToken)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Xác thực CAPTCHA thất bại! Vui lòng thử lại.'
+            ], 422);
+        }
 
         $name = $request->input('full_name') ?? $request->input('name');
         $email = $request->input('email');
@@ -120,13 +120,13 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         // Verify Cloudflare Turnstile
-        $turnstileToken = $request->input('turnstile_token');
-        if (!$this->verifyTurnstile($turnstileToken)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Xác thực CAPTCHA thất bại! Vui lòng thử lại.'
-            ], 422);
-        }
+        // $turnstileToken = $request->input('turnstile_token');
+        // if (!$this->verifyTurnstile($turnstileToken)) {
+        //     return response()->json([
+        //         'status' => 'error',
+        //         'message' => 'Xác thực CAPTCHA thất bại! Vui lòng thử lại.'
+        //     ], 422);
+        // }
 
         $credentials = $request->only('email', 'password');
 

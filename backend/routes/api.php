@@ -23,6 +23,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\ProductCommentController;
+use App\Http\Controllers\FavoriteController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -95,9 +96,13 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{id}', [OrderController::class, 'show']);
     Route::put('/orders/{id}/cancel', [OrderController::class, 'cancel']);
-    
     // Đánh giá sản phẩm
     Route::post('/orders/feedback', [ProductCommentController::class, 'store']);
+
+    // Wishlist (Sản phẩm yêu thích)
+    Route::get('/favorites', [FavoriteController::class, 'index']);
+    Route::get('/favorites/ids', [FavoriteController::class, 'getFavoriteIds']);
+    Route::post('/favorites/toggle', [FavoriteController::class, 'toggle']);
 });
 
 // Cart routes (Protected - cần JWT token user/admin)
