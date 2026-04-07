@@ -250,7 +250,7 @@ watch(() => route.path, () => {
 });
 
 const checkAuth = () => {
-  const userData = localStorage.getItem('user');
+  const userData = sessionStorage.getItem('user');
   if (userData) {
     try {
       const user = JSON.parse(userData);
@@ -292,7 +292,7 @@ const handleLogout = async () => {
   localStorage.removeItem('ocean_live_chat_token');
   sessionStorage.removeItem('ocean_chatbot_messages');
   sessionStorage.removeItem('ocean_chatbot_history');
-  localStorage.removeItem('user');
+  sessionStorage.removeItem('user');
   isLoggedIn.value = false;
   showDropdown.value = false;
 

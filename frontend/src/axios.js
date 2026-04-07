@@ -38,7 +38,7 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       // Xóa token và thông tin user
       localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
       
       // Redirect về trang login (nếu chưa ở trang login)
       if (window.location.pathname !== '/client/login') {

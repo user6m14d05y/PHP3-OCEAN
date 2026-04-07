@@ -21,7 +21,7 @@ class FavoriteController extends Controller
         $favorites = Favorite::with(['product' => function ($query) {
             $query->with(['mainImage', 'lowestPriceVariant']); 
         }])
-        ->where('user_id', $user->user_id)
+        ->where('user_id', $user->getKey())
         ->orderBy('created_at', 'desc')
         ->get();
 
@@ -42,7 +42,7 @@ class FavoriteController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        $ids = Favorite::where('user_id', $user->user_id)
+        $ids = Favorite::where('user_id', $user->getKey())
             ->pluck('product_id');
 
         return response()->json([
@@ -68,7 +68,7 @@ class FavoriteController extends Controller
 
         $productId = $request->product_id;
 
-        $favorite = Favorite::where('user_id', $user->user_id)
+        $favorite = Favorite::where('user_id', $user->getKey())
             ->where('product_id', $productId)
             ->first();
 
@@ -83,7 +83,7 @@ class FavoriteController extends Controller
         } else {
             // Chưa thích -> Thêm
             Favorite::create([
-                'user_id' => $user->user_id,
+                'user_id' => $user->getKey(),
                 'product_id' => $productId,
             ]);
             return response()->json([

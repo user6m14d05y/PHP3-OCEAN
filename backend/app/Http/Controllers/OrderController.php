@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
@@ -146,26 +147,57 @@ class OrderController extends Controller
         if ($request->coupon_applied) {
             $coupon = Coupon::where('code', $request->coupon_applied)
                 ->where('is_active', true)
+                ->where(function ($q) {
+                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
+                })
+                ->where(function ($q) {
+                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
+                })
+                ->where(function ($q) {
+                    $q->whereNull('max_usage')->orWhereColumn('used_count', '<', 'max_usage');
+                })
                 ->first();
 
-            if ($coupon) {
-                // Tính toán giảm giá
-                if ($coupon->type === 'percent') {
-                    $disc = ($subtotal * $coupon->value) / 100;
-                    if ($coupon->max_discount_value) {
-                        $disc = min($disc, $coupon->max_discount_value);
-                    }
-                    $discountAmount = $disc;
-                } elseif ($coupon->type === 'fixed') {
-                    $discountAmount = min($coupon->value, $subtotal);
-                } elseif ($coupon->type === 'free_ship') {
-                    // Xử lý freeship sau ở phần phí vận chuyển
-                }
-                
-                // Thu nhỏ discountAmount sao cho không vượt subtotal
-                $discountAmount = min($discountAmount, $subtotal);
-                $couponId = $coupon->id;
+            if (!$coupon) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Mã giảm giá không hợp lệ, đã hết hạn hoặc đã sử dụng hết.'
+                ], 400);
             }
+
+            // Kiểm tra giá trị đơn hàng tối thiểu
+            if ($coupon->min_order_value && $subtotal < $coupon->min_order_value) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Đơn hàng chưa đạt giá trị tối thiểu ' . number_format($coupon->min_order_value, 0, ',', '.') . 'đ để áp dụng mã giảm giá.'
+                ], 400);
+            }
+
+            // Kiểm tra giới hạn sử dụng của user
+            $userUsage = UserCoupon::where('user_id', $userId)->where('coupon_id', $coupon->id)->first();
+            if ($coupon->usage_per_user && $userUsage && $userUsage->used_count >= $coupon->usage_per_user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Bạn đã sử dụng hết lượt cho mã giảm giá này.'
+                ], 400);
+            }
+
+            // Tính toán giảm giá
+            if ($coupon->type === 'percent') {
+                $disc = ($subtotal * $coupon->value) / 100;
+                if ($coupon->max_discount_value) {
+                    $disc = min($disc, $coupon->max_discount_value);
+                }
+                $discountAmount = $disc;
+            } elseif ($coupon->type === 'fixed') {
+                $discountAmount = min($coupon->value, $subtotal);
+            } elseif ($coupon->type === 'free_ship') {
+                // Xử lý freeship sau ở phần phí vận chuyển
+            }
+
+            // Thu nhỏ discountAmount sao cho không vượt subtotal
+            $discountAmount = min($discountAmount, $subtotal);
+            $couponId = $coupon->id;
         }
 
         // Tính phí vận chuyển động dựa trên ShippingZone
@@ -228,6 +260,54 @@ class OrderController extends Controller
 
         $grandTotal = $subtotal + $shippingFee - $discountAmount;
 
+        // [FIX] Kiểm tra nếu user đã có đơn VNPay/MoMo pending + unpaid (user quay lại từ cổng thanh toán)
+        // → Không tạo đơn mới, mà tạo lại URL thanh toán cho đơn cũ
+        if (in_array($request->payment_method, ['vnpay', 'momo'])) {
+            $existingOrder = Order::where('user_id', $userId)
+                ->where('payment_method', $request->payment_method)
+                ->where('payment_status', 'unpaid')
+                ->where('fulfillment_status', 'pending')
+                ->where('created_at', '>=', now()->subMinutes(30))
+                ->orderByDesc('created_at')
+                ->first();
+
+            if ($existingOrder) {
+                // Tạo lại URL thanh toán cho đơn hàng cũ
+                try {
+                    if ($request->payment_method === 'vnpay') {
+                        $ipAddr = $request->ip();
+                        $paymentUrl = VNPayService::createPaymentUrl($existingOrder, $ipAddr);
+                        return response()->json([
+                            'status' => 'success',
+                            'message' => 'Bạn đã có đơn hàng ' . $existingOrder->order_code . ' đang chờ thanh toán. Đang chuyển đến cổng thanh toán...',
+                            'payment_method' => 'vnpay',
+                            'vnpay_url' => $paymentUrl,
+                            'data' => [
+                                'order_code' => $existingOrder->order_code,
+                                'grand_total' => $existingOrder->grand_total,
+                            ]
+                        ]);
+                    }
+                    if ($request->payment_method === 'momo') {
+                        $momoUrl = \App\Services\MoMoService::createPaymentUrl($existingOrder);
+                        return response()->json([
+                            'status' => 'success',
+                            'message' => 'Bạn đã có đơn hàng ' . $existingOrder->order_code . ' đang chờ thanh toán.',
+                            'payment_method' => 'momo',
+                            'momo_url' => $momoUrl,
+                            'data' => [
+                                'order_code' => $existingOrder->order_code,
+                                'grand_total' => $existingOrder->grand_total,
+                            ]
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Retry payment URL failed: ' . $e->getMessage());
+                    // Nếu tạo URL lỗi → cho phép tạo đơn mới (fallthrough)
+                }
+            }
+        }
+
         // Bắt đầu transaction
         DB::beginTransaction();
         try {
@@ -241,7 +321,7 @@ class OrderController extends Controller
 
             // Tạo order
             $order = Order::create([
-                'order_code' => 'ORD' . strtoupper(uniqid()) . rand(10, 99),
+                'order_code' => 'ORD' . now()->format('ymdHis') . strtoupper(Str::random(6)),
                 'user_id' => $userId,
                 'address_id' => $address->address_id,
                 'promotion_id' => $couponId,
@@ -302,8 +382,18 @@ class OrderController extends Controller
                 }
             }
 
-            // Xóa các sản phẩm đã chọn khỏi giỏ
-            CartItem::whereIn('cart_item_id', $cartItems->pluck('cart_item_id'))->delete();
+            // Lưu danh sách cart_item_id để xóa (xóa ngay cho COD/Bank, xóa sau cho VNPay/MoMo)
+            $cartItemIds = $cartItems->pluck('cart_item_id');
+
+            // Với thanh toán online (VNPay, MoMo): KHÔNG xóa cart items ngay
+            // Chỉ xóa khi payment thành công (trong IPN/Return callback)
+            // Điều này giúp user quay lại trang checkout mà giỏ hàng vẫn còn
+            $isOnlinePayment = in_array($request->payment_method, ['vnpay', 'momo']);
+
+            if (!$isOnlinePayment) {
+                // COD / Bank Transfer: xóa cart items ngay
+                CartItem::whereIn('cart_item_id', $cartItemIds)->delete();
+            }
 
             // ==================== XỬ LÝ VNPAY ====================
             // [FIX P1] Di chuyển VNPay logic vào TRƯỚC DB::commit()
@@ -515,8 +605,8 @@ class OrderController extends Controller
             $user = auth('api')->user() ?? auth('admin')->user();
             if (!$user || empty($user->email)) return false;
 
-            $emailUser = env('EMAIL_USER');
-            $emailPass = env('EMAIL_PASS');
+            $emailUser = config('services.email.username', config('mail.mailers.smtp.username'));
+            $emailPass = config('services.email.password', config('mail.mailers.smtp.password'));
 
             if (!$emailUser || !$emailPass) {
                 Log::warning('Skip sending email as EMAIL_USER missing.');
@@ -586,7 +676,7 @@ class OrderController extends Controller
                         <p><strong>Phương thức TT:</strong> ' . strtoupper($order->payment_method) . '</p>
 
                         <div style="text-align: center; margin-top: 30px;">
-                            <a href="http://localhost:3302/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lịch sử đơn hàng</a>
+                            <a href="' . config('app.frontend_url', 'http://localhost:3302') . '/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lịch sử đơn hàng</a>
                         </div>
                     </div>
                 </div>

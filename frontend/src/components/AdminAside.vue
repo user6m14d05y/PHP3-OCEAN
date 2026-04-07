@@ -148,7 +148,7 @@ const isStoreMenuOpen = ref(true); // Mặc định mở theo ảnh mẫu
 
 
 onMounted(() => {
-  const userData = localStorage.getItem('user');
+  const userData = sessionStorage.getItem('user');
   if (userData) {
     try {
       const user = JSON.parse(userData);
@@ -172,7 +172,7 @@ onMounted(() => {
 const handleLogout = () => {
   if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
     localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
     router.push('/client/login');
   }
 };

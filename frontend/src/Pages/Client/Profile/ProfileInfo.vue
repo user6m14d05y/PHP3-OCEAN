@@ -242,7 +242,7 @@ const updateProfile = async () => {
     setTimeout(() => globalSuccess.value = '', 4000);
 
     syncUser(res.data.data);
-    localStorage.setItem('user', JSON.stringify(res.data.data));
+    sessionStorage.setItem('user', JSON.stringify(res.data.data));
     window.dispatchEvent(new Event('user-updated'));
 
     avatarFile.value   = null;
@@ -261,7 +261,7 @@ const updateProfile = async () => {
 
 onMounted(async () => {
   // Hiện data từ localStorage ngay (không chờ API)
-  const cached = localStorage.getItem('user');
+  const cached = sessionStorage.getItem('user');
   if (cached) {
     try { syncUser(JSON.parse(cached)); } catch (_) {}
   }
@@ -272,7 +272,7 @@ onMounted(async () => {
     const userData = res.data?.user || res.data;
     if (userData) {
       syncUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
+      sessionStorage.setItem('user', JSON.stringify(userData));
     }
   } catch (e) {
     console.error('Lỗi tải thông tin user:', e);

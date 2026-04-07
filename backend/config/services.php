@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    // Custom SMTP credentials cho gửi email đơn hàng
+    'email' => [
+        'username' => env('EMAIL_USER'),
+        'password' => env('EMAIL_PASS'),
+    ],
+
 ];
