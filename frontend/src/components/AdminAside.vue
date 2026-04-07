@@ -76,10 +76,6 @@
             <span class="submenu-dot"></span>
             <span>Khách hàng</span>
           </router-link>
-          <router-link to="/admin/shipping" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Phí vận chuyển</span>
-          </router-link>
           <router-link to="/admin/coupon" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
             <span>Mã giảm giá</span>

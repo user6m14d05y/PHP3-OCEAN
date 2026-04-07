@@ -101,10 +101,10 @@ const login = async () => {
 
   if (fieldErrors.email || fieldErrors.password) return;
 
-  if (!turnstileToken.value) {
-    showToast('Vui lòng xác thực CAPTCHA', 'danger');
-    return;
-  }
+  // if (!turnstileToken.value) {
+  //   showToast('Vui lòng xác thực CAPTCHA', 'danger');
+  //   return;
+  // }
 
   isSubmitting.value = true;
   try {
@@ -196,7 +196,7 @@ const login = async () => {
             </div>
 
             <!-- Submit -->
-            <button type="submit" class="btn-primary" :disabled="isSubmitting || !turnstileToken">
+            <button type="submit" class="btn-primary" :disabled="isSubmitting">
               <span v-if="isSubmitting" class="spinner"></span>
               {{ isSubmitting ? 'Đang xử lý...' : 'Đăng nhập' }}
             </button>
