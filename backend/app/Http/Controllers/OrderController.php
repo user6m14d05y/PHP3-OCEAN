@@ -349,7 +349,45 @@ class OrderController extends Controller
                 ]);
             }
 
-            // ==================== FLOW MẶC ĐỊNH (COD, Bank, MoMo) ====================
+            // ==================== XỬ LÝ MOMO ====================
+            if ($request->payment_method === 'momo') {
+                Payment::create([
+                    'order_id' => $order->order_id,
+                    'payment_method' => 'momo',
+                    'amount' => $order->grand_total,
+                    'status' => 'pending',
+                ]);
+
+                try {
+                    $momoUrl = \App\Services\MoMoService::createPaymentUrl($order);
+                } catch (\Exception $e) {
+                    Log::error('MoMo URL generation failed: ' . $e->getMessage());
+                    DB::commit();
+                    return response()->json([
+                        'status' => 'warning',
+                        'message' => 'Đơn hàng đã tạo nhưng không thể kết nối MoMo. Vui lòng thử thanh toán lại sau.',
+                        'data' => [
+                            'order_code' => $order->order_code,
+                            'grand_total' => $order->grand_total
+                        ]
+                    ]);
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Đơn hàng đã tạo. Đang chuyển đến cổng thanh toán MoMo...',
+                    'payment_method' => 'momo',
+                    'momo_url' => $momoUrl,
+                    'data' => [
+                        'order_code' => $order->order_code,
+                        'grand_total' => $order->grand_total
+                    ]
+                ]);
+            }
+
+            // ==================== FLOW MẶC ĐỊNH (COD, Bank) ====================
             DB::commit();
             // Fire realtime event for admin (bọc try-catch để tránh treo thanh toán nếu websocket lỗi)
             try {

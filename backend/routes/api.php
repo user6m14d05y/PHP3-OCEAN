@@ -23,6 +23,7 @@ use App\Http\Controllers\PostController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PosController;
+use App\Http\Controllers\FavoriteController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -95,6 +96,11 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{id}', [OrderController::class, 'show']);
     Route::put('/orders/{id}/cancel', [OrderController::class, 'cancel']);
+
+    // Wishlist (Sản phẩm yêu thích)
+    Route::get('/favorites', [FavoriteController::class, 'index']);
+    Route::get('/favorites/ids', [FavoriteController::class, 'getFavoriteIds']);
+    Route::post('/favorites/toggle', [FavoriteController::class, 'toggle']);
 });
 
 // Cart routes (Protected - cần JWT token user/admin)
@@ -212,3 +218,6 @@ Route::post('/live-chat/message', [\App\Http\Controllers\ChatController::class, 
 // VNPay Payment Gateway (Public — VNPay redirect về đây, rate limiting chống brute-force)
 Route::middleware('throttle:30,1')->get('/payment/vnpay-return', [\App\Http\Controllers\VNPayController::class, 'vnpayReturn']);
 
+// MoMo Payment Gateway
+Route::middleware('throttle:30,1')->get('/payment/momo-return', [\App\Http\Controllers\MoMoController::class, 'momoReturn']);
+Route::post('/payment/momo-ipn', [\App\Http\Controllers\MoMoController::class, 'momoIpn']);
