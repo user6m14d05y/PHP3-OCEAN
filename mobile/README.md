@@ -2,6 +2,12 @@
 
 A new Flutter project.
 
+## Run project
+
+flutter run -d windows if have visua studio
+fluuter run -d chrome use chrome
+
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

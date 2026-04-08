@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'productDetail.dart';
 import 'package:http/http.dart' as http;
 
 // ========== BƯỚC 1: ĐỔI IP theo môi trường đang test ==========
@@ -22,18 +23,30 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> products = [];    // danh sách sản phẩm
   bool isLoading = true;          // đang tải hay không
   String? errorMessage;           // thông báo lỗi nếu có
+  int CurrentPage = 1 ;
+  bool isFetchingMore = false;
+  bool hasMore = true;
+  String search = '';
+  final ScrollController _scrollController = ScrollController();
 
   // ===== GỌI API =====
-  Future<void> fetchProducts() async {
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
-    });
+  Future<void> fetchProducts({bool isLoadMore = false}) async {
+    if (isLoadMore) {
+      setState(() => isFetchingMore = true);
+    } else {
+      setState(() {
+        isLoading = true;
+        errorMessage = null;
+        hasMore = true;
+        products.clear();
+      });
+    }
 
     try {
+      final url = '$kBaseUrl/products?page=$CurrentPage&search=$search';
       // Gọi API: GET /api/products
       final response = await http.get(
-        Uri.parse('$kBaseUrl/products'),
+        Uri.parse(url),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -42,28 +55,39 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-
+        List<dynamic> fetchedProducts = [];
+        if(data is List){
+          fetchedProducts = data;
+        hasMore = false;
+        }else if(data['data'] is List){ 
+          fetchedProducts = data['data'];
+          int lastPage = data['last_page'] ?? 1;
+          if(CurrentPage >= lastPage){
+            hasMore = false;
+          }
+        }
         // API trả về dạng { data: [...] } hoặc [{...}, {...}]
         setState(() {
-          if (data is List) {
-            products = data;
-          } else if (data['data'] is List) {
-            products = data['data'];
-          } else {
-            products = [];
+          if(isLoadMore){
+            products.addAll(fetchedProducts);
+            isFetchingMore = false;
+          }else {
+            products = fetchedProducts;
+            isLoading = false;
           }
-          isLoading = false;
         });
       } else {
         setState(() {
           errorMessage = 'Lỗi server: ${response.statusCode}';
           isLoading = false;
+          isFetchingMore = false;
         });
       }
     } catch (e) {
       setState(() {
         errorMessage = 'Không kết nối được API!\n\nKiểm tra:\n1. kBaseUrl có đúng chưa?\n2. Server có đang chạy không?\n\nLỗi: $e';
         isLoading = false;
+        isFetchingMore = false;
       });
     }
   }
@@ -72,6 +96,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     fetchProducts(); // Gọi API ngay khi mở màn hình
+
+    _scrollController.addListener(() {
+      if(_scrollController.position.pixels >= _scrollController.position.maxScrollExtent){
+        if(!isLoading && !isFetchingMore && hasMore){
+          CurrentPage++;
+          fetchProducts(isLoadMore: true);
+        }
+      }
+    });
   }
 
   // ===== BUILD UI =====
@@ -87,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Nút reload
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: fetchProducts,
+            onPressed: () => fetchProducts(), 
             tooltip: 'Tải lại',
           ),
         ],
@@ -98,99 +131,121 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBody() {
-    // Đang tải → hiện vòng xoay
-    if (isLoading) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: Color(0xFF0EA5E9)),
-            SizedBox(height: 16),
-            Text('Đang tải sản phẩm...'),
-          ],
-        ),
-      );
-    }
-
-    // Có lỗi → hiện thông báo + nút thử lại
-    if (errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.wifi_off, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              Text(
-                errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: fetchProducts,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Thử lại'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0EA5E9),
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Không có sản phẩm
-    if (products.isEmpty) {
-      return const Center(child: Text('Không có sản phẩm nào'));
-    }
-
-    // Có data → hiện danh sách
+    Widget _buildBody() {
     return Column(
       children: [
-        // Thống kê nhỏ
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          color: const Color(0xFFE0F2FE),
-          child: Row(
-            children: [
-              const Icon(Icons.inventory_2, size: 16, color: Color(0xFF0EA5E9)),
-              const SizedBox(width: 6),
-              Text(
-                'Tổng ${products.length} sản phẩm',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF0369A1),
-                ),
+        // 1. THANH TÌM KIẾM (LUÔN LUÔN HIỆN MẶC KỆ Ở DƯỚI CÓ LOADING)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Bạn muốn tìm gì?',
+              prefixIcon: const Icon(Icons.search, color: Color(0xFF0EA5E9)),
+              contentPadding: const EdgeInsets.all(0),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30.0),
               ),
-            ],
+            ),
+            onChanged: (text) {
+              search = text; // Lưu chữ
+              fetchProducts(isLoadMore: false); // Chạy API lấy trang 1
+            },
           ),
         ),
 
-        // Danh sách sản phẩm dạng lưới
+        // 2. PHẦN KHU VỰC HIỂN THỊ CHÍNH (Được bảo vệ bằng Expanded)
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(20),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,        // 2 cột
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.72,   // tỷ lệ chiều cao/rộng
-            ),
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final product = products[index];
-              return _buildProductCard(product);
-            },
-          ),
+          child: Builder(builder: (context) {
+            // Đang tải mới -> Hiện vòng xoay
+            if (isLoading) {
+              return const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Color(0xFF0EA5E9)),
+                    SizedBox(height: 16),
+                    Text('Đang tải sản phẩm...'),
+                  ],
+                ),
+              );
+            }
+
+            // Có lỗi -> Hiện thông báo Wifi Off
+            if (errorMessage != null) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.wifi_off, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(errorMessage!, style: const TextStyle(color: Colors.red)),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => fetchProducts(),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Thử lại'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Không tìm thấy sản phẩm
+            if (products.isEmpty) {
+              return const Center(child: Text('Không có sản phẩm nào phù hợp'));
+            }
+
+            // Trả về đúng cái Cột Thống Kê + Lưới GridView
+            return Column(
+              children: [
+                // Thống kê đếm số
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  color: const Color(0xFFE0F2FE),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.inventory_2, size: 16, color: Color(0xFF0EA5E9)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Tìm thấy ${products.length} sản phẩm',
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0369A1)),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Mạng lưới GridView
+                Expanded(
+                  child: GridView.builder(
+                    controller: _scrollController, // Quan trọng: Có để vuốt trang
+                    padding: const EdgeInsets.all(20),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 0.65,
+                    ),
+                    itemCount: products.length,
+                    itemBuilder: (context, index) {
+                      return _buildProductCard(products[index]);
+                    },
+                  ),
+                ),
+
+                // Vòng xoay mini ở đáy khi load thêm trang 2, 3
+                if (isFetchingMore)
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: CircularProgressIndicator(color: Color(0xFF0EA5E9)),
+                  ),
+              ],
+            );
+          }),
         ),
       ],
     );
   }
+
 
   // ===== CARD SẢN PHẨM =====
   Widget _buildProductCard(Map<String, dynamic> product) {
@@ -216,10 +271,20 @@ class _HomeScreenState extends State<HomeScreen> {
     final rating = product['average_rating'] ?? 0;
 
     return Card(
-      elevation: 2,
+      elevation: 5,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Column(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+      // Click vao cat
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailScreen(product: product),
+            ),
+          );
+        },
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Hình ảnh sản phẩm
@@ -277,6 +342,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
