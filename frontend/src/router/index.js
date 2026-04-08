@@ -250,6 +250,12 @@ const routes = [
                 component: () => import("../Pages/admin/AdminCreatePostCategory.vue"),
                 meta: { roles: ['admin', 'staff'], title: 'Thêm danh mục bài viết' },
             },
+            {
+                path: "review",
+                name: "admin-review",
+                component: () => import("../Pages/admin/AdminReview.vue"),
+                meta: { title: 'Quản lý đánh giá' },
+            },
         ],
     },
 ];
