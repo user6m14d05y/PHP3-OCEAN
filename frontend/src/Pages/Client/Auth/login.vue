@@ -16,8 +16,8 @@ const turnstileToken = ref('');
 let turnstileWidgetId = null;
 
 const isFormValid = computed(() => {
-  return email.value.trim() !== '' && 
-         password.value.trim() !== '' && 
+  return email.value.trim() !== '' &&
+         password.value.trim() !== '' &&
          !fieldErrors.email && !fieldErrors.password;
 });
 
@@ -107,10 +107,10 @@ const login = async () => {
 
   if (fieldErrors.email || fieldErrors.password) return;
 
-  if (!turnstileToken.value) {
-    showToast('Vui lòng xác thực CAPTCHA', 'danger');
-    return;
-  }
+  // if (!turnstileToken.value) {
+  //   showToast('Vui lòng xác thực CAPTCHA', 'danger');
+  //   return;
+  // }
 
   isSubmitting.value = true;
   try {
@@ -157,11 +157,11 @@ const login = async () => {
       <div class="container d-flex justify-content-center">
         <!-- Bootstrap container wrapping the boxed layout -->
         <div class="auth-box-classic">
-        
+
         <!-- LEFT: Editorial Form Column -->
         <div class="auth-form-column">
           <div class="auth-form-card">
-            
+
             <div class="brand">
               <div class="brand-logo">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path fill="#0288d1" d="M2.5 12c0-5.25 4.25-9.5 9.5-9.5s9.5 4.25 9.5 9.5c0 4.14-2.65 7.63-6.38 8.97a1 1 0 0 1-1.25-.66 1 1 0 0 1 .66-1.25 7.5 7.5 0 1 0-10.02 0 1 1 0 0 1-1.25.66A9.46 9.46 0 0 1 2.5 12z"/><path fill="#0cc0df" d="M12 4.5a7.5 7.5 0 0 0-7.39 8.78 1 1 0 0 1-1.94.44A9.5 9.5 0 0 1 21.5 12a9.5 9.5 0 0 1-5.18 8.44 1 1 0 0 1-1.87-.71A7.5 7.5 0 0 0 12 4.5z"/></svg>
@@ -175,7 +175,7 @@ const login = async () => {
             </div>
 
             <form @submit.prevent="login" class="auth-form" novalidate>
-              
+
               <!-- Setup Fields -->
               <div class="form-fields">
                 <!-- Email -->
@@ -188,7 +188,6 @@ const login = async () => {
                   </div>
                   <p v-if="touched.email && fieldErrors.email" class="field-error">{{ fieldErrors.email }}</p>
                 </div>
-
                 <!-- Password -->
                 <div class="form-field-item" :class="{ 'has-error': touched.password && fieldErrors.password }">
                   <div class="input-modern-wrapper input-password">
@@ -204,6 +203,13 @@ const login = async () => {
                   <p v-if="touched.password && fieldErrors.password" class="field-error">{{ fieldErrors.password }}</p>
                 </div>
               </div>
+            <!-- Submit -->
+            <button type="submit" class="btn-primary" :disabled="isSubmitting">
+              <span v-if="isSubmitting" class="spinner"></span>
+              {{ isSubmitting ? 'Đang xử lý...' : 'Đăng nhập' }}
+            </button>
+          </form>
+
 
               <!-- Options -->
               <div class="form-options">
@@ -241,7 +247,7 @@ const login = async () => {
               <div class="divider">
                   <span>Hoặc tiếp tục bằng</span>
               </div>
-              
+
               <!-- Social -->
               <div class="social-login-grid">
                  <button class="btn-social google" @click="loginWithGoogle" type="button">
@@ -263,7 +269,7 @@ const login = async () => {
         <div class="auth-art-column" style="background-image: url('/images/ocean_bg.png');">
            <!-- Image acts as cover background instead of floating element -->
         </div>
-        
+
         </div>
       </div>
     </main>
@@ -370,7 +376,7 @@ const login = async () => {
 .input-modern-wrapper:focus-within .icon { color: #0288d1; }
 
 .input-password { position: relative; }
-.toggle-pw { 
+.toggle-pw {
     background: none; border: none; cursor: pointer; color: #64748b; font-size: 0.8rem;
     display: flex; align-items: center; justify-content: center; padding: 4px; transition: color 0.2s; margin-left: 8px;
 }
@@ -395,7 +401,7 @@ const login = async () => {
 .text-success { color: #22c55e !important; }
 
 .btn-primary {
-    background: #020617; 
+    background: #020617;
     color: white;
     border: none;
     border-radius: 10px;

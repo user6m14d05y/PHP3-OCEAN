@@ -215,12 +215,6 @@ const routes = [
                 meta: { roles: ['admin', 'staff'], title: 'Quản lý mã giảm giá' },
             },
             {
-                path: "shipping",
-                name: "admin-shipping",
-                component: () => import("../Pages/admin/AdminShipping.vue"),
-                meta: { roles: ['admin', 'staff'], title: 'Quản lý phí vận chuyển' },
-            },
-            {
                 path: "post",
                 name: "admin-post",
                 component: () => import("../Pages/admin/AdminPost.vue"),
