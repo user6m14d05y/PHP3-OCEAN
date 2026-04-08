@@ -103,6 +103,15 @@
         </div>
       </transition>
 
+       <router-link to="/admin/chat" class="nav-item" active-class="nav-item--active">
+        <div class="nav-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <span>Tin nhắn</span>
+      </router-link>
+
       <router-link v-if="userRoleRaw !== 'seller'" to="/admin/contact" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

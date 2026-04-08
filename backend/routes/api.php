@@ -131,6 +131,7 @@ Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
 
 // Nhóm các route yêu cầu quyền admin/staff (hỗ trợ cả guard api và admin)
 Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->group(function () {
+    Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
 
     // Quản lý Khách hàng (bảng users)
     Route::get('/users', [AdminUserController::class, 'index']);
