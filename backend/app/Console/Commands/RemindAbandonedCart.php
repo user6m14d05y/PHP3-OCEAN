@@ -38,7 +38,7 @@ class RemindAbandonedCart extends Command
      * Số PHÚT giỏ hàng không tương tác để coi là "bỏ quên"
      * TEST: 5 phút | Production: đổi thành 240 (= 4 tiếng)
      */
-    const ABANDONED_MINUTES = 5;
+    const ABANDONED_MINUTES = 1;
 
     /**
      * Số PHÚT giữa 2 lần gửi thông báo (tránh spam)
@@ -55,7 +55,6 @@ class RemindAbandonedCart extends Command
         $this->info("  Threshold: items updated trước {$abandonedThreshold->format('H:i:s')} → bỏ quên");
 
         // ─── Bước 2: Query giỏ hàng bỏ quên ───
-        // LOGIC MỚI (FIX BUG):
         // - Lấy tất cả cart active có items
         // - JOIN subquery: tìm MAX(updated_at) của cart_items cho mỗi cart
         // - Nếu MAX(updated_at) < threshold → toàn bộ giỏ hàng đã lâu không tương tác
@@ -107,7 +106,7 @@ class RemindAbandonedCart extends Command
                     ->where('notifiable_type', User::class)
                     ->where('notifiable_id', $user->user_id)
                     ->where('type', AbandonedCartNotification::class)
-                    ->where('created_at', '>', Carbon::now()->subMinutes(self::COOLDOWN_MINUTES))
+                    ->where('created_at', '>', Carbon::now()->subMinutes(self::ABANDONED_MINUTES))
                     ->exists();
 
                 if ($alreadyNotifiedForThisCart || $recentNotification) {

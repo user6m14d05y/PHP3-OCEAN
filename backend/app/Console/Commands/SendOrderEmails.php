@@ -43,7 +43,7 @@ class SendOrderEmails extends Command
      * Số phút chờ sau khi đặt hàng trước khi gửi email
      * (5 phút để đảm bảo đơn hàng đã ổn định, user không hủy ngay)
      */
-    const DELAY_MINUTES = 5;
+    const DELAY_MINUTES = 1;
 
     public function handle(): int
     {
