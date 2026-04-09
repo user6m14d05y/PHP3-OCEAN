@@ -1,0 +1,584 @@
+================================================================================
+ GIẢI THÍCH LUỒNG HOẠT ĐỘNG - CRON JOB (SCHEDULER) OCEAN SHOP
+ Ngày tạo: 2026-04-02
+================================================================================
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ MỤC LỤC                                                                     ║
+║ 1. Tổng quan kiến trúc                                                       ║
+║ 2. Cách Docker chạy Cron Job                                                 ║
+║ 3. Laravel Scheduler hoạt động như thế nào                                   ║
+║ 4. Tính năng 1: Chúc mừng sinh nhật                                         ║
+║ 5. Tính năng 2: Nhắc nhở giỏ hàng bỏ quên                                  ║
+║ 6. Tính năng 3: Gửi email xác nhận đơn hàng (Nền)                            ║
+║ 7. Hệ thống Notification (Mail + Inbox)                                      ║
+║ 8. API Endpoints                                                             ║
+║ 9. Danh sách files đã tạo/sửa                                               ║
+║ 10. Cách test thủ công                                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+================================================================================
+1. TỔNG QUAN KIẾN TRÚC
+================================================================================
+
+  ┌─────────────────┐
+  │   Docker         │
+  │   Container      │
+  │  ocean_backend   │
+  │                  │         ┌──────────────────────┐
+  │  ┌────────────┐  │         │     Gmail SMTP       │
+  │  │ Cron Daemon│──┼── mỗi ──│  (gửi email thật)    │
+  │  │ (mỗi phút) │  │  phút   └──────────────────────┘
+  │  └─────┬──────┘  │
+  │        │         │
+  │        ▼         │
+  │  php artisan     │
+  │  schedule:run    │         ┌──────────────────────┐
+  │        │         │         │    MySQL Database     │
+  │   ┌────┴────┐    │         │  - users              │
+  │   │         │    ├────────►│  - notifications      │
+  │   ▼         ▼    │         │  - coupons            │
+  │ 00:00    hourly  │         │  - user_coupons       │
+  │ Birthday  Cart   │         │  - carts / cart_items │
+  │ Wishes   Remind  │         └──────────────────────┘
+  │                  │
+  │  ┌────────────┐  │
+  │  │ PHP-FPM    │  │◄──── API requests từ Frontend
+  │  └────────────┘  │
+  └─────────────────┘
+
+
+================================================================================
+2. CÁCH DOCKER CHẠY CRON JOB
+================================================================================
+
+Vấn đề: Docker container mặc định KHÔNG có cron daemon.
+Giải pháp: Cài đặt cron trong Dockerfile + cấu hình crontab trong entrypoint.
+
+── File: backend/Dockerfile ──
+Thêm package "cron" vào apt-get install:
+    RUN apt-get update && apt-get install -y ... cron ...
+
+── File: backend/docker-entrypoint.sh ──
+Bước 7 (mới thêm): Tạo crontab + khởi động cron daemon
+
+    # Dòng này tạo crontab entry:
+    echo "* * * * * cd /var/www && php artisan schedule:run >> /var/www/storage/logs/cron.log 2>&1" | crontab -
+
+    # Giải thích cú pháp cron:
+    # ┌────── phút (0-59)         → * = mỗi phút
+    # │ ┌──── giờ (0-23)          → * = mỗi giờ
+    # │ │ ┌── ngày trong tháng    → * = mỗi ngày
+    # │ │ │ ┌ tháng (1-12)        → * = mỗi tháng
+    # │ │ │ │ ┌ ngày trong tuần   → * = mỗi ngày
+    # * * * * * command
+    #
+    # cd /var/www           → di chuyển vào thư mục project Laravel
+    # php artisan schedule:run  → Laravel kiểm tra xem command nào cần chạy
+    # >> .../cron.log       → ghi output vào file log (append)
+    # 2>&1                  → redirect stderr vào stdout (ghi lỗi vào cùng file)
+
+    # Khởi động cron daemon:
+    service cron start || cron
+
+Lưu ý: cron daemon chạy BACKGROUND, không block PHP-FPM.
+PHP-FPM vẫn chạy bình thường ở foreground (exec php-fpm).
+
+
+================================================================================
+3. LARAVEL SCHEDULER HOẠT ĐỘNG NHƯ THẾ NÀO
+================================================================================
+
+── File: routes/console.php ──
+
+Laravel Scheduler là một lớp trừu tượng (abstraction) bên trên crontab.
+Thay vì viết nhiều crontab entry, chỉ cần 1 crontab duy nhất:
+    * * * * * php artisan schedule:run
+
+Khi schedule:run được gọi (mỗi phút), Laravel sẽ:
+1. Đọc file routes/console.php
+2. Kiểm tra từng command đã đăng ký → thời gian hiện tại có khớp không?
+3. Nếu khớp → thực thi command đó
+
+Cú pháp đăng ký:
+
+    use Illuminate\Support\Facades\Schedule;
+
+    // Chạy lúc 00:00 mỗi ngày
+    Schedule::command('app:send-birthday-wishes')
+        ->dailyAt('00:00')              // Tần suất: mỗi ngày lúc 0h
+        ->withoutOverlapping()          // Không chạy nếu lần trước chưa xong
+        ->appendOutputTo(storage_path('logs/scheduler.log'));  // Ghi log
+
+    // Chạy mỗi giờ (00:00, 01:00, 02:00, ...)
+    Schedule::command('app:remind-abandoned-cart')
+        ->hourly()                      // Tần suất: mỗi giờ
+        ->withoutOverlapping()
+        ->appendOutputTo(storage_path('logs/scheduler.log'));
+
+Các frequency phổ biến:
+    ->everyMinute()       → mỗi phút
+    ->everyFiveMinutes()  → mỗi 5 phút
+    ->hourly()            → mỗi giờ
+    ->dailyAt('08:00')    → mỗi ngày lúc 8h sáng
+    ->weekly()            → mỗi tuần
+    ->monthly()           → mỗi tháng
+
+Option bổ sung:
+    ->withoutOverlapping()  → mutex lock, chống chạy chồng chéo
+    ->onOneServer()         → chỉ chạy trên 1 server (khi có nhiều server)
+    ->appendOutputTo(path)  → ghi stdout ra file log
+
+
+================================================================================
+4. TÍNH NĂNG 1: CHÚC MỪNG SINH NHẬT
+================================================================================
+
+── File: app/Console/Commands/SendBirthdayWishes.php ──
+
+Chạy lệnh: php artisan app:send-birthday-wishes
+Lịch:      Mỗi ngày lúc 00:00
+
+LUỒNG HOẠT ĐỘNG:
+────────────────
+
+    [00:00 — Scheduler gọi command]
+           │
+           ▼
+    ┌──────────────────────────────────────────┐
+    │ Bước 1: Lấy ngày hiện tại               │
+    │ $today = Carbon::today();                │
+    │ → VD: 2026-04-02                         │
+    └──────────────┬───────────────────────────┘
+                   │
+                   ▼
+    ┌──────────────────────────────────────────┐
+    │ Bước 2: Query users có sinh nhật hôm nay │
+    │                                          │
+    │ User::whereNotNull('date_of_birth')      │
+    │     ->where('status', 'active')          │
+    │     ->whereMonth('date_of_birth', 4)     │
+    │     ->whereDay('date_of_birth', 2)       │
+    │     ->get();                             │
+    │                                          │
+    │ SQL tương đương:                         │
+    │ SELECT * FROM users                      │
+    │ WHERE date_of_birth IS NOT NULL          │
+    │   AND status = 'active'                  │
+    │   AND MONTH(date_of_birth) = 4           │
+    │   AND DAY(date_of_birth) = 2;            │
+    └──────────────┬───────────────────────────┘
+                   │
+                   ▼
+    ┌──────────────────────────────────────────────────────┐
+    │ Bước 3: Với mỗi user sinh nhật → xử lý             │
+    │                                                      │
+    │ 3a. Tạo mã giảm giá:                                │
+    │     $couponCode = 'BIRTHDAY-{user_id}-{MMDD}';      │
+    │     VD: BIRTHDAY-5-0402                              │
+    │                                                      │
+    │     Coupon::create([                                  │
+    │         'code'  => 'BIRTHDAY-5-0402',                │
+    │         'type'  => 'percentage',  // giảm %          │
+    │         'value' => 10,           // 10%              │
+    │         'max_discount_value' => 50000,  // tối đa    │
+    │         'usage_limit' => 1,      // dùng 1 lần      │
+    │         'end_date' => +7 ngày,   // hạn 7 ngày      │
+    │         'is_public' => false,    // riêng tư         │
+    │     ]);                                              │
+    │                                                      │
+    │ 3b. Gắn coupon cho user:                             │
+    │     UserCoupon::create([                             │
+    │         'user_id'   => $user->user_id,              │
+    │         'coupon_id' => $coupon->id,                  │
+    │         'is_saved'  => true,                         │
+    │     ]);                                              │
+    │                                                      │
+    │ 3c. Gửi notification:                                │
+    │     $user->notify(new BirthdayNotification(...));    │
+    │     → Gửi email SMTP qua Gmail                      │
+    │     → Lưu vào bảng notifications (inbox)            │
+    │                                                      │
+    │ CHỐNG TRÙNG:                                         │
+    │     Kiểm tra Coupon::where('code', $couponCode)     │
+    │     → Nếu đã tồn tại → bỏ qua (tránh gửi lại)     │
+    └──────────────────────────────────────────────────────┘
+
+
+GIẢI THÍCH CÚ PHÁP:
+────────────────────
+
+1. Carbon::today()
+   → Lấy ngày hiện tại (không có giờ phút)
+   → VD: 2026-04-02 00:00:00
+
+2. whereMonth('date_of_birth', $today->month)
+   → Lọc theo tháng sinh. MySQL function: MONTH(date_of_birth) = 4
+   → Không dùng whereDate() vì cần so sánh tháng+ngày, KHÔNG so sánh năm
+
+3. whereDay('date_of_birth', $today->day)
+   → Lọc theo ngày sinh. MySQL function: DAY(date_of_birth) = 2
+
+4. $user->notify(new BirthdayNotification(...))
+   → Method từ Notifiable trait (đã use trong User model)
+   → Laravel tự động gọi via() → lấy danh sách kênh
+   → Với mỗi kênh, gọi method tương ứng: toMail(), toArray()
+
+5. Coupon::create([...])
+   → Eloquent ORM: tạo record mới trong bảng coupons
+   → Tương đương SQL INSERT INTO coupons (...) VALUES (...)
+
+
+================================================================================
+5. TÍNH NĂNG 2: NHẮC NHỞ GIỎ HÀNG BỎ QUÊN
+================================================================================
+
+── File: app/Console/Commands/RemindAbandonedCart.php ──
+
+Chạy lệnh: php artisan app:remind-abandoned-cart
+Lịch:      Mỗi giờ (00:00, 01:00, 02:00, ...)
+
+LUỒNG HOẠT ĐỘNG:
+────────────────
+
+    [Mỗi giờ — Scheduler gọi command]
+           │
+           ▼
+    ┌──────────────────────────────────────────────┐
+    │ Bước 1: Tính mốc thời gian "bỏ quên"        │
+    │ $threshold = Carbon::now()->subHours(4);     │
+    │ → VD: nếu hiện tại 14:00 → threshold = 10:00│
+    └──────────────┬───────────────────────────────┘
+                   │
+                   ▼
+    ┌──────────────────────────────────────────────┐
+    │ Bước 2: Query giỏ hàng bỏ quên              │
+    │                                              │
+    │ Cart::where('status', 'active')              │
+    │     ->whereHas('items')  // có ít nhất 1 item│
+    │     ->whereHas('items', function($q) {       │
+    │         $q->where('updated_at', '<',         │
+    │                   $threshold);               │
+    │     })                                       │
+    │     ->with(['user', 'items'])                │
+    │     ->get();                                 │
+    │                                              │
+    │ ĐIỀU KIỆN:                                   │
+    │ ✓ Cart status = 'active'                     │
+    │ ✓ Có ít nhất 1 cart_item                     │
+    │ ✓ Item cuối updated > 4 tiếng trước          │
+    └──────────────┬───────────────────────────────┘
+                   │
+                   ▼
+    ┌──────────────────────────────────────────────────────┐
+    │ Bước 3: Với mỗi user → kiểm tra + xử lý            │
+    │                                                      │
+    │ 3a. CHỐNG SPAM: Kiểm tra 24h gần nhất               │
+    │     $user->notifications()                           │
+    │         ->where('type', AbandonedCartNotification)   │
+    │         ->where('created_at', '>', now()-24h)        │
+    │         ->exists();                                  │
+    │     → Nếu đã gửi trong 24h → bỏ qua                │
+    │                                                      │
+    │ 3b. Tặng 50 điểm thưởng:                            │
+    │     $user->increment('reward_points', 50);           │
+    │     SQL: UPDATE users                                │
+    │          SET reward_points = reward_points + 50      │
+    │          WHERE user_id = ?;                          │
+    │                                                      │
+    │ 3c. Gửi notification:                                │
+    │     $user->notify(new AbandonedCartNotification(...))│
+    │     → Gửi email nhẹ nhàng                            │
+    │     → Lưu vào bảng notifications (inbox)             │
+    └──────────────────────────────────────────────────────┘
+
+
+GIẢI THÍCH CÚ PHÁP:
+────────────────────
+
+1. Carbon::now()->subHours(4)
+   → Lấy thời điểm 4 giờ trước hiện tại
+   → VD: now = 14:00 → subHours(4) = 10:00
+
+2. Cart::whereHas('items', function($query) { ... })
+   → whereHas() = chỉ lấy Cart NẾU có ít nhất 1 CartItem thỏa condition
+   → Tương đương SQL:
+     WHERE EXISTS (
+       SELECT * FROM cart_items
+       WHERE cart_items.cart_id = carts.cart_id
+         AND cart_items.updated_at < '2026-04-02 10:00:00'
+     )
+
+3. ->with(['user', 'items'])
+   → Eager Loading: load trước relationships user và items
+   → Tránh N+1 query problem (không query DB thêm khi truy cập $cart->user)
+
+4. $user->increment('reward_points', 50)
+   → Tăng cột reward_points thêm 50 trực tiếp trong DB
+   → Atomic operation: an toàn khi nhiều process chạy đồng thời
+   → SQL: UPDATE users SET reward_points = reward_points + 50
+
+5. ->exists()
+   → Trả về true/false, KHÔNG load data → hiệu suất tốt hơn ->count() > 0
+
+
+================================================================================
+6. TÍNH NĂNG 3: GỬI EMAIL XÁC NHẬN ĐƠN HÀNG (NỀN)
+================================================================================
+
+── File: app/Console/Commands/SendOrderEmails.php ──
+
+Chạy lệnh: php artisan app:send-order-emails
+Lịch:      Mỗi phút (* * * * *)
+
+VẤN ĐỀ TRƯỚC ĐÂY:
+Khi đặt hàng, hệ thống gửi email đồng bộ (ngay lập tức) qua SMTP. 
+Gửi SMTP có thể mất 3-10 giây, gây ra trải nghiệm người dùng chậm trễ.
+
+GIẢI PHÁP HIỆN TẠI:
+- Khi đặt hàng, tạo order và trả về response ngay lập tức (nhanh hơn rất nhiều). Đơn hàng sẽ có trường `email_sent = false`.
+- Scheduler mỗi phút sẽ tìm các đơn hàng vừa được tạo (cách đây hơn 5 phút) mà chưa gửi email:
+    Order::where('email_sent', false)
+         ->where('created_at', '<=', Carbon::now()->subMinutes(5))
+
+LUỒNG HOẠT ĐỘNG:
+────────────────
+    [Mỗi phút — Scheduler gọi command]
+           │
+           ▼
+    ┌──────────────────────────────────────────────┐
+    │ Query đơn hàng cần gửi                       │
+    │ (Giới hạn tối đa 20 đơn/lần tránh quá tải)   │
+    └──────────────┬───────────────────────────────┘
+                   │
+                   ▼
+    ┌──────────────────────────────────────────────┐
+    │ Gửi email thông qua SMTP                     │
+    │ Sử dụng thông tin lấy từ .env                │
+    │ (MAIL_USERNAME, MAIL_PASSWORD)               │
+    └──────────────┬───────────────────────────────┘
+                   │
+                   ▼
+    ┌──────────────────────────────────────────────┐
+    │ Nếu gửi thành công:                          │
+    │   $order->update(['email_sent' => true]);    │
+    │ Nếu thất bại:                                │
+    │   Không update, record lỗi ra Log            │
+    │   Lần cron tiếp theo sẽ thử lại              │
+    └──────────────────────────────────────────────┘
+
+================================================================================
+7. HỆ THỐNG NOTIFICATION (MAIL + INBOX)
+================================================================================
+
+Laravel Notification System cho phép gửi thông báo qua nhiều kênh cùng lúc:
+    - mail      → gửi email (SMTP, Mailgun, SES, ...)
+    - database  → lưu vào bảng notifications (inbox trong app)
+    - broadcast → realtime qua WebSocket
+    - sms       → tin nhắn SMS (cần package bên ngoài)
+
+── File: app/Notifications/BirthdayNotification.php ──
+── File: app/Notifications/AbandonedCartNotification.php ──
+
+CẤU TRÚC 1 NOTIFICATION CLASS:
+────────────────────────────────
+
+    class BirthdayNotification extends Notification
+    {
+        // 1. via() — Kênh gửi
+        public function via($notifiable): array
+        {
+            return ['mail', 'database'];
+            // Laravel sẽ gọi toMail() và toArray()
+        }
+
+        // 2. toMail() — Nội dung email
+        public function toMail($notifiable): MailMessage
+        {
+            return (new MailMessage)
+                ->subject('Tiêu đề email')
+                ->greeting('Xin chào!')
+                ->line('Nội dung dòng 1')
+                ->action('Nút CTA', url('/'))   // Nút bấm trong email
+                ->line('Nội dung dòng 2');
+        }
+
+        // 3. toArray() — Data lưu vào bảng notifications (cột data)
+        public function toArray($notifiable): array
+        {
+            return [
+                'type'    => 'birthday',
+                'title'   => 'Tiêu đề',
+                'message' => 'Nội dung',
+            ];
+            // Laravel tự JSON encode và lưu vào cột "data"
+        }
+    }
+
+$notifiable:
+    → Đối tượng nhận notification = User model
+    → Có thể truy cập: $notifiable->full_name, $notifiable->email, ...
+
+BẢNG NOTIFICATIONS (schema):
+─────────────────────────────
+    | Cột              | Kiểu     | Mô tả                           |
+    |------------------|----------|----------------------------------|
+    | id               | UUID     | Primary key (không phải integer) |
+    | type             | string   | Tên class: App\Notifications\... |
+    | notifiable_type  | string   | "App\Models\User"                |
+    | notifiable_id    | bigint   | user_id                          |
+    | data             | text     | JSON từ toArray()                |
+    | read_at          | datetime | null = chưa đọc                  |
+    | created_at       | datetime | Thời gian tạo                    |
+
+CẤU HÌNH SMTP (file .env):
+───────────────────────────
+    MAIL_MAILER=smtp              → sử dụng giao thức SMTP
+    MAIL_HOST=smtp.gmail.com      → server SMTP của Gmail
+    MAIL_PORT=587                 → port TLS
+    MAIL_USERNAME=email@gmail.com → email đăng nhập
+    MAIL_PASSWORD=xxxxxxxx        → App Password (không phải password Gmail)
+    MAIL_ENCRYPTION=tls           → mã hóa TLS
+    MAIL_FROM_ADDRESS=email       → địa chỉ gửi hiển thị
+    MAIL_FROM_NAME="Ocean Shop"   → tên hiển thị
+
+
+================================================================================
+7. API ENDPOINTS
+================================================================================
+
+── File: app/Http/Controllers/NotificationController.php ──
+── Đăng ký: routes/api.php ──
+
+Tất cả yêu cầu JWT Authentication (qua header: Authorization: Bearer <token>)
+
+┌───────────────────────────────────────┬────────┬────────────────────────────┐
+│ Endpoint                              │ Method │ Mô tả                      │
+├───────────────────────────────────────┼────────┼────────────────────────────┤
+│ /api/profile/notifications            │ GET    │ Danh sách thông báo        │
+│                                       │        │ (phân trang 20/page)       │
+├───────────────────────────────────────┼────────┼────────────────────────────┤
+│ /api/profile/notifications/{id}/read  │ POST   │ Đánh dấu 1 thông báo      │
+│                                       │        │ đã đọc                     │
+├───────────────────────────────────────┼────────┼────────────────────────────┤
+│ /api/profile/notifications/read-all   │ POST   │ Đánh dấu tất cả đã đọc    │
+├───────────────────────────────────────┼────────┼────────────────────────────┤
+│ /api/profile/reward-points            │ GET    │ Xem điểm thưởng hiện tại   │
+└───────────────────────────────────────┴────────┴────────────────────────────┘
+
+
+================================================================================
+8. DANH SÁCH FILES ĐÃ TẠO/SỬA
+================================================================================
+
+[TẠO MỚI]
+──────────
+1. database/migrations/2026_04_02_170000_add_birthday_points_to_users_table.php
+   → Thêm cột date_of_birth, reward_points vào bảng users
+
+2. database/migrations/2026_04_02_170001_create_notifications_table.php
+   → Tạo bảng notifications (chuẩn Laravel)
+
+3. app/Notifications/BirthdayNotification.php
+   → Notification chúc mừng sinh nhật (mail + database)
+
+4. app/Notifications/AbandonedCartNotification.php
+   → Notification nhắc nhở giỏ hàng bỏ quên (mail + database)
+
+5. app/Console/Commands/SendBirthdayWishes.php
+   → Artisan command: quét sinh nhật + gửi notification + tạo coupon
+
+6. app/Console/Commands/RemindAbandonedCart.php
+   → Artisan command: quét giỏ hàng bỏ quên + tặng điểm + gửi notification
+
+7. app/Http/Controllers/NotificationController.php
+   → Controller API: đọc/đánh dấu notification, xem điểm thưởng
+
+[SỬA ĐỔI]
+──────────
+8. app/Models/User.php
+   → Thêm date_of_birth, reward_points vào fillable
+   → Thêm date cast cho date_of_birth
+   → Thêm relationship: cart(), userCoupons()
+
+9. routes/console.php
+   → Đăng ký schedule: birthday (00:00 daily), cart remind (hourly)
+
+10. routes/api.php
+    → Thêm 4 endpoint: notifications list/read/read-all, reward-points
+
+11. backend/Dockerfile
+    → Thêm package "cron" vào apt-get install
+
+12. backend/docker-entrypoint.sh
+    → Bước 7: tạo crontab + khởi động cron daemon
+
+13. .env (file gốc)
+    → Cấu hình SMTP mailer: MAIL_MAILER, MAIL_HOST, MAIL_PORT, ...
+
+
+================================================================================
+9. CÁCH TEST THỦ CÔNG
+================================================================================
+
+── Sau khi rebuild Docker container: ──
+
+    docker compose down
+    docker compose build backend
+    docker compose up -d
+
+── Chạy migration: ──
+    docker exec ocean_backend php artisan migrate
+
+── Kiểm tra scheduler đăng ký đúng: ──
+    docker exec ocean_backend php artisan schedule:list
+
+    Kết quả mong đợi:
+    ┌───────────────────────────────────┬─────────────────────────┐
+    │ Command                           │ Interval                │
+    ├───────────────────────────────────┼─────────────────────────┤
+    │ app:send-birthday-wishes          │ At 00:00                │
+    │ app:remind-abandoned-cart         │ Every hour              │
+    └───────────────────────────────────┴─────────────────────────┘
+
+── Test Birthday (cần set date_of_birth): ──
+    # 1. Set ngày sinh của 1 user = hôm nay (VD: user_id = 1)
+    docker exec ocean_backend php artisan tinker
+    >>> $u = \App\Models\User::find(1);
+    >>> $u->date_of_birth = now()->format('Y-m-d');
+    >>> $u->save();
+    >>> exit
+
+    # 2. Chạy command thủ công
+    docker exec ocean_backend php artisan app:send-birthday-wishes
+
+    # 3. Kiểm tra kết quả
+    # → Email: kiểm tra inbox email của user
+    # → Coupon: kiểm tra bảng coupons (code BIRTHDAY-1-0402)
+    # → Notification: kiểm tra bảng notifications
+
+── Test Abandoned Cart (cần có cart_items > 4h): ──
+    # 1. Sửa updated_at của cart_items về 5 giờ trước
+    docker exec ocean_backend php artisan tinker
+    >>> \App\Models\CartItem::query()->update(['updated_at' => now()->subHours(5)]);
+    >>> exit
+
+    # 2. Chạy command thủ công
+    docker exec ocean_backend php artisan app:remind-abandoned-cart
+
+    # 3. Kiểm tra kết quả
+    # → Điểm thưởng: user.reward_points tăng 50
+    # → Notification: bảng notifications có record mới
+
+── Kiểm tra cron log: ──
+    docker exec ocean_backend cat /var/www/storage/logs/cron.log
+    docker exec ocean_backend cat /var/www/storage/logs/scheduler.log
+
+── Kiểm tra cron đang chạy: ──
+    docker exec ocean_backend service cron status
+    docker exec ocean_backend crontab -l
+
+================================================================================
+ KẾT THÚC — Happy Coding! 🚀
+================================================================================

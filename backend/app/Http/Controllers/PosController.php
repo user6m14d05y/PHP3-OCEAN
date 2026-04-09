@@ -123,6 +123,7 @@ class PosController extends Controller
             $itemsData = [];
 
             foreach ($request->items as $item) {
+                /** @var \App\Models\ProductVariant $variant */
                 $variant = ProductVariant::with('product')->where('variant_id', $item['variant_id'])->lockForUpdate()->first();
 
                 if (!$variant || $variant->status !== 'active') {
@@ -150,12 +151,14 @@ class PosController extends Controller
             // Tạo đơn hàng POS
             $order = Order::create([
                 'order_code' => 'POS' . strtoupper(uniqid()) . rand(10, 99),
-                'user_id' => $staffId,
-                'recipient_name' => $request->input('customer_name', 'Khách lẻ'),
-                'recipient_phone' => $request->input('customer_phone', ''),
+                'order_type' => 'pos',
+                'user_id' => $request->user_id ?? $staffId,
+                'seller_id' => $staffId,
+                'recipient_name' => !empty($request->customer_name) ? $request->customer_name : 'Khách lẻ',
+                'recipient_phone' => !empty($request->customer_phone) ? $request->customer_phone : '',
                 'shipping_address' => 'Mua tại cửa hàng',
-                'note' => $request->input('note', ''),
-                'payment_method' => $request->input('payment_method', 'pos_cash'),
+                'note' => !empty($request->note) ? $request->note : '',
+                'payment_method' => !empty($request->payment_method) ? $request->payment_method : 'pos_cash',
                 'payment_status' => 'paid',
                 'fulfillment_status' => 'completed',
                 'subtotal' => $subtotal,
@@ -182,6 +185,8 @@ class PosController extends Controller
                     'line_total' => $data['line_total'],
                 ]);
 
+                /** @var \App\Models\ProductVariant $v */
+                $v = $data['variant'];
                 $v->decrement('stock', $data['quantity']);
             }
 
@@ -237,5 +242,25 @@ class PosController extends Controller
                 'thumbnail' => $mainImage->image_url ?? $product->thumbnail_url,
             ],
         ];
+    }
+
+    /**
+     * Xuất hoá đơn POS thành PDF
+     */
+    public function exportReceiptPdf($id)
+    {
+        $order = \App\Models\Order::with('items')->find($id);
+
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Lỗi: Không tìm thấy hoá đơn này!'], 404);
+        }
+
+        // Tạo PDF sử dụng DomPDF
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdfs.pos_receipt', compact('order'));
+
+        // Set khổ giấy cho máy in nhiệt 80mm
+        $pdf->setPaper(array(0,0,226.77,800), 'portrait');
+
+        return $pdf->download("hoadon_{$order->order_code}.pdf");
     }
 }

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import api from '../../axios.js';
+import Swal from 'sweetalert2';
 
 const products = ref([]);
 const isLoading = ref(true);
@@ -114,6 +115,102 @@ const goToPage = (page) => {
     }
 };
 
+// ===== Import Excel =====
+const showImportModal = ref(false);
+const importFile = ref(null);
+const importFileName = ref('');
+const isImporting = ref(false);
+
+const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8383/api';
+
+const openImportModal = () => {
+    showImportModal.value = true;
+    importFile.value = null;
+    importFileName.value = '';
+};
+
+const closeImportModal = () => {
+    showImportModal.value = false;
+    importFile.value = null;
+    importFileName.value = '';
+};
+
+const handleImportFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        importFile.value = file;
+        importFileName.value = file.name;
+    }
+};
+
+/**
+ * Xử lý Import Excel
+ * FLOW:
+ * 1. Hiển thị loading SweetAlert
+ * 2. Gửi file lên API POST /products/import
+ * 3. Nhận kết quả: success_count, error_count, errors[]
+ * 4. Hiển thị kết quả chi tiết (số thành công, chi tiết lỗi)
+ * 5. Tải lại danh sách sản phẩm
+ */
+const handleImportExcel = async () => {
+    if (!importFile.value) {
+        Swal.fire({ icon: 'warning', title: 'Chưa chọn file', text: 'Vui lòng chọn file Excel (.xlsx) để import.' });
+        return;
+    }
+
+    isImporting.value = true;
+    Swal.fire({ title: 'Đang import...', text: 'Vui lòng đợi trong giây lát.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    const formData = new FormData();
+    formData.append('excel_file', importFile.value);
+
+    try {
+        const response = await api.post('/products/import', formData);
+        const { success_count, error_count, errors } = response.data;
+
+        let htmlDetail = `<p style="font-size:1.05rem;margin-bottom:8px;"><strong>${success_count}</strong> sản phẩm đã được thêm thành công.</p>`;
+        if (error_count > 0) {
+            htmlDetail += `<p style="color:#e65100;margin-bottom:8px;"><strong>${error_count}</strong> dòng bị lỗi:</p>`;
+            htmlDetail += '<div style="text-align:left;max-height:180px;overflow-y:auto;font-size:0.85rem;background:#fef3cd;padding:10px;border-radius:8px;">';
+            errors.forEach(err => { htmlDetail += `<div style="margin-bottom:4px;">⚠️ ${err}</div>`; });
+            htmlDetail += '</div>';
+        }
+
+        Swal.fire({ icon: error_count > 0 ? 'warning' : 'success', title: 'Kết quả Import', html: htmlDetail, confirmButtonColor: '#0288d1' });
+
+        closeImportModal();
+        fetchProducts();
+
+    } catch (error) {
+        console.error('Import error:', error);
+        const msg = error.response?.data?.message || 'Có lỗi xảy ra khi import file.';
+        Swal.fire({ icon: 'error', title: 'Import thất bại', text: msg });
+    } finally {
+        isImporting.value = false;
+    }
+};
+
+/**
+ * Tải file Excel mẫu
+ * FLOW: Gọi GET /products/import-template qua axios (kèm auth token) → tạo blob download
+ */
+const downloadTemplate = async () => {
+    try {
+        const response = await api.get('/products/import-template', { responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'mau_import_san_pham.xlsx');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Download template error:', error);
+        Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Không thể tải file mẫu.' });
+    }
+};
+
 // ===== Quick View =====
 const showQuickViewModal = ref(false);
 const quickViewProduct = ref(null);
@@ -173,13 +270,23 @@ const qvTotalStock = computed(() => {
                 </h1>
                 <p class="page-subtitle">Quản lý kho hàng cửa hàng Ocean</p>
             </div>
-            <router-link to="/admin/product/create" class="btn-primary" id="add-product-btn">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                Thêm Sản Phẩm
-            </router-link>
+            <div class="header-btns">
+                <button class="btn-import" id="import-excel-btn" @click="openImportModal">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Nhập từ Excel
+                </button>
+                <router-link to="/admin/product/create" class="btn-primary" id="add-product-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Thêm Sản Phẩm
+                </router-link>
+            </div>
         </div>
 
         <!-- Filters & Search -->
@@ -470,11 +577,102 @@ const qvTotalStock = computed(() => {
                 </div>
             </div>
         </Teleport>
+
+        <!-- ===== Import Excel Modal ===== -->
+        <Teleport to="body">
+            <div class="import-backdrop" v-if="showImportModal" @click.self="closeImportModal">
+                <div class="import-modal animate-in">
+                    <div class="import-header">
+                        <h2>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ocean-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                            </svg>
+                            Nhập Sản Phẩm từ Excel
+                        </h2>
+                        <button class="import-close" @click="closeImportModal">×</button>
+                    </div>
+
+                    <div class="import-body">
+                        <!-- Hướng dẫn -->
+                        <div class="import-guide">
+                            <h4>📋 Hướng dẫn</h4>
+                            <ol>
+                                <li>Tải file Excel mẫu bên dưới</li>
+                                <li>Điền thông tin sản phẩm vào file (mỗi dòng = 1 sản phẩm đơn)</li>
+                                <li>Chọn file đã điền và nhấn <strong>Bắt đầu Import</strong></li>
+                            </ol>
+                            <div class="import-cols-info">
+                                <span class="col-tag required">ten_san_pham *</span>
+                                <span class="col-tag required">danh_muc_id *</span>
+                                <span class="col-tag required">gia_ban *</span>
+                                <span class="col-tag required">so_luong_kho *</span>
+                                <span class="col-tag">thuong_hieu_id</span>
+                                <span class="col-tag">gia_goc</span>
+                                <span class="col-tag">mo_ta_ngan</span>
+                                <span class="col-tag">mo_ta_chi_tiet</span>
+                                <span class="col-tag">trang_thai</span>
+                                <span class="col-tag">noi_bat</span>
+                            </div>
+                        </div>
+
+                        <!-- Tải mẫu -->
+                        <button class="btn-download-template" @click="downloadTemplate">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Tải File Excel Mẫu
+                        </button>
+
+                        <!-- Chọn file -->
+                        <div class="import-dropzone" :class="{ 'has-file': importFileName }">
+                            <input type="file" class="import-file-input" accept=".xlsx,.xls" @change="handleImportFileChange" />
+                            <div v-if="!importFileName" class="dropzone-placeholder">
+                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                                <span>Nhấn để chọn file hoặc kéo thả vào đây</span>
+                                <small>Chỉ chấp nhận file .xlsx, .xls (tối đa 10MB)</small>
+                            </div>
+                            <div v-else class="dropzone-selected">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#167a70" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                </svg>
+                                <span>{{ importFileName }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="import-footer">
+                        <button class="btn-outline" @click="closeImportModal">Hủy</button>
+                        <button class="btn-primary" :disabled="!importFile || isImporting" @click="handleImportExcel">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="16 16 12 12 8 16"/>
+                                <line x1="12" y1="12" x2="12" y2="21"/>
+                                <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
+                            </svg>
+                            {{ isImporting ? 'Đang xử lý...' : 'Bắt đầu Import' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
 
 <style scoped>
 .products-page { font-family: var(--font-inter); }
+
+/* Header buttons group */
+.header-btns { display: flex; gap: 10px; align-items: center; }
 
 /* Header */
 .page-header {
@@ -751,6 +949,108 @@ const qvTotalStock = computed(() => {
 .empty-state h3 { font-size: 1.1rem; font-weight: 800; color: var(--text-main); margin-bottom: 6px; }
 .empty-state p { font-size: 0.9rem; color: var(--text-muted); font-weight: 500;}
 
+/* ===== Import Excel Button ===== */
+.btn-import {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 8px; border: 1.5px solid #2e7d32;
+    background: rgba(46, 125, 50, 0.08); color: #2e7d32;
+    font-family: var(--font-inter); font-size: 0.85rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+}
+.btn-import:hover {
+    background: #2e7d32; color: white;
+    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.25); transform: translateY(-2px);
+}
+
+/* ===== Import Excel Modal ===== */
+.import-backdrop {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center;
+    z-index: 1000; backdrop-filter: blur(2px);
+}
+.import-modal {
+    background: white; border-radius: 16px; width: 94%; max-width: 560px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.import-header {
+    padding: 18px 24px; border-bottom: 1px solid var(--border-color);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.import-header h2 {
+    font-size: 1.15rem; font-weight: 800; margin: 0; color: var(--text-main);
+    display: flex; align-items: center; gap: 10px;
+}
+.import-close {
+    background: none; border: none; font-size: 1.6rem; line-height: 1;
+    color: var(--text-muted); cursor: pointer; transition: 0.2s; padding: 0; width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center; border-radius: 8px;
+}
+.import-close:hover { color: var(--coral); background: rgba(239,83,80,0.08); }
+
+.import-body { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+
+.import-guide {
+    background: var(--ocean-deepest, #f0f7fa); padding: 16px 18px; border-radius: 10px;
+    border: 1px solid rgba(2, 136, 209, 0.15);
+}
+.import-guide h4 { font-size: 0.95rem; font-weight: 700; margin: 0 0 8px 0; color: var(--text-main); }
+.import-guide ol {
+    margin: 0; padding-left: 20px; font-size: 0.85rem; color: var(--text-muted);
+    line-height: 1.8;
+}
+.import-guide ol strong { color: var(--ocean-blue); }
+.import-cols-info {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px;
+}
+.col-tag {
+    padding: 3px 10px; border-radius: 5px; font-size: 0.72rem; font-weight: 700;
+    background: rgba(158, 158, 158, 0.12); color: var(--text-muted);
+}
+.col-tag.required { background: rgba(2, 136, 209, 0.1); color: var(--ocean-blue); }
+
+.btn-download-template {
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+    padding: 10px 20px; border-radius: 8px; border: 1.5px dashed #2e7d32;
+    background: rgba(46, 125, 50, 0.04); color: #2e7d32;
+    font-family: var(--font-inter); font-size: 0.85rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; width: 100%;
+}
+.btn-download-template:hover {
+    background: rgba(46, 125, 50, 0.1); border-style: solid;
+}
+
+.import-dropzone {
+    position: relative; border: 2px dashed var(--border-color); border-radius: 12px;
+    padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.25s;
+    background: var(--ocean-deepest, #fafcfe);
+}
+.import-dropzone:hover { border-color: var(--ocean-blue); background: rgba(2, 136, 209, 0.03); }
+.import-dropzone.has-file { border-color: #26a69a; border-style: solid; background: rgba(38, 166, 154, 0.04); }
+.import-file-input {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    opacity: 0; cursor: pointer;
+}
+.dropzone-placeholder {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    color: var(--text-light);
+}
+.dropzone-placeholder span { font-size: 0.9rem; font-weight: 600; }
+.dropzone-placeholder small { font-size: 0.78rem; color: var(--text-light); }
+.dropzone-selected {
+    display: flex; align-items: center; gap: 10px; justify-content: center;
+}
+.dropzone-selected span { font-size: 0.9rem; font-weight: 700; color: #167a70; }
+
+.import-footer {
+    padding: 16px 24px; border-top: 1px solid var(--border-color);
+    display: flex; gap: 12px; justify-content: flex-end;
+}
+.import-footer .btn-primary:disabled {
+    opacity: 0.5; cursor: not-allowed; transform: none;
+    box-shadow: none;
+}
+
 /* Animation */
 .animate-in { animation: fadeSlideUp 0.35s ease both; }
 @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -758,11 +1058,13 @@ const qvTotalStock = computed(() => {
 /* Responsive */
 @media (max-width: 768px) {
     .page-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .header-btns { flex-direction: column; width: 100%; }
     .filters-bar { flex-direction: column; gap: 12px; align-items: stretch; }
     .search-box { max-width: 100%; }
     .qv-top { flex-direction: column; }
     .qv-gallery { flex: none; max-width: 300px; margin: 0 auto; }
     .qv-meta { grid-template-columns: 1fr; }
     .qv-footer { flex-direction: column; }
+    .import-modal { width: 96%; }
 }
 </style>

@@ -402,8 +402,9 @@ class OrderController extends Controller
                 Log::error('Realtime event dispatch failed: ' . $e->getMessage());
             }
 
-            // Gửi email
-            $this->sendOrderConfirmationEmail($order);
+            // Email xác nhận đơn hàng → KHÔNG gửi đồng bộ nữa
+            // Cron job "app:send-order-emails" sẽ tự động gửi sau 5 phút
+            // → Response trả về nhanh hơn (giảm 3-10 giây chờ SMTP)
 
             return response()->json([
                 'status' => 'success',
@@ -511,106 +512,25 @@ class OrderController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Lỗi khi hủy đơn.'], 500);
         }
     }
-
     /**
-     * Gửi email xác nhận đơn hàng 
+     * Lấy ID đơn hàng từ order_code (thay vì ID cho Vue router params)
      */
-    private function sendOrderConfirmationEmail(Order $order): bool
+    public function getOrderIdByCode($order_code)
     {
-        try {
-            $user = auth('api')->user() ?? auth('admin')->user();
-            if (!$user || empty($user->email)) return false;
+        $userId = $this->getUserId();
+        if (!$userId) return response()->json(['status' => 'error'], 401);
 
-            $emailUser = env('EMAIL_USER');
-            $emailPass = env('EMAIL_PASS');
-
-            if (!$emailUser || !$emailPass) {
-                Log::warning('Skip sending email as EMAIL_USER missing.');
-                return false;
-            }
-
-            $transport = new \Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport(
-                'smtp.gmail.com',
-                587,
-                false
-            );
-            $transport->setUsername($emailUser);
-            $transport->setPassword($emailPass);
-            $mailer = new \Symfony\Component\Mailer\Mailer($transport);
-
-            $order->load('items');
-
-            $itemsHtml = '';
-            foreach ($order->items as $item) {
-                $variantInfo = $item->variant_name ? '(' . $item->color . '/' . $item->size . ')' : '';
-                $itemsHtml .= '
-                <tr>
-                    <td style="padding: 10px; border-bottom: 1px solid #eee;">' . htmlspecialchars($item->product_name) . ' ' . $variantInfo . ' x' . $item->quantity . '</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">' . number_format($item->line_total, 0, ',', '.') . 'đ</td>
-                </tr>';
-            }
-
-            $htmlBody = '
-            <!DOCTYPE html>
-            <html>
-            <head><meta charset="UTF-8"></head>
-            <body style="font-family: Arial, sans-serif; background: #f9fafb; padding: 20px;">
-                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                    <div style="background: #0288d1; padding: 20px; text-align: center; color: white;">
-                        <h2 style="margin: 0;">Cảm ơn bạn đã đặt hàng!</h2>
-                        <p style="margin: 5px 0 0;">Đơn hàng của bạn đã được ghi nhận</p>
-                    </div>
-                    <div style="padding: 20px;">
-                        <p>Xin chào <strong>' . htmlspecialchars($order->recipient_name) . '</strong>,</p>
-                        <p>Ocean Store xin thông báo đơn hàng <strong>' . $order->order_code . '</strong> của bạn đã được tạo thành công vào lúc ' . now()->format('H:i d/m/Y') . '.</p>
-                        
-                        <h3 style="border-bottom: 2px solid #0288d1; padding-bottom: 5px; color: #333;">Chi tiết đơn hàng</h3>
-                        <table width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;">
-                            ' . $itemsHtml . '
-                            <tr>
-                                <td style="padding: 10px; text-align: right;">Tạm tính:</td>
-                                <td style="padding: 10px; text-align: right;">' . number_format($order->subtotal, 0, ',', '.') . 'đ</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 10px; text-align: right;">Phí vận chuyển:</td>
-                                <td style="padding: 10px; text-align: right;">' . number_format($order->shipping_fee, 0, ',', '.') . 'đ</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 10px; text-align: right;">Khuyến mãi:</td>
-                                <td style="padding: 10px; text-align: right; color: green;">-' . number_format($order->discount_amount, 0, ',', '.') . 'đ</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 10px; text-align: right; font-weight: bold; font-size: 16px;">TỔNG CỘNG:</td>
-                                <td style="padding: 10px; text-align: right; font-weight: bold; font-size: 16px; color: #e53e3e;">' . number_format($order->grand_total, 0, ',', '.') . 'đ</td>
-                            </tr>
-                        </table>
-
-                        <h3 style="border-bottom: 2px solid #0288d1; padding-bottom: 5px; color: #333;">Thông tin giao hàng</h3>
-                        <p><strong>Người nhận:</strong> ' . htmlspecialchars($order->recipient_name) . '</p>
-                        <p><strong>Điện thoại:</strong> ' . htmlspecialchars($order->recipient_phone) . '</p>
-                        <p><strong>Địa chỉ:</strong> ' . htmlspecialchars($order->shipping_address) . '</p>
-                        <p><strong>Phương thức TT:</strong> ' . strtoupper($order->payment_method) . '</p>
-
-                        <div style="text-align: center; margin-top: 30px;">
-                            <a href="http://localhost:3302/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lịch sử đơn hàng</a>
-                        </div>
-                    </div>
-                </div>
-            </body>
-            </html>
-            ';
-
-            $emailMessage = (new \Symfony\Component\Mime\Email())
-                ->from($emailUser)
-                ->to($user->email)
-                ->subject('📦 Xác nhận đơn hàng đặt thành công ' . $order->order_code)
-                ->html($htmlBody);
-
-            $mailer->send($emailMessage);
-            return true;
-        } catch (\Exception $e) {
-            Log::error("Failed to send order email: " . $e->getMessage());
-            return false;
+        $order = Order::where('order_code', $order_code)->where('user_id', $userId)->first();
+        
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy đơn hàng!'], 404);
         }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'order_id' => $order->order_id
+            ]
+        ]);
     }
 }
