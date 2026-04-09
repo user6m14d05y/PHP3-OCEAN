@@ -68,19 +68,19 @@ class ProductCommentController extends Controller
                 'order_item_id' => $request->order_item_id,
                 'rating' => $request->rating,
                 'content' => $request->content,
-                'is_approved' => 1,
+                'is_approved' => 0,
             ]);
 
             // Recalculate average rating for the product
             $product = Product::find($request->product_id);
             $avgRating = ProductComment::where('product_id', $product->product_id)
-                            ->where('is_approved', 1)
+                            ->where('is_approved', 0)
                             ->avg('rating');
             $countRating = ProductComment::where('product_id', $product->product_id)
-                            ->where('is_approved', 1)
+                            ->where('is_approved', 0)
                             ->count();
             
-            $product->rating_avg = round($avgRating, 1);
+            $product->rating_avg = round($avgRating, 0);
             $product->rating_count = $countRating;
             $product->save();
 
@@ -89,7 +89,7 @@ class ProductCommentController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Đánh giá sản phẩm thành công.',
-                'data' => $comment->load('user:user_id,name,avatar_url')
+                'data' => $comment->load('user:user_id,full_name,avatar_url')
             ], 201);
         } catch (Exception $e) {
             DB::rollBack();
@@ -104,7 +104,7 @@ class ProductCommentController extends Controller
     {
         $comments = ProductComment::with('user:user_id,full_name,avatar_url')
                         ->where('product_id', $productId)
-                        ->where('is_approved', 1)
+                        ->where('is_approved', 0)
                         ->orderBy('created_at', 'desc')
                         ->paginate(10);
                         
@@ -112,5 +112,102 @@ class ProductCommentController extends Controller
             'status' => 'success',
             'data' => $comments
         ]);
+    }
+
+    /**
+     * Admin: List all comments with filters, search, and pagination.
+     */
+    public function adminIndex(Request $request)
+    {
+        $query = ProductComment::with([
+            'user:user_id,full_name,email,avatar_url',
+            'product:product_id,name,thumbnail_url'
+        ]);
+
+        // Filter by approval status
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('is_approved', $request->status === 'approved' ? 1 : 0);
+        }
+
+        // Filter by rating
+        if ($request->filled('rating')) {
+            $query->where('rating', $request->rating);
+        }
+
+        // Search by product name or user name
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('product', fn($p) => $p->where('name', 'like', $search))
+                  ->orWhereHas('user', fn($u) => $u->where('full_name', 'like', $search));
+            });
+        }
+
+        $comments = $query->orderBy('created_at', 'desc')->paginate(15);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $comments
+        ]);
+    }
+
+    /**
+     * Admin: Approve a comment and recalculate product rating.
+     */
+    public function approve($id)
+    {
+        $comment = ProductComment::findOrFail($id);
+        $comment->is_approved = 1;
+        $comment->save();
+
+        $this->recalculateProductRating($comment->product_id);
+
+        return response()->json(['status' => 'success', 'message' => 'Đã duyệt đánh giá.']);
+    }
+
+    /**
+     * Admin: Reject (hide) a comment and recalculate product rating.
+     */
+    public function reject($id)
+    {
+        $comment = ProductComment::findOrFail($id);
+        $comment->is_approved = 0;
+        $comment->save();
+
+        $this->recalculateProductRating($comment->product_id);
+
+        return response()->json(['status' => 'success', 'message' => 'Đã ẩn đánh giá.']);
+    }
+
+    /**
+     * Admin: Delete a comment and recalculate product rating.
+     */
+    public function destroy($id)
+    {
+        $comment = ProductComment::findOrFail($id);
+        $productId = $comment->product_id;
+        $comment->delete();
+
+        $this->recalculateProductRating($productId);
+
+        return response()->json(['status' => 'success', 'message' => 'Đã xóa đánh giá.']);
+    }
+
+    /**
+     * Helper: Recalculate and save average rating for a product.
+     */
+    private function recalculateProductRating($productId)
+    {
+        $product = Product::find($productId);
+        if (!$product) return;
+
+        $avgRating = ProductComment::where('product_id', $productId)
+                        ->where('is_approved', 1)->avg('rating');
+        $countRating = ProductComment::where('product_id', $productId)
+                        ->where('is_approved', 1)->count();
+
+        $product->rating_avg = round($avgRating ?? 0, 1);
+        $product->rating_count = $countRating;
+        $product->save();
     }
 }

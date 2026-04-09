@@ -40,4 +40,9 @@ class OrderItem extends Model
     {
         return $this->belongsTo(ProductVariant::class, 'variant_id', 'variant_id');
     }
+
+    public function comment()
+    {
+        return $this->hasOne(ProductComment::class, 'order_item_id', 'order_item_id');
+    }
 }

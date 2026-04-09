@@ -20,6 +20,15 @@
         <span>Dashboard</span>
       </router-link>
 
+      <router-link to="/admin/attendance" class="nav-item" active-class="nav-item--active">
+        <div class="nav-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <span>Chấm công</span>
+      </router-link>
+
       <router-link to="/admin/order" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -39,7 +48,7 @@
         <span>Bán hàng (POS)</span>
       </router-link>
 
-      <router-link to="/admin/staff" class="nav-item" active-class="nav-item--active">
+      <router-link v-if="userRoleRaw !== 'seller'" to="/admin/staff" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -68,42 +77,42 @@
             <span class="submenu-dot"></span>
             <span>Sản phẩm</span>
           </router-link>
-          <router-link to="/admin/category" class="submenu-item" active-class="submenu-item--active">
+          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/category" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
             <span>Danh mục</span>
           </router-link>
-          <router-link to="/admin/users" class="submenu-item" active-class="submenu-item--active">
+          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/users" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
             <span>Khách hàng</span>
           </router-link>
-          <router-link to="/admin/shipping" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Phí vận chuyển</span>
-          </router-link>
-          <router-link to="/admin/coupon" class="submenu-item" active-class="submenu-item--active">
+          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/coupon" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
             <span>Mã giảm giá</span>
           </router-link>
-          <router-link to="/admin/post" class="submenu-item" active-class="submenu-item--active">
+          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/post" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
             <span>Bài viết</span>
           </router-link>
-          <router-link to="/admin/post-category" class="submenu-item" active-class="submenu-item--active">
+          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/post-category" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
             <span>Danh mục bài viết</span>
           </router-link>
-          <router-link to="/admin/review" class="submenu-item" active-class="submenu-item--active">
+          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/review" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
             <span>Đánh giá</span>
           </router-link>
-          <router-link to="/admin/stats" class="submenu-item" active-class="submenu-item--active">
+          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/stats" class="submenu-item" active-class="submenu-item--active">
             <span class="submenu-dot"></span>
             <span>Thống kê</span>
+          </router-link>
+          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/attendance-list" class="submenu-item" active-class="submenu-item--active">
+            <span class="submenu-dot"></span>
+            <span>Lịch sử chấm công</span>
           </router-link>
         </div>
       </transition>
 
-      <router-link to="/admin/chat" class="nav-item" active-class="nav-item--active">
+       <router-link to="/admin/chat" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -144,6 +153,7 @@ const userName = ref('Admin');
 const userEmail = ref('');
 const userAvatar = ref('');
 const userRole = ref('Manager');
+const userRoleRaw = ref('');
 const isStoreMenuOpen = ref(true); // Mặc định mở theo ảnh mẫu
 
 
@@ -157,12 +167,9 @@ onMounted(() => {
       
       userName.value = user.full_name || user.name || 'Admin';
       userEmail.value = user.email || '';
-      if (path) {
-        userAvatar.value = path.startsWith('http') ? path : `${BASE_URL}${path}`; 
-      } else {
-        userAvatar.value = ''; // Hoặc path ảnh mặc định sau này nếu cần
-      }
-      userRole.value = user.role === 'admin' ? 'Super Admin' : (user.role === 'staff' ? 'Staff' : 'Manager');
+      userAvatar.value = path.startsWith('http') ? path : `${BASE_URL}${path}`; 
+      userRoleRaw.value = user.role;
+      userRole.value = user.role === 'admin' ? 'Super Admin' : (user.role === 'staff' ? 'Staff' : (user.role === 'seller' ? 'Seller' : 'Customer'));
     } catch (e) {
       console.error("Failed to parse user data", e);
     }
@@ -182,11 +189,11 @@ const handleLogout = () => {
 .sidebar {
   width: 250px;
   min-height: 100vh;
-  background: #fff;
+  background: var(--card-bg, #fff);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  border-right: 1px solid #eee;
+  border-right: 1px solid var(--border-color, #eee);
 }
 
 /* Brand */
@@ -196,7 +203,7 @@ const handleLogout = () => {
   gap: 12px;
   padding: 0 22px;
   height: 70px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color, #eee);
   flex-shrink: 0;
 }
 
@@ -214,7 +221,7 @@ const handleLogout = () => {
   margin-left: 5px;
   margin-top: 5px;
   font-weight: 700;
-  color: #000;
+  color: var(--text-main, #000);
   letter-spacing: -0.5px;
 }
 
@@ -231,7 +238,7 @@ const handleLogout = () => {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 10px;
-  color: #666;
+  color: var(--text-muted, #666);
   text-decoration: none;
   font-size: 0.925rem;
   font-weight: 500;
@@ -252,12 +259,12 @@ const handleLogout = () => {
 }
 
 .nav-item:hover {
-  background: #f3f4f6;
-  color: #1a1a1a;
+  background: var(--hover-bg, #f3f4f6);
+  color: var(--text-main, #1a1a1a);
 }
 
 .nav-item--active {
-  background: #1d4ed8 !important;
+  background: var(--ocean-blue, #1d4ed8) !important;
   color: white !important;
   font-weight: 600;
 }
@@ -267,8 +274,8 @@ const handleLogout = () => {
 }
 
 .nav-item--open {
-  background: #f8f9fa;
-  color: #1a1a1a;
+  background: var(--hover-bg, #f8f9fa);
+  color: var(--text-main, #1a1a1a);
 }
 
 .dropdown-arrow {
@@ -292,7 +299,7 @@ const handleLogout = () => {
   align-items: center;
   gap: 12px;
   padding: 10px 24px;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
   text-decoration: none;
   font-size: 0.9rem;
   font-weight: 500;
@@ -304,16 +311,16 @@ const handleLogout = () => {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #cbd5e1;
+  background: var(--border-color, #cbd5e1);
   transition: background 0.2s;
 }
 
 .submenu-item:hover {
-  color: #1d4ed8;
+  color: var(--ocean-blue, #1d4ed8);
 }
 
 .submenu-item:hover .submenu-dot {
-  background: #1d4ed8;
+  background: var(--ocean-blue, #1d4ed8);
 }
 
 .submenu-item--active {
@@ -341,7 +348,7 @@ const handleLogout = () => {
 /* Footer */
 .sidebar-footer {
   padding: 16px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-color, #eee);
 }
 
 .user-profile {
@@ -355,8 +362,8 @@ const handleLogout = () => {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #eef2ff;
-  color: #1d4ed8;
+  background: var(--hover-bg, #eef2ff);
+  color: var(--ocean-blue, #1d4ed8);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -374,13 +381,13 @@ const handleLogout = () => {
 .user-name-bold {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text-main, #1a1a1a);
   line-height: 1.2;
 }
 
 .user-email-text {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--text-light, #888);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

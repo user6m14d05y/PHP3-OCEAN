@@ -238,12 +238,17 @@ const timelineSteps = [
 const getStepStatus = (stepKey) => {
   if (!order.value) return 'inactive';
   if (order.value.fulfillment_status === 'cancelled') {
-    const cancelledIdx = stepOrder.indexOf(order.value.fulfillment_status);
     return 'cancelled';
   }
   const stepOrder = ['pending', 'confirmed', 'packing', 'shipping', 'delivered', 'completed'];
   const currentIdx = stepOrder.indexOf(order.value.fulfillment_status);
   const stepIdx = stepOrder.indexOf(stepKey);
+  
+  // Nếu đã hoàn thành thì tất cả các bước (kể cả bước hoàn thành) đều là 'done'
+  if (order.value.fulfillment_status === 'completed') {
+      return stepIdx <= currentIdx ? 'done' : 'inactive';
+  }
+  
   if (stepIdx < currentIdx) return 'done';
   if (stepIdx === currentIdx) return 'active';
   return 'inactive';

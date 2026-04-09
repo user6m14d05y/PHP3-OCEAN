@@ -24,6 +24,137 @@
 
   /* Font */
   --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
+  --bs-font-sans-serif: var(--font-inter);
+  --bs-body-font-family: var(--font-inter);
+}
+
+/* ===== OCEAN THEME - Dark Theme ===== */
+html.dark {
+  /* Ocean Color Palette (Dark Theme) */
+  --ocean-deepest: #0f172a; /* tailwind slate-900 */
+  --ocean-deep: #1e293b;   /* tailwind slate-800 */
+  --ocean-dark: #334155;   /* tailwind slate-700 */
+  --ocean-mid: #475569;    /* tailwind slate-600 */
+  --ocean-blue: #38bdf8;   /* tailwind sky-400 */
+  --ocean-bright: #7dd3fc;
+  --ocean-light: #bae6fd;
+  
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-light: #64748b;
+
+  /* Accent */
+  --coral: #ef4444;
+  --seafoam: #14b8a6;
+  --amber: #f59e0b;
+
+  /* Border & Surface */
+  --border-color: #334155;
+  --card-bg: #1e293b;
+  --hover-bg: #0f172a;
+}
+
+/* =======================================================
+   Bootstrap Overrides for Dark Mode
+   ======================================================= */
+html.dark .bg-white,
+html.dark .bg-light {
+  background-color: var(--card-bg) !important;
+}
+
+html.dark .text-dark,
+html.dark .text-black {
+  color: var(--text-main) !important;
+}
+
+html.dark .text-secondary,
+html.dark .text-muted {
+  color: var(--text-muted) !important;
+}
+
+html.dark .border,
+html.dark .border-top,
+html.dark .border-bottom,
+html.dark .border-end,
+html.dark .border-start {
+  border-color: var(--border-color) !important;
+}
+
+html.dark .table {
+  color: var(--text-main);
+  border-color: var(--border-color);
+}
+html.dark .table > :not(caption) > * > * {
+  background-color: transparent !important;
+  color: var(--text-main) !important;
+  border-bottom-color: var(--border-color) !important;
+}
+
+html.dark .form-control,
+html.dark .form-select {
+  background-color: var(--ocean-deepest);
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+html.dark .form-control:focus,
+html.dark .form-select:focus {
+  background-color: var(--ocean-deepest);
+  color: var(--text-main);
+  border-color: var(--ocean-blue);
+  box-shadow: 0 0 0 0.25rem rgba(56, 189, 248, 0.25);
+}
+
+html.dark .modal-content,
+html.dark .dropdown-menu {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+html.dark .dropdown-item {
+  color: var(--text-main);
+}
+html.dark .dropdown-item:hover {
+  background-color: var(--hover-bg);
+  color: var(--ocean-blue);
+}
+
+html.dark .list-group-item {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+html.dark .btn-light {
+  background-color: var(--ocean-dark);
+  border-color: var(--ocean-dark);
+  color: var(--text-main);
+}
+html.dark .btn-light:hover {
+  background-color: var(--ocean-mid);
+}
+
+html.dark .nav-tabs .nav-link {
+  color: var(--text-muted);
+}
+html.dark .nav-tabs .nav-link.active {
+  background-color: var(--card-bg);
+  color: var(--text-main);
+  border-color: var(--border-color) var(--border-color) var(--card-bg);
+}
+
+html.dark .offcanvas {
+  background-color: var(--card-bg);
+}
+
+html.dark .swal2-popup {
+  background-color: var(--card-bg) !important;
+  color: var(--text-main) !important;
+}
+html.dark .swal2-title,
+html.dark .swal2-html-container {
+  color: var(--text-main) !important;
 }
 
 * {
@@ -33,10 +164,18 @@
 }
 
 body {
-  font-family: var(--font-inter);
+  font-family: var(--font-inter) !important;
   background: var(--ocean-deepest);
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6, p, a, span, label, td, th, li {
+  font-family: var(--font-inter);
+}
+
+input, button, select, textarea, .form-control, .form-select, .btn {
+  font-family: var(--font-inter) !important;
 }
 
 /* Scrollbar */

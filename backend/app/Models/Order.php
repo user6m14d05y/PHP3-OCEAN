@@ -11,6 +11,7 @@ class Order extends Model
     protected $fillable = [
         'order_code',
         'user_id',
+        'seller_id',
         'address_id',
         'promotion_id',
         'recipient_name',
@@ -24,6 +25,7 @@ class Order extends Model
         'discount_amount',
         'shipping_fee',
         'grand_total',
+        'email_sent',
         'confirmed_at',
         'shipped_at',
         'delivered_at',
@@ -45,5 +47,10 @@ class Order extends Model
     public function statusHistories()
     {
         return $this->hasMany(OrderStatusHistory::class, 'order_id', 'order_id');
+    }
+    public function getOrderId($order_code)
+    {
+        $order = $this->where('order_code', $order_code)->first();
+        return $order->order_id;
     }
 }

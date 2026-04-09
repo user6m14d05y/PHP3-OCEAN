@@ -17,7 +17,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
@@ -46,9 +45,7 @@ class OrderController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
         }
 
-        $query = Order::with(['items.product', 'items.variant' => function ($q) {
-                // để lấy hình ảnh riêng của variant nếu có
-            }])
+        $query = Order::with(['items.product', 'items.variant', 'items.comment'])
             ->where('user_id', $userId)
             ->orderBy('created_at', 'desc');
             
@@ -58,6 +55,14 @@ class OrderController extends Controller
         }
 
         $orders = $query->paginate(10);
+
+        // Thêm flag is_reviewed cho mỗi order
+        $orders->getCollection()->transform(function ($order) {
+            // Một đơn hàng được coi là đã đánh giá nếu CÓ ÍT NHẤT 1 sản phẩm được đánh giá
+            // Hoặc có thể yêu cầu TẤT CẢ sản phẩm được đánh giá tùy theo yêu cầu
+            $order->is_reviewed = $order->items->contains(fn($item) => $item->comment !== null);
+            return $order;
+        });
 
         return response()->json([
             'status' => 'success',
@@ -147,57 +152,26 @@ class OrderController extends Controller
         if ($request->coupon_applied) {
             $coupon = Coupon::where('code', $request->coupon_applied)
                 ->where('is_active', true)
-                ->where(function ($q) {
-                    $q->whereNull('start_date')->orWhere('start_date', '<=', now());
-                })
-                ->where(function ($q) {
-                    $q->whereNull('end_date')->orWhere('end_date', '>=', now());
-                })
-                ->where(function ($q) {
-                    $q->whereNull('max_usage')->orWhereColumn('used_count', '<', 'max_usage');
-                })
                 ->first();
 
-            if (!$coupon) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Mã giảm giá không hợp lệ, đã hết hạn hoặc đã sử dụng hết.'
-                ], 400);
-            }
-
-            // Kiểm tra giá trị đơn hàng tối thiểu
-            if ($coupon->min_order_value && $subtotal < $coupon->min_order_value) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Đơn hàng chưa đạt giá trị tối thiểu ' . number_format($coupon->min_order_value, 0, ',', '.') . 'đ để áp dụng mã giảm giá.'
-                ], 400);
-            }
-
-            // Kiểm tra giới hạn sử dụng của user
-            $userUsage = UserCoupon::where('user_id', $userId)->where('coupon_id', $coupon->id)->first();
-            if ($coupon->usage_per_user && $userUsage && $userUsage->used_count >= $coupon->usage_per_user) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Bạn đã sử dụng hết lượt cho mã giảm giá này.'
-                ], 400);
-            }
-
-            // Tính toán giảm giá
-            if ($coupon->type === 'percent') {
-                $disc = ($subtotal * $coupon->value) / 100;
-                if ($coupon->max_discount_value) {
-                    $disc = min($disc, $coupon->max_discount_value);
+            if ($coupon) {
+                // Tính toán giảm giá
+                if ($coupon->type === 'percent') {
+                    $disc = ($subtotal * $coupon->value) / 100;
+                    if ($coupon->max_discount_value) {
+                        $disc = min($disc, $coupon->max_discount_value);
+                    }
+                    $discountAmount = $disc;
+                } elseif ($coupon->type === 'fixed') {
+                    $discountAmount = min($coupon->value, $subtotal);
+                } elseif ($coupon->type === 'free_ship') {
+                    // Xử lý freeship sau ở phần phí vận chuyển
                 }
-                $discountAmount = $disc;
-            } elseif ($coupon->type === 'fixed') {
-                $discountAmount = min($coupon->value, $subtotal);
-            } elseif ($coupon->type === 'free_ship') {
-                // Xử lý freeship sau ở phần phí vận chuyển
+                
+                // Thu nhỏ discountAmount sao cho không vượt subtotal
+                $discountAmount = min($discountAmount, $subtotal);
+                $couponId = $coupon->id;
             }
-
-            // Thu nhỏ discountAmount sao cho không vượt subtotal
-            $discountAmount = min($discountAmount, $subtotal);
-            $couponId = $coupon->id;
         }
 
         // Tính phí vận chuyển động dựa trên ShippingZone
@@ -260,54 +234,6 @@ class OrderController extends Controller
 
         $grandTotal = $subtotal + $shippingFee - $discountAmount;
 
-        // [FIX] Kiểm tra nếu user đã có đơn VNPay/MoMo pending + unpaid (user quay lại từ cổng thanh toán)
-        // → Không tạo đơn mới, mà tạo lại URL thanh toán cho đơn cũ
-        if (in_array($request->payment_method, ['vnpay', 'momo'])) {
-            $existingOrder = Order::where('user_id', $userId)
-                ->where('payment_method', $request->payment_method)
-                ->where('payment_status', 'unpaid')
-                ->where('fulfillment_status', 'pending')
-                ->where('created_at', '>=', now()->subMinutes(30))
-                ->orderByDesc('created_at')
-                ->first();
-
-            if ($existingOrder) {
-                // Tạo lại URL thanh toán cho đơn hàng cũ
-                try {
-                    if ($request->payment_method === 'vnpay') {
-                        $ipAddr = $request->ip();
-                        $paymentUrl = VNPayService::createPaymentUrl($existingOrder, $ipAddr);
-                        return response()->json([
-                            'status' => 'success',
-                            'message' => 'Bạn đã có đơn hàng ' . $existingOrder->order_code . ' đang chờ thanh toán. Đang chuyển đến cổng thanh toán...',
-                            'payment_method' => 'vnpay',
-                            'vnpay_url' => $paymentUrl,
-                            'data' => [
-                                'order_code' => $existingOrder->order_code,
-                                'grand_total' => $existingOrder->grand_total,
-                            ]
-                        ]);
-                    }
-                    if ($request->payment_method === 'momo') {
-                        $momoUrl = \App\Services\MoMoService::createPaymentUrl($existingOrder);
-                        return response()->json([
-                            'status' => 'success',
-                            'message' => 'Bạn đã có đơn hàng ' . $existingOrder->order_code . ' đang chờ thanh toán.',
-                            'payment_method' => 'momo',
-                            'momo_url' => $momoUrl,
-                            'data' => [
-                                'order_code' => $existingOrder->order_code,
-                                'grand_total' => $existingOrder->grand_total,
-                            ]
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Retry payment URL failed: ' . $e->getMessage());
-                    // Nếu tạo URL lỗi → cho phép tạo đơn mới (fallthrough)
-                }
-            }
-        }
-
         // Bắt đầu transaction
         DB::beginTransaction();
         try {
@@ -321,7 +247,7 @@ class OrderController extends Controller
 
             // Tạo order
             $order = Order::create([
-                'order_code' => 'ORD' . now()->format('ymdHis') . strtoupper(Str::random(6)),
+                'order_code' => 'ORD' . strtoupper(uniqid()) . rand(10, 99),
                 'user_id' => $userId,
                 'address_id' => $address->address_id,
                 'promotion_id' => $couponId,
@@ -382,18 +308,8 @@ class OrderController extends Controller
                 }
             }
 
-            // Lưu danh sách cart_item_id để xóa (xóa ngay cho COD/Bank, xóa sau cho VNPay/MoMo)
-            $cartItemIds = $cartItems->pluck('cart_item_id');
-
-            // Với thanh toán online (VNPay, MoMo): KHÔNG xóa cart items ngay
-            // Chỉ xóa khi payment thành công (trong IPN/Return callback)
-            // Điều này giúp user quay lại trang checkout mà giỏ hàng vẫn còn
-            $isOnlinePayment = in_array($request->payment_method, ['vnpay', 'momo']);
-
-            if (!$isOnlinePayment) {
-                // COD / Bank Transfer: xóa cart items ngay
-                CartItem::whereIn('cart_item_id', $cartItemIds)->delete();
-            }
+            // Xóa các sản phẩm đã chọn khỏi giỏ
+            CartItem::whereIn('cart_item_id', $cartItems->pluck('cart_item_id'))->delete();
 
             // ==================== XỬ LÝ VNPAY ====================
             // [FIX P1] Di chuyển VNPay logic vào TRƯỚC DB::commit()
@@ -486,8 +402,9 @@ class OrderController extends Controller
                 Log::error('Realtime event dispatch failed: ' . $e->getMessage());
             }
 
-            // Gửi email
-            $this->sendOrderConfirmationEmail($order);
+            // Email xác nhận đơn hàng → KHÔNG gửi đồng bộ nữa
+            // Cron job "app:send-order-emails" sẽ tự động gửi sau 5 phút
+            // → Response trả về nhanh hơn (giảm 3-10 giây chờ SMTP)
 
             return response()->json([
                 'status' => 'success',
@@ -595,106 +512,25 @@ class OrderController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Lỗi khi hủy đơn.'], 500);
         }
     }
-
     /**
-     * Gửi email xác nhận đơn hàng 
+     * Lấy ID đơn hàng từ order_code (thay vì ID cho Vue router params)
      */
-    private function sendOrderConfirmationEmail(Order $order): bool
+    public function getOrderIdByCode($order_code)
     {
-        try {
-            $user = auth('api')->user() ?? auth('admin')->user();
-            if (!$user || empty($user->email)) return false;
+        $userId = $this->getUserId();
+        if (!$userId) return response()->json(['status' => 'error'], 401);
 
-            $emailUser = config('services.email.username', config('mail.mailers.smtp.username'));
-            $emailPass = config('services.email.password', config('mail.mailers.smtp.password'));
-
-            if (!$emailUser || !$emailPass) {
-                Log::warning('Skip sending email as EMAIL_USER missing.');
-                return false;
-            }
-
-            $transport = new \Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport(
-                'smtp.gmail.com',
-                587,
-                false
-            );
-            $transport->setUsername($emailUser);
-            $transport->setPassword($emailPass);
-            $mailer = new \Symfony\Component\Mailer\Mailer($transport);
-
-            $order->load('items');
-
-            $itemsHtml = '';
-            foreach ($order->items as $item) {
-                $variantInfo = $item->variant_name ? '(' . $item->color . '/' . $item->size . ')' : '';
-                $itemsHtml .= '
-                <tr>
-                    <td style="padding: 10px; border-bottom: 1px solid #eee;">' . htmlspecialchars($item->product_name) . ' ' . $variantInfo . ' x' . $item->quantity . '</td>
-                    <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold;">' . number_format($item->line_total, 0, ',', '.') . 'đ</td>
-                </tr>';
-            }
-
-            $htmlBody = '
-            <!DOCTYPE html>
-            <html>
-            <head><meta charset="UTF-8"></head>
-            <body style="font-family: Arial, sans-serif; background: #f9fafb; padding: 20px;">
-                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                    <div style="background: #0288d1; padding: 20px; text-align: center; color: white;">
-                        <h2 style="margin: 0;">Cảm ơn bạn đã đặt hàng!</h2>
-                        <p style="margin: 5px 0 0;">Đơn hàng của bạn đã được ghi nhận</p>
-                    </div>
-                    <div style="padding: 20px;">
-                        <p>Xin chào <strong>' . htmlspecialchars($order->recipient_name) . '</strong>,</p>
-                        <p>Ocean Store xin thông báo đơn hàng <strong>' . $order->order_code . '</strong> của bạn đã được tạo thành công vào lúc ' . now()->format('H:i d/m/Y') . '.</p>
-                        
-                        <h3 style="border-bottom: 2px solid #0288d1; padding-bottom: 5px; color: #333;">Chi tiết đơn hàng</h3>
-                        <table width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;">
-                            ' . $itemsHtml . '
-                            <tr>
-                                <td style="padding: 10px; text-align: right;">Tạm tính:</td>
-                                <td style="padding: 10px; text-align: right;">' . number_format($order->subtotal, 0, ',', '.') . 'đ</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 10px; text-align: right;">Phí vận chuyển:</td>
-                                <td style="padding: 10px; text-align: right;">' . number_format($order->shipping_fee, 0, ',', '.') . 'đ</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 10px; text-align: right;">Khuyến mãi:</td>
-                                <td style="padding: 10px; text-align: right; color: green;">-' . number_format($order->discount_amount, 0, ',', '.') . 'đ</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 10px; text-align: right; font-weight: bold; font-size: 16px;">TỔNG CỘNG:</td>
-                                <td style="padding: 10px; text-align: right; font-weight: bold; font-size: 16px; color: #e53e3e;">' . number_format($order->grand_total, 0, ',', '.') . 'đ</td>
-                            </tr>
-                        </table>
-
-                        <h3 style="border-bottom: 2px solid #0288d1; padding-bottom: 5px; color: #333;">Thông tin giao hàng</h3>
-                        <p><strong>Người nhận:</strong> ' . htmlspecialchars($order->recipient_name) . '</p>
-                        <p><strong>Điện thoại:</strong> ' . htmlspecialchars($order->recipient_phone) . '</p>
-                        <p><strong>Địa chỉ:</strong> ' . htmlspecialchars($order->shipping_address) . '</p>
-                        <p><strong>Phương thức TT:</strong> ' . strtoupper($order->payment_method) . '</p>
-
-                        <div style="text-align: center; margin-top: 30px;">
-                            <a href="' . config('app.frontend_url', 'http://localhost:3302') . '/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lịch sử đơn hàng</a>
-                        </div>
-                    </div>
-                </div>
-            </body>
-            </html>
-            ';
-
-            $emailMessage = (new \Symfony\Component\Mime\Email())
-                ->from($emailUser)
-                ->to($user->email)
-                ->subject('📦 Xác nhận đơn hàng đặt thành công ' . $order->order_code)
-                ->html($htmlBody);
-
-            $mailer->send($emailMessage);
-            return true;
-        } catch (\Exception $e) {
-            Log::error("Failed to send order email: " . $e->getMessage());
-            return false;
+        $order = Order::where('order_code', $order_code)->where('user_id', $userId)->first();
+        
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy đơn hàng!'], 404);
         }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'order_id' => $order->order_id
+            ]
+        ]);
     }
 }

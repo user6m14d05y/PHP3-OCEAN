@@ -77,12 +77,31 @@ echo "[6/7] Running migrations..."
 php artisan migrate --force --no-interaction || echo "WARNING: Migration failed."
 
 # -----------------------------------------------
-# 7. Start PHP-FPM and Reverb
+# 7. Cron Job Setup (Laravel Scheduler)
 # -----------------------------------------------
-echo "[7/7] Starting Reverb and PHP-FPM..."
+echo "[7/8] Setting up Cron for Laravel Scheduler..."
+
+# Tạo crontab entry: chạy php artisan schedule:run mỗi phút
+# QUAN TRỌNG: Dùng đường dẫn tuyệt đối /usr/local/bin/php vì cron daemon
+# chạy với PATH mặc định rất hạn chế (/usr/bin:/bin), không chứa /usr/local/bin
+{
+echo "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+echo "* * * * * cd /var/www && /usr/local/bin/php artisan schedule:run >> /var/www/storage/logs/cron.log 2>&1"
+} | crontab -
+
+# Khởi chạy cron daemon an toàn
+service cron start || true
+
+echo "  Cron daemon started successfully!"
+
+# -----------------------------------------------
+# 8. Start PHP-FPM and Reverb
+# -----------------------------------------------
+echo "[8/8] Starting Reverb and PHP-FPM..."
 echo "======================================="
 echo " Backend READY on port 9000"
 echo " WebSocket (Reverb) READY on port 8383"
+echo " Cron (Laravel Scheduler) RUNNING"
 echo "======================================="
 
 # Khởi chạy Reverb WebSocket Server chạy ngầm (Background) và gắn nohup để không bị kill khi exec php-fpm
