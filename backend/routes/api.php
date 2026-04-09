@@ -17,13 +17,13 @@ use App\Http\Controllers\LocationController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\CartController;
-use App\Http\Controllers\ShippingZoneController;
 use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\ProductCommentController;
+use App\Http\Controllers\FavoriteController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -96,9 +96,13 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{id}', [OrderController::class, 'show']);
     Route::put('/orders/{id}/cancel', [OrderController::class, 'cancel']);
-    
     // Đánh giá sản phẩm
     Route::post('/orders/feedback', [ProductCommentController::class, 'store']);
+
+    // Wishlist (Sản phẩm yêu thích)
+    Route::get('/favorites', [FavoriteController::class, 'index']);
+    Route::get('/favorites/ids', [FavoriteController::class, 'getFavoriteIds']);
+    Route::post('/favorites/toggle', [FavoriteController::class, 'toggle']);
 });
 
 // Cart routes (Protected - cần JWT token user/admin)
@@ -142,12 +146,6 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
     Route::put('/coupons/{id}', [CouponController::class, 'update']);
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
     Route::get('/coupons/{id}/usages', [CouponController::class, 'getCouponUsages']);
-
-    // Quản lý Phí vận chuyển
-    Route::get('/shipping-zones', [ShippingZoneController::class, 'index']);
-    Route::post('/shipping-zones', [ShippingZoneController::class, 'store']);
-    Route::put('/shipping-zones/{id}', [ShippingZoneController::class, 'update']);
-    Route::delete('/shipping-zones/{id}', [ShippingZoneController::class, 'destroy']);
 
     // Quản lý Đơn hàng
     Route::get('/orders', [\App\Http\Controllers\AdminOrderController::class, 'index']);
@@ -199,10 +197,6 @@ Route::get('brands', [BrandController::class, 'index']);
 
 // Coupons (Công khai)
 Route::get('coupons/public', [CouponController::class, 'getPublicCoupons']);
-
-
-
-Route::get('shipping-zones/active', [ShippingZoneController::class, 'activeZones']);
 
 // API Địa chỉ Việt Nam (Public)
 Route::prefix('location')->group(function () {

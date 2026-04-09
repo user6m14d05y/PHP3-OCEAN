@@ -8,58 +8,89 @@ use Illuminate\Http\Request;
 class FavoriteController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Lấy danh sách sản phẩm yêu thích (kèm detail sản phẩm).
      */
     public function index()
     {
-        //
+        $user = auth('api')->user() ?? auth('admin')->user();
+        
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $favorites = Favorite::with(['product' => function ($query) {
+            $query->with(['mainImage', 'lowestPriceVariant']); 
+        }])
+        ->where('user_id', $user->user_id)
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $favorites
+        ]);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Lấy mảng ID sản phẩm đã yêu thích để phục vụ state frontend
      */
-    public function create()
+    public function getFavoriteIds()
     {
-        //
+        $user = auth('api')->user() ?? auth('admin')->user();
+        
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $ids = Favorite::where('user_id', $user->user_id)
+            ->pluck('product_id');
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $ids
+        ]);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Thêm/Xóa sản phẩm khỏi danh sách yêu thích (Toggle)
      */
-    public function store(Request $request)
+    public function toggle(Request $request)
     {
-        //
-    }
+        $user = auth('api')->user() ?? auth('admin')->user();
+        
+        if (!$user) {
+            return response()->json(['message' => 'Vui lòng đăng nhập để yêu thích sản phẩm'], 401);
+        }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Favorite $favorite)
-    {
-        //
-    }
+        $request->validate([
+            'product_id' => 'required|exists:products,product_id',
+        ]);
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Favorite $favorite)
-    {
-        //
-    }
+        $productId = $request->product_id;
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Favorite $favorite)
-    {
-        //
-    }
+        $favorite = Favorite::where('user_id', $user->user_id)
+            ->where('product_id', $productId)
+            ->first();
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Favorite $favorite)
-    {
-        //
+        if ($favorite) {
+            // Đã thích -> Xóa
+            $favorite->delete();
+            return response()->json([
+                'status' => 'success',
+                'action' => 'removed',
+                'message' => 'Đã bỏ yêu thích sản phẩm' // Optional msg
+            ]);
+        } else {
+            // Chưa thích -> Thêm
+            Favorite::create([
+                'user_id' => $user->user_id,
+                'product_id' => $productId,
+            ]);
+            return response()->json([
+                'status' => 'success',
+                'action' => 'added',
+                'message' => 'Đã thêm vào danh sách yêu thích' // Optional msg
+            ]);
+        }
     }
 }

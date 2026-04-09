@@ -24,6 +24,7 @@ const ProfileAddress = () => import("../Pages/Client/Profile/ProfileAddress.vue"
 const Address = () => import("../Pages/Client/Profile/Address.vue");
 const ProfileOrders = () => import("../Pages/Client/Profile/ProfileOrders.vue");
 const ProfileOrderDetail = () => import("../Pages/Client/Profile/ProfileOrderDetail.vue");
+const ProfileWishlist = () => import("../Pages/Client/Profile/ProfileWishlist.vue");
 const ProfileCoupon = () => import("../Pages/Client/Profile/ProfileCoupon.vue");
 const ProfileChangePassword = () => import("../Pages/Client/Profile/ProfileChangePassword.vue");
 
@@ -85,7 +86,7 @@ const routes = [
                     { path: "address", name: "profile-address", component: Address },
                     { path: "orders", name: "profile-orders", component: ProfileOrders }, 
                     { path: "orders/:id", name: "profile-order-detail", component: ProfileOrderDetail },
-                    { path: "wishlist", name: "profile-wishlist", component: ProfileInfo }, // placeholder
+                    { path: "wishlist", name: "profile-wishlist", component: ProfileWishlist },
                     { path: "change-password", name: "profile-change-password", component: ProfileChangePassword }, 
                     { path: "coupon", name: "profile-coupon", component: ProfileCoupon },
                 ],
@@ -210,12 +211,6 @@ const routes = [
                 name: "admin-coupon",
                 component: AdminCoupon,
                 meta: { title: 'Quản lý mã giảm giá' },
-            },
-            {
-                path: "shipping",
-                name: "admin-shipping",
-                component: () => import("../Pages/admin/AdminShipping.vue"),
-                meta: { title: 'Quản lý phí vận chuyển' },
             },
             {
                 path: "post",
