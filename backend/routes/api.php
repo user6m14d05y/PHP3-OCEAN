@@ -17,12 +17,12 @@ use App\Http\Controllers\LocationController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\CartController;
-use App\Http\Controllers\ShippingZoneController;
 use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PosController;
+use App\Http\Controllers\ProductCommentController;
 use App\Http\Controllers\FavoriteController;
 
 // Add this line to run the route: http://localhost:8000/api
@@ -96,6 +96,8 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{id}', [OrderController::class, 'show']);
     Route::put('/orders/{id}/cancel', [OrderController::class, 'cancel']);
+    // Đánh giá sản phẩm
+    Route::post('/orders/feedback', [ProductCommentController::class, 'store']);
 
     // Wishlist (Sản phẩm yêu thích)
     Route::get('/favorites', [FavoriteController::class, 'index']);
@@ -145,12 +147,6 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
     Route::get('/coupons/{id}/usages', [CouponController::class, 'getCouponUsages']);
 
-    // Quản lý Phí vận chuyển
-    Route::get('/shipping-zones', [ShippingZoneController::class, 'index']);
-    Route::post('/shipping-zones', [ShippingZoneController::class, 'store']);
-    Route::put('/shipping-zones/{id}', [ShippingZoneController::class, 'update']);
-    Route::delete('/shipping-zones/{id}', [ShippingZoneController::class, 'destroy']);
-
     // Quản lý Đơn hàng
     Route::get('/orders', [\App\Http\Controllers\AdminOrderController::class, 'index']);
     Route::get('/orders/{id}', [\App\Http\Controllers\AdminOrderController::class, 'show']);
@@ -166,6 +162,12 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
     Route::get('/live-chats/{id}', [\App\Http\Controllers\Admin\AdminChatController::class, 'getMessages']);
     Route::post('/live-chats/{id}/reply', [\App\Http\Controllers\Admin\AdminChatController::class, 'replyMessage']);
     Route::post('/live-chats/{id}/close', [\App\Http\Controllers\Admin\AdminChatController::class, 'closeSession']);
+
+    // Quản lý Đánh giá sản phẩm
+    Route::get('/reviews', [ProductCommentController::class, 'adminIndex']);
+    Route::put('/reviews/{id}/approve', [ProductCommentController::class, 'approve']);
+    Route::put('/reviews/{id}/reject', [ProductCommentController::class, 'reject']);
+    Route::delete('/reviews/{id}', [ProductCommentController::class, 'destroy']);
 });
 // Business routes
 // Public resources (Chỉ cho phép GET public, các thao tác khác cần admin)
@@ -174,6 +176,7 @@ Route::get('categories/{id}', [CategoryController::class, 'show']);
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{id}', [ProductController::class, 'show']);
 Route::get('products/slug/{slug}', [ProductController::class, 'show']);
+Route::get('products/{product_id}/comments', [ProductCommentController::class, 'getByProduct']);
 Route::get('productFeatured', [ProductController::class, 'productFeatured']);
 
 // Admin/Staff only for modification
@@ -194,10 +197,6 @@ Route::get('brands', [BrandController::class, 'index']);
 
 // Coupons (Công khai)
 Route::get('coupons/public', [CouponController::class, 'getPublicCoupons']);
-
-
-
-Route::get('shipping-zones/active', [ShippingZoneController::class, 'activeZones']);
 
 // API Địa chỉ Việt Nam (Public)
 Route::prefix('location')->group(function () {

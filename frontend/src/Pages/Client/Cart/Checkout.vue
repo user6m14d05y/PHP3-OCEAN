@@ -888,7 +888,6 @@ onMounted(async () => {
     font-family: var(--font-inter, 'Inter', sans-serif);
     color: #0f172a;
     min-height: 80vh;
-    background-color: #fafbfd; /* Sạch sẽ mượt mà hơn */
 }
 
 /* Base states & Header */

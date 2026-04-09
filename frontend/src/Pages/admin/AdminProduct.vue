@@ -36,6 +36,27 @@ onMounted(() => fetchProducts());
 
 const totalPages = computed(() => Math.ceil(totalProducts.value / limit));
 
+const visiblePages = computed(() => {
+    const total = totalPages.value;
+    const current = currentPage.value;
+    
+    if (total <= 7) {
+        const pages = [];
+        for (let i = 1; i <= total; i++) pages.push(i);
+        return pages;
+    }
+    
+    if (current <= 4) {
+        return [1, 2, 3, 4, 5, '...', total];
+    }
+    
+    if (current >= total - 3) {
+        return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    }
+    
+    return [1, '...', current - 1, current, current + 1, '...', total];
+});
+
 const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
 };
@@ -276,13 +297,15 @@ const qvTotalStock = computed(() => {
             <!-- Pagination -->
             <div v-if="totalPages > 1" class="pagination">
                 <button class="page-btn" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">‹</button>
-                <button
-                    v-for="page in totalPages"
-                    :key="page"
-                    class="page-btn"
-                    :class="{ active: page === currentPage }"
-                    @click="goToPage(page)"
-                >{{ page }}</button>
+                <template v-for="(item, index) in visiblePages" :key="index">
+                    <span v-if="item === '...'" class="page-dots">...</span>
+                    <button
+                        v-else
+                        class="page-btn"
+                        :class="{ active: item === currentPage }"
+                        @click="goToPage(item)"
+                    >{{ item }}</button>
+                </template>
                 <button class="page-btn" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">›</button>
             </div>
         </div>
@@ -720,6 +743,7 @@ const qvTotalStock = computed(() => {
 .page-btn:hover:not(:disabled) { border-color: var(--ocean-blue); color: var(--ocean-blue); }
 .page-btn.active { background: var(--ocean-blue); color: white; border-color: var(--ocean-blue); }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-dots { display: flex; align-items: center; justify-content: center; padding: 0 4px; color: var(--text-muted); font-weight: 700; }
 
 /* Empty */
 .empty-state { text-align: center; padding: 60px 20px; }

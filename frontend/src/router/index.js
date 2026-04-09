@@ -213,12 +213,6 @@ const routes = [
                 meta: { title: 'Quản lý mã giảm giá' },
             },
             {
-                path: "shipping",
-                name: "admin-shipping",
-                component: () => import("../Pages/admin/AdminShipping.vue"),
-                meta: { title: 'Quản lý phí vận chuyển' },
-            },
-            {
                 path: "post",
                 name: "admin-post",
                 component: () => import("../Pages/admin/AdminPost.vue"),
@@ -247,6 +241,12 @@ const routes = [
                 name: "admin-post-category-create",
                 component: () => import("../Pages/admin/AdminCreatePostCategory.vue"),
                 meta: { title: 'Thêm danh mục bài viết' },
+            },
+            {
+                path: "review",
+                name: "admin-review",
+                component: () => import("../Pages/admin/AdminReview.vue"),
+                meta: { title: 'Quản lý đánh giá' },
             },
         ],
     },

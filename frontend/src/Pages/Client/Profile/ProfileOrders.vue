@@ -11,6 +11,20 @@ const pagination = ref(null);
 const currentFilter = ref('all');
 const router = useRouter();
 
+import FeedbackModal from '@/components/FeedbackModal.vue';
+const showFeedbackModal = ref(false);
+const selectedOrderForFeedback = ref(null);
+
+const openFeedback = (order) => {
+    selectedOrderForFeedback.value = order;
+    showFeedbackModal.value = true;
+};
+
+const onFeedbackSubmitted = () => {
+    // Tải lại danh sách đơn hàng để cập nhật trạng thái nếu cần
+    fetchOrders(currentPage.value);
+};
+
 const filterTabs = [
   { value: 'all', label: 'Tất cả' },
   { value: 'pending', label: 'Chờ xác nhận' },
@@ -298,6 +312,16 @@ onMounted(() => {
             >
               ↻ Mua lại
             </button>
+            <template v-if="order.fulfillment_status === 'completed' || order.fulfillment_status === 'delivered'">
+              <button 
+                v-if="!order.is_reviewed"
+                class="btn-action btn-feedback"
+                @click="openFeedback(order)"
+              >
+                ★ Đánh giá
+              </button>
+              <p v-else class="evaluation-status-text">Bạn đã đánh giá</p>
+            </template>
             <router-link :to="{ name: 'profile-order-detail', params: { id: order.order_id } }" class="btn-action btn-detail mt-2">
               Xem chi tiết
             </router-link>
@@ -330,6 +354,13 @@ onMounted(() => {
           @click="changePage(currentPage + 1)">»</button>
       </div>
     </div>
+    
+    <!-- Feedback Modal -->
+    <FeedbackModal 
+        v-model="showFeedbackModal" 
+        :order="selectedOrderForFeedback" 
+        @feedback-submitted="onFeedbackSubmitted" 
+    />
   </div>
 </template>
 
@@ -546,6 +577,22 @@ onMounted(() => {
 .btn-buy-again:hover {
   background: #f0f9ff;
   border-color: #0288d1;
+}
+
+.btn-feedback {
+  border-color: #fbbf24;
+  color: #d97706;
+}
+.btn-feedback:hover {
+  background: #fef3c7;
+  border-color: #fbbf24;
+}
+
+.evaluation-status-text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #16a34a;
+  margin: 4px 0;
 }
 
 .btn-detail {
