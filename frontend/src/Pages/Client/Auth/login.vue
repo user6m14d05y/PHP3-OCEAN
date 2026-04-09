@@ -129,6 +129,8 @@ const login = async () => {
 
       if (response.data.user.role === 'admin' || response.data.user.role === 'staff') {
         router.push('/admin');
+      } else if (response.data.user.role === 'seller') {
+        router.push('/seller');
       } else {
         router.push('/');
       }
@@ -203,12 +205,7 @@ const login = async () => {
                   <p v-if="touched.password && fieldErrors.password" class="field-error">{{ fieldErrors.password }}</p>
                 </div>
               </div>
-            <!-- Submit -->
-            <button type="submit" class="btn-primary" :disabled="isSubmitting">
-              <span v-if="isSubmitting" class="spinner"></span>
-              {{ isSubmitting ? 'Đang xử lý...' : 'Đăng nhập' }}
-            </button>
-          </form>
+
 
 
               <!-- Options -->

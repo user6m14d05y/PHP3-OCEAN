@@ -5,22 +5,22 @@
       <div class="brand-icon">
         <img src="../../public/favicon.ico" alt="logo-ocean" width="100" height="60">
       </div>
-      <h2 class="brand-title">Admin</h2>
+      <h2 class="brand-title">Kênh Bán</h2>
     </div>
 
     <!-- Nav -->
     <nav class="sidebar-nav">
-      <router-link to="/admin" class="nav-item" exact-active-class="nav-item--active">
+      <router-link to="/seller" class="nav-item" exact-active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
             <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
           </svg>
         </div>
-        <span>Dashboard</span>
+        <span>Tổng quan</span>
       </router-link>
 
-      <router-link to="/admin/attendance" class="nav-item" active-class="nav-item--active">
+      <router-link to="/seller/attendance" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
@@ -29,7 +29,7 @@
         <span>Chấm công</span>
       </router-link>
 
-      <router-link to="/admin/order" class="nav-item" active-class="nav-item--active">
+      <router-link to="/seller/order" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
@@ -39,7 +39,7 @@
         <span>Đơn hàng</span>
       </router-link>
 
-      <router-link to="/admin/pos" class="nav-item" active-class="nav-item--active">
+      <router-link to="/seller/pos" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line>
@@ -48,71 +48,20 @@
         <span>Bán hàng (POS)</span>
       </router-link>
 
-      <router-link v-if="userRoleRaw !== 'seller'" to="/admin/staff" class="nav-item" active-class="nav-item--active">
+      <router-link to="/seller/post" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
-          </svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
         </div>
-        <span>Nhân sự</span>
+        <span>Bài viết</span>
       </router-link>
 
-      <div class="nav-item" @click="isStoreMenuOpen = !isStoreMenuOpen" :class="{ 'nav-item--open': isStoreMenuOpen }">
-        <div class="nav-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-          </svg>
-        </div>
-        <span>Quản lý cửa hàng</span>
-        <svg class="dropdown-arrow" :class="{ 'dropdown-arrow--open': isStoreMenuOpen }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </div>
-
-      <!-- Store Submenu -->
-      <transition name="slide-fade">
-        <div v-if="isStoreMenuOpen" class="nav-submenu">
-          <router-link to="/admin/product" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Sản phẩm</span>
-          </router-link>
-          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/category" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Danh mục</span>
-          </router-link>
-          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/users" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Khách hàng</span>
-          </router-link>
-          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/coupon" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Mã giảm giá</span>
-          </router-link>
-          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/post" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Bài viết</span>
-          </router-link>
-          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/post-category" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Danh mục bài viết</span>
-          </router-link>
-          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/review" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Đánh giá</span>
-          </router-link>
-          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/stats" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Thống kê</span>
-          </router-link>
-          <router-link v-if="userRoleRaw !== 'seller'" to="/admin/attendance-list" class="submenu-item" active-class="submenu-item--active">
-            <span class="submenu-dot"></span>
-            <span>Lịch sử chấm công</span>
-          </router-link>
-        </div>
-      </transition>
-
-       <router-link to="/admin/chat" class="nav-item" active-class="nav-item--active">
+       <router-link to="/seller/chat" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -121,7 +70,7 @@
         <span>Tin nhắn</span>
       </router-link>
 
-      <router-link to="/admin/contact" class="nav-item" active-class="nav-item--active">
+      <router-link to="/seller/contact" class="nav-item" active-class="nav-item--active">
         <div class="nav-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
@@ -137,7 +86,7 @@
         <div class="user-avatar-circle"><img :src="userAvatar" alt="" width="50" height="50" style="border-radius: 50%;"></div>
         <div class="user-details" @click="handleLogout" style="cursor: pointer;" title="Nhấn để đăng xuất">
           <span class="user-name-bold">{{ userName }}</span>
-          <span class="user-email-text">{{ userEmail || 'admin123@gmail.com' }}</span>
+          <span class="user-email-text">{{ userRole }}</span>
         </div>
       </div>
     </div>
@@ -149,27 +98,21 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
-const userName = ref('Admin');
-const userEmail = ref('');
+const userName = ref('Seller');
+const userRole = ref('Seller');
 const userAvatar = ref('');
-const userRole = ref('Manager');
-const userRoleRaw = ref('');
-const isStoreMenuOpen = ref(true); // Mặc định mở theo ảnh mẫu
-
 
 onMounted(() => {
   const userData = localStorage.getItem('user');
   if (userData) {
     try {
       const user = JSON.parse(userData);
-      const path = user.avatar_url;
+      const path = user.avatar_url || '';
       const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
       
-      userName.value = user.full_name || user.name || 'Admin';
-      userEmail.value = user.email || '';
-      userAvatar.value = path.startsWith('http') ? path : `${BASE_URL}${path}`; 
-      userRoleRaw.value = user.role;
-      userRole.value = user.role === 'admin' ? 'Super Admin' : (user.role === 'staff' ? 'Staff' : (user.role === 'seller' ? 'Seller' : 'Customer'));
+      userName.value = user.full_name || user.name || 'Seller';
+      userAvatar.value = path.startsWith('http') ? path : (path ? `${BASE_URL}${path}` : ''); 
+      userRole.value = 'Nhân viên Bán hàng';
     } catch (e) {
       console.error("Failed to parse user data", e);
     }
@@ -253,11 +196,6 @@ const handleLogout = () => {
   opacity: 0.7;
 }
 
-.dropdown-arrow {
-  margin-left: auto;
-  opacity: 0.5;
-}
-
 .nav-item:hover {
   background: var(--hover-bg, #f3f4f6);
   color: var(--text-main, #1a1a1a);
@@ -271,78 +209,6 @@ const handleLogout = () => {
 
 .nav-item--active .nav-icon {
   opacity: 1;
-}
-
-.nav-item--open {
-  background: var(--hover-bg, #f8f9fa);
-  color: var(--text-main, #1a1a1a);
-}
-
-.dropdown-arrow {
-  margin-left: auto;
-  opacity: 0.5;
-  transition: transform 0.2s;
-}
-
-.dropdown-arrow--open {
-  transform: rotate(180deg);
-}
-
-/* Submenu */
-.nav-submenu {
-  padding-left: 12px;
-  margin-bottom: 8px;
-}
-
-.submenu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 24px;
-  color: var(--text-muted, #64748b);
-  text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: all 0.2s;
-  border-radius: 8px;
-}
-
-.submenu-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--border-color, #cbd5e1);
-  transition: background 0.2s;
-}
-
-.submenu-item:hover {
-  color: var(--ocean-blue, #1d4ed8);
-}
-
-.submenu-item:hover .submenu-dot {
-  background: var(--ocean-blue, #1d4ed8);
-}
-
-.submenu-item--active {
-  color: #1d4ed8 !important;
-  font-weight: 600;
-}
-
-.submenu-item--active .submenu-dot {
-  background: #1d4ed8 !important;
-}
-
-/* Transitions */
-.slide-fade-enter-active {
-  transition: all 0.3s ease-out;
-}
-.slide-fade-leave-active {
-  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
-}
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  transform: translateY(-10px);
-  opacity: 0;
 }
 
 /* Footer */
@@ -370,6 +236,7 @@ const handleLogout = () => {
   font-weight: 600;
   font-size: 1.1rem;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .user-details {

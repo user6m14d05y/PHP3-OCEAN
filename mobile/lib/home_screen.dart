@@ -59,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if(data is List){
           fetchedProducts = data;
         hasMore = false;
-        }else if(data['data'] is List){ 
+        }else if(data['data'] is List){
           fetchedProducts = data['data'];
           int lastPage = data['last_page'] ?? 1;
           if(CurrentPage >= lastPage){
@@ -120,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Nút reload
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => fetchProducts(), 
+            onPressed: () => fetchProducts(),
             tooltip: 'Tải lại',
           ),
         ],
@@ -213,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Mạng lưới GridView
                 Expanded(
                   child: GridView.builder(
@@ -253,9 +253,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final name = product['name'] ?? 'Không tên';
 
     // 2. Lấy giá (Trong Laravel của bạn là min_price hoặc lấy từ variant)
-    final dynamic rawPrice = product['min_price'] ?? 
+    final dynamic rawPrice = product['min_price'] ??
                              (product['lowest_price_variant'] != null ? product['lowest_price_variant']['price'] : 0);
-    
+
     // 3. Xử lý ảnh (Nối thêm đường dẫn storage của Laravel)
     String imageUrl = '';
     final rawImage = product['thumbnail_url'] ?? '';
@@ -263,7 +263,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (rawImage.toString().startsWith('http')) {
         imageUrl = rawImage.toString();
       } else {
-        // Nối IP server + /storage/ + đường dẫn ảnh
         imageUrl = 'http://localhost:8383/storage/$rawImage';
       }
     }

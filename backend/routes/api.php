@@ -130,11 +130,8 @@ Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
     Route::post('/buy-again/{orderId}', [CartController::class, 'buyAgain']);
 });
 
-// Nhóm các route yêu cầu quyền admin/staff (hỗ trợ cả guard api và admin)
-Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->group(function () {
-    Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
-
-    // Quản lý Khách hàng (bảng users)
+// Nhóm các route yêu cầu quyền admin/staff (chỉ cho phép các thao tác cứng)
+Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->group(function () {    // Quản lý Khách hàng (bảng users)
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::post('/users', [AdminUserController::class, 'store']);
     Route::get('/users/{id}', [AdminUserController::class, 'show']);
@@ -151,8 +148,6 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
     Route::delete('/staff/{id}', [AdminStaffController::class, 'destroy']);
 
     // Quản lý Liên hệ
-    Route::get('/contacts', [ContactController::class, 'index']);
-    Route::post('/contacts/{id}/reply', [ContactController::class, 'reply']);
     Route::delete('/contacts/{id}', [ContactController::class, 'destroy']);
 
     // Quản lý Mã giảm giá
@@ -161,6 +156,22 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
     Route::put('/coupons/{id}', [CouponController::class, 'update']);
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
     Route::get('/coupons/{id}/usages', [CouponController::class, 'getCouponUsages']);
+
+    // Quản lý Đánh giá sản phẩm
+    Route::get('/reviews', [ProductCommentController::class, 'adminIndex']);
+    Route::put('/reviews/{id}/approve', [ProductCommentController::class, 'approve']);
+    Route::put('/reviews/{id}/reject', [ProductCommentController::class, 'reject']);
+    Route::delete('/reviews/{id}', [ProductCommentController::class, 'destroy']);
+});
+
+// Nhóm route dành cho admin, staff và seller
+Route::middleware(['auth:api,admin', 'role:admin,staff,seller'])->prefix('admin')->group(function () {
+    // Tổng quan (Dashboard)
+    Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
+
+    // Quản lý Liên hệ (Xem và trả lời)
+    Route::get('/contacts', [ContactController::class, 'index']);
+    Route::post('/contacts/{id}/reply', [ContactController::class, 'reply']);
 
     // Quản lý Đơn hàng
     Route::get('/orders', [\App\Http\Controllers\AdminOrderController::class, 'index']);
@@ -179,11 +190,10 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
     Route::post('/live-chats/{id}/reply', [\App\Http\Controllers\Admin\AdminChatController::class, 'replyMessage']);
     Route::post('/live-chats/{id}/close', [\App\Http\Controllers\Admin\AdminChatController::class, 'closeSession']);
 
-    // Quản lý Đánh giá sản phẩm
-    Route::get('/reviews', [ProductCommentController::class, 'adminIndex']);
-    Route::put('/reviews/{id}/approve', [ProductCommentController::class, 'approve']);
-    Route::put('/reviews/{id}/reject', [ProductCommentController::class, 'reject']);
-    Route::delete('/reviews/{id}', [ProductCommentController::class, 'destroy']);
+    // Quản lý Chấm công (Attendance)
+    Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'index']);
+    Route::post('/attendance/check-in', [\App\Http\Controllers\AttendanceController::class, 'checkIn']);
+    Route::post('/attendance/check-out', [\App\Http\Controllers\AttendanceController::class, 'checkOut']);
 });
 
 

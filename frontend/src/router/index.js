@@ -57,6 +57,10 @@ const AdminStaff = () => import("../Pages/admin/AdminStaff.vue");
 const AdminContact = () => import("../Pages/admin/AdminContact.vue");
 const AdminCoupon = () => import("../Pages/admin/AdminCoupon.vue");
 
+// Seller (lazy load toàn bộ - chỉ tải khi seller truy cập)
+const SellerLayout = () => import("../layouts/SellerLayout.vue");
+const SellerHome = () => import("../Pages/admin/SellerHome.vue");
+
 const routes = [
     {
         path: "/",
@@ -134,7 +138,7 @@ const routes = [
     {
         path: "/admin",
         component: AdminLayout,
-        meta: { requiresAuth: true, roles: ['admin', 'staff', 'seller'] },
+        meta: { requiresAuth: true, roles: ['admin', 'staff'] },
         children: [
             {
                 path: "",
@@ -146,7 +150,7 @@ const routes = [
                 path: "product",
                 name: "admin-product",
                 component: AdminProduct,
-                meta: { roles: ['admin', 'staff'], title: 'Quản lý sản phẩm' },
+                meta: { roles: ['admin', 'staff', 'seller'], title: 'Quản lý sản phẩm' },
             },
             {
                 path: "product/create",
@@ -158,19 +162,19 @@ const routes = [
                 path: "pos",
                 name: "admin-pos",
                 component: () => import("../Pages/admin/AdminPOS.vue"),
-                meta: { roles: ['admin', 'staff', 'seller'], title: 'Bán Hàng Trực Tiếp (POS)' },
+                meta: { roles: ['admin', 'staff'], title: 'Bán Hàng Trực Tiếp (POS)' },
             },
             {
                 path: "order",
                 name: "admin-order",
                 component: () => import("../Pages/admin/AdminOrder.vue"),
-                meta: { roles: ['admin', 'staff', 'seller'], title: 'Quản lý Đơn hàng' },
+                meta: { roles: ['admin', 'staff'], title: 'Quản lý Đơn hàng' },
             },
             {
                 path: "order/:id",
                 name: "admin-order-detail",
                 component: () => import("../Pages/admin/AdminOrderDetail.vue"),
-                meta: { roles: ['admin', 'staff', 'seller'], title: 'Chi tiết Đơn hàng' },
+                meta: { roles: ['admin', 'staff'], title: 'Chi tiết Đơn hàng' },
             },
             {
                 path: "product/edit/:id",
@@ -249,6 +253,86 @@ const routes = [
                 name: "admin-review",
                 component: () => import("../Pages/admin/AdminReview.vue"),
                 meta: { title: 'Quản lý đánh giá' },
+            },
+            {
+                path: "attendance",
+                name: "admin-attendance",
+                component: () => import("../Pages/admin/AdminAttendance.vue"),
+                meta: { roles: ['admin', 'staff'], title: 'Chấm Công' },
+            },
+            {
+                path: "attendance-list",
+                name: "admin-attendance-list",
+                component: () => import("../Pages/admin/AdminAttendanceList.vue"),
+                meta: { roles: ['admin', 'staff'], title: 'Danh sách Chấm công' },
+            },
+        ],
+    },
+    // Seller routes
+    {
+        path: "/seller",
+        component: SellerLayout,
+        meta: { requiresAuth: true, roles: ['seller'] },
+        children: [
+            {
+                path: "",
+                name: "seller",
+                component: SellerHome,
+                meta: { roles: ['seller'], title: 'Kênh Bán Hàng' },
+            },
+            {
+                path: "pos",
+                name: "seller-pos",
+                component: () => import("../Pages/admin/AdminPOS.vue"),
+                meta: { roles: ['seller'], title: 'Bán Hàng Trực Tiếp (POS)' },
+            },
+            {
+                path: "order",
+                name: "seller-order",
+                component: () => import("../Pages/admin/AdminOrder.vue"),
+                meta: { roles: ['seller'], title: 'Quản lý Đơn hàng' },
+            },
+            {
+                path: "order/:id",
+                name: "seller-order-detail",
+                component: () => import("../Pages/admin/AdminOrderDetail.vue"),
+                meta: { roles: ['seller'], title: 'Chi tiết Đơn hàng' },
+            },
+            {
+                path: "contact",
+                name: "seller-contact",
+                component: AdminContact,
+                meta: { roles: ['seller'], title: 'Liên hệ khách hàng' },
+            },
+            {
+                path: "chat",
+                name: "seller-chat",
+                component: () => import("../Pages/admin/AdminChat.vue"),
+                meta: { roles: ['seller'], title: 'Tin nhắn' },
+            },
+            {
+                path: "post",
+                name: "seller-post",
+                component: () => import("../Pages/admin/AdminPost.vue"),
+                meta: { roles: ['seller'], title: 'Bài viết' },
+            },
+            {
+                path: "post/create",
+                name: "seller-post-create",
+                component: () => import("../Pages/admin/AdminCreatePost.vue"),
+                meta: { roles: ['seller'], title: 'Thêm bài viết' },
+            },
+            {
+                path: "post/edit/:id",
+                name: "seller-post-edit",
+                component: () => import("../Pages/admin/AdminEditPost.vue"),
+                meta: { roles: ['seller'], title: 'Sửa bài viết' },
+            },
+            {
+                path: "attendance",
+                name: "seller-attendance",
+                component: () => import("../Pages/admin/AdminAttendance.vue"),
+                meta: { roles: ['seller'], title: 'Chấm Công' },
             },
         ],
     },
