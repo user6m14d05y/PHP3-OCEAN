@@ -6,6 +6,7 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Cache;
 
 
 class CategoryController extends Controller
@@ -32,8 +33,11 @@ class CategoryController extends Controller
      */
     public function index()
     {
-        $categories = Category::all()->toArray(); // Chuyển sang mảng
-        $categories = $this->buildTree($categories); // Gọi phương thức nội bộ
+        $categories = Cache::rememberForever('categories:tree', function () {
+            $cats = Category::all()->toArray(); // Chuyển sang mảng
+            return $this->buildTree($cats); // Gọi phương thức nội bộ
+        });
+        
         return response()->json([
             'status' => 'success',
             'data' => $categories
@@ -75,6 +79,7 @@ class CategoryController extends Controller
         }
 
         $category = Category::create($data);
+        Cache::forget('categories:tree');
 
         return response()->json([
             'status' => 'success',
@@ -147,6 +152,7 @@ class CategoryController extends Controller
         }
 
         $category->update($data);
+        Cache::forget('categories:tree');
 
         return response()->json([
             'status' => 'success',
@@ -179,6 +185,7 @@ class CategoryController extends Controller
         }
 
         $category->delete();
+        Cache::forget('categories:tree');
 
         return response()->json([
             'status' => 'success',

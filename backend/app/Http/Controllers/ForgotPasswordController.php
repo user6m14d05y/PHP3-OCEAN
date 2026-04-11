@@ -29,10 +29,11 @@ class ForgotPasswordController extends Controller
         $user = DB::selectOne("SELECT * FROM users WHERE email = ? AND deleted_at IS NULL", [$email]);
 
         if (!$user) {
+            // Chống mail enumeration: Trả về thông báo thành công chung chung nhưng ko gửi email
             return response()->json([
-                'status' => 'error',
-                'message' => 'Email không tồn tại trong hệ thống!'
-            ], 404);
+                'status' => 'success',
+                'message' => 'Nếu email tồn tại, chúng tôi đã gửi mã OTP.'
+            ]);
         }
 
         // Tạo mã OTP 6 số ngẫu nhiên
@@ -43,10 +44,12 @@ class ForgotPasswordController extends Controller
         // Xóa OTP cũ của email này (nếu có)
         DB::delete("DELETE FROM password_resets_otp WHERE email = ?", [$email]);
 
-        // Lưu OTP mới
+        $hashedOtp = Hash::make($otp);
+
+        // Lưu OTP mới (đã mã hóa)
         DB::insert(
             "INSERT INTO password_resets_otp (email, otp, expires_at, created_at) VALUES (?, ?, ?, ?)",
-            [$email, $otp, $expiresAt->toDateTimeString(), $now->toDateTimeString()]
+            [$email, $hashedOtp, $expiresAt->toDateTimeString(), $now->toDateTimeString()]
         );
 
         // Gửi email chứa mã OTP qua SMTP
@@ -61,7 +64,7 @@ class ForgotPasswordController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Mã OTP đã được gửi đến email của bạn. Mã có hiệu lực trong 15 phút.'
+            'message' => 'Nếu email tồn tại, chúng tôi đã gửi mã OTP. Mã có hiệu lực trong 15 phút.'
         ]);
     }
 
@@ -80,13 +83,13 @@ class ForgotPasswordController extends Controller
             ], 422);
         }
 
-        // Tìm OTP trong DB
+        // Tìm record theo email
         $record = DB::selectOne(
-            "SELECT * FROM password_resets_otp WHERE email = ? AND otp = ?",
-            [$email, $otp]
+            "SELECT * FROM password_resets_otp WHERE email = ?",
+            [$email]
         );
 
-        if (!$record) {
+        if (!$record || !Hash::check($otp, $record->otp)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Mã OTP không chính xác!'
@@ -104,8 +107,8 @@ class ForgotPasswordController extends Controller
             ], 422);
         }
 
-        // Tạo reset_token tạm thời (hash email + otp + secret)
-        $resetToken = hash('sha256', $email . $otp . env('APP_KEY'));
+        // Tạo reset_token tạm thời (hash email + hashedOtp + secret)
+        $resetToken = hash('sha256', $email . $record->otp . config('app.key'));
 
         return response()->json([
             'status' => 'success',
@@ -178,7 +181,7 @@ class ForgotPasswordController extends Controller
             ], 422);
         }
 
-        $expectedToken = hash('sha256', $email . $otpRecord->otp . env('APP_KEY'));
+        $expectedToken = hash('sha256', $email . $otpRecord->otp . config('app.key'));
 
         if ($resetToken !== $expectedToken) {
             return response()->json([
@@ -210,8 +213,8 @@ class ForgotPasswordController extends Controller
     private function sendOtpEmail(string $email, string $otp, string $name): bool
     {
         try {
-            $emailUser = env('EMAIL_USER');
-            $emailPass = env('EMAIL_PASS');
+            $emailUser = config('mail.mailers.smtp.username', config('services.email.user'));
+            $emailPass = config('mail.mailers.smtp.password', config('services.email.pass'));
 
             // Sử dụng Symfony Mailer qua SMTP (port 587 = STARTTLS)
             $transport = new \Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport(

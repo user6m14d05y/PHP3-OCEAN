@@ -1,15 +1,23 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, nextTick, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/axios';
-import Swal from 'sweetalert2';
+import { Toast, Modal } from 'bootstrap';
 
 const route = useRoute();
 const router = useRouter();
 
+const toastData = ref({ message: '', type: 'success' });
+const showToast = (message, type = 'success') => {
+  toastData.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('orderDetailToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  });
+};
 const toast = {
-  success: (msg) => Swal.fire({ icon: 'success', title: 'Thành công', text: msg, timer: 2500, showConfirmButton: false }),
-  error: (msg) => Swal.fire({ icon: 'error', title: 'Lỗi', text: msg, timer: 3000, showConfirmButton: false }),
+  success: (msg) => showToast(msg, 'success'),
+  error: (msg) => showToast(msg, 'danger'),
 };
 
 const order = ref(null);
@@ -41,7 +49,34 @@ const getAllowedFulfillmentOptions = (currentStatus) => {
   return statuses.filter(s => allowed.includes(s.value));
 };
 
-const getStatusLabel = (value) => statuses.find(s => s.value === value)?.label || value;
+// ====== Payment Status ======
+const paymentOptions = [
+  { value: 'unpaid', label: 'Chưa thanh toán' },
+  { value: 'paid', label: 'Đã thanh toán' },
+  { value: 'failed', label: 'Thất bại' },
+  { value: 'refunded', label: 'Hoàn tiền' },
+  { value: 'partially_refunded', label: 'Hoàn 1 phần' },
+];
+
+const paymentTransitions = {
+  'unpaid':             ['unpaid', 'paid', 'failed'],
+  'paid':               ['paid', 'refunded', 'partially_refunded'],
+  'failed':             ['failed', 'unpaid', 'paid'],
+  'refunded':           ['refunded'],
+  'partially_refunded': ['partially_refunded', 'refunded'],
+};
+
+const getAllowedPaymentOptions = (currentStatus) => {
+  const allowed = paymentTransitions[currentStatus] || [currentStatus];
+  return paymentOptions.filter(s => allowed.includes(s.value));
+};
+
+const isPaymentDisabled = (or) => {
+  if (!or) return true;
+  return or.fulfillment_status === 'cancelled' || or.payment_status === 'refunded';
+};
+
+const getStatusLabel = (value) => statuses.find(s => s.value === value)?.label || paymentOptions.find(p => p.value === value)?.label || value;
 
 const paymentLabels = {
   unpaid: 'Chưa thanh toán',
@@ -63,7 +98,7 @@ const fetchOrder = async () => {
   try {
     const res = await api.get(`/admin/orders/${route.params.id}`);
     if (res.data.status === 'success') {
-      order.value = { ...res.data.data, _prevFulfillmentStatus: res.data.data.fulfillment_status };
+      order.value = { ...res.data.data, _prevFulfillmentStatus: res.data.data.fulfillment_status, _prevPaymentStatus: res.data.data.payment_status };
     }
   } catch (error) {
     console.error('Fetch order detail failed', error);
@@ -85,53 +120,38 @@ const adminCancelReasons = [
   'Lý do khác',
 ];
 
-const showCancelReasonModal = async () => {
-  const { value: reason } = await Swal.fire({
-    title: '⚠️ Hủy đơn hàng',
-    html: `
-      <p style="color:#64748b; font-size:0.9rem; margin-bottom:16px;">Chọn lý do hủy đơn:</p>
-      <div style="text-align:left; max-height:240px; overflow-y:auto;">
-        ${adminCancelReasons.map(r => `
-          <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; margin-bottom:6px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; background:white;"
-                 onmouseover="this.style.borderColor='#dc2626'; this.style.background='#fef2f2'"
-                 onmouseout="if(!this.querySelector('input').checked){this.style.borderColor='#e2e8f0'; this.style.background='white'}">
-            <input type="radio" name="detail_cancel_reason" value="${r}" style="accent-color:#dc2626; width:16px; height:16px; flex-shrink:0;">
-            <span style="font-size:0.88rem; color:#334155;">${r}</span>
-          </label>
-        `).join('')}
-      </div>
-      <textarea id="detail-custom-reason" placeholder="Nhập lý do cụ thể..."
-        style="display:none; width:100%; margin-top:12px; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:0.9rem; min-height:70px; resize:vertical; outline:none; font-family:inherit;"></textarea>
-    `,
-    showCancelButton: true,
-    confirmButtonText: 'Xác nhận hủy',
-    cancelButtonText: 'Quay lại',
-    confirmButtonColor: '#dc2626',
-    cancelButtonColor: '#64748b',
-    width: 500,
-    didOpen: () => {
-      const radios = Swal.getPopup().querySelectorAll('input[name="detail_cancel_reason"]');
-      const customArea = Swal.getPopup().querySelector('#detail-custom-reason');
-      radios.forEach(radio => {
-        radio.addEventListener('change', () => {
-          radios.forEach(r => { const l = r.closest('label'); if (l) { l.style.borderColor = '#e2e8f0'; l.style.background = 'white'; } });
-          const lbl = radio.closest('label'); if (lbl) { lbl.style.borderColor = '#dc2626'; lbl.style.background = '#fef2f2'; }
-          customArea.style.display = radio.value === 'Lý do khác' ? 'block' : 'none';
-        });
-      });
-    },
-    preConfirm: () => {
-      const selected = Swal.getPopup().querySelector('input[name="detail_cancel_reason"]:checked');
-      if (!selected) { Swal.showValidationMessage('Vui lòng chọn lý do hủy đơn'); return false; }
-      if (selected.value === 'Lý do khác') {
-        const custom = Swal.getPopup().querySelector('#detail-custom-reason').value.trim();
-        if (!custom) { Swal.showValidationMessage('Vui lòng nhập lý do cụ thể'); return false; }
-        return custom;
-      }
-      return selected.value;
-    }
-  });
-  return reason || null;
+// Cancel modal state
+const showCancelModal = ref(false);
+const selectedCancelReason = ref('');
+const customCancelReason = ref('');
+const cancelValidationError = ref('');
+let cancelReasonResolver = null;
+
+const showCancelReasonModal = () => {
+  selectedCancelReason.value = '';
+  customCancelReason.value = '';
+  cancelValidationError.value = '';
+  showCancelModal.value = true;
+  return new Promise((resolve) => { cancelReasonResolver = resolve; });
+};
+
+const confirmCancelReason = () => {
+  if (!selectedCancelReason.value) {
+    cancelValidationError.value = 'Vui lòng chọn lý do hủy đơn';
+    return;
+  }
+  if (selectedCancelReason.value === 'Lý do khác' && !customCancelReason.value.trim()) {
+    cancelValidationError.value = 'Vui lòng nhập lý do cụ thể';
+    return;
+  }
+  const reason = selectedCancelReason.value === 'Lý do khác' ? customCancelReason.value.trim() : selectedCancelReason.value;
+  showCancelModal.value = false;
+  if (cancelReasonResolver) cancelReasonResolver(reason);
+};
+
+const dismissCancelModal = () => {
+  showCancelModal.value = false;
+  if (cancelReasonResolver) cancelReasonResolver(null);
 };
 
 const updateFulfillment = async () => {
@@ -178,15 +198,18 @@ const updateFulfillment = async () => {
 };
 
 const updatePayment = async () => {
+  const oldPaymentStatus = order.value._prevPaymentStatus || 'unpaid';
   try {
     const res = await api.put(`/admin/orders/${order.value.order_id}/status`, {
       payment_status: order.value.payment_status
     });
     if (res.data.status === 'success') {
+      order.value._prevPaymentStatus = order.value.payment_status;
       toast.success('Cập nhật thanh toán thành công!');
     }
   } catch (error) {
-    toast.error(error.response?.data?.message || 'Lỗi cập nhật');
+    order.value.payment_status = oldPaymentStatus;
+    toast.error(error.response?.data?.message || 'Lỗi cập nhật thanh toán');
   }
 };
 
@@ -209,6 +232,11 @@ const getStatusBadgeClass = (status) => {
     delivered: 'badge-success',
     completed: 'badge-success',
     cancelled: 'badge-danger',
+    unpaid: 'badge-warning',
+    paid: 'badge-success',
+    failed: 'badge-danger',
+    refunded: 'badge-secondary',
+    partially_refunded: 'badge-secondary',
   };
   return map[status] || 'badge-secondary';
 };
@@ -227,12 +255,12 @@ const getProductImage = (item) => {
 
 // Timeline steps
 const timelineSteps = [
-  { key: 'pending', label: 'Đặt hàng', icon: '📝', field: 'created_at' },
-  { key: 'confirmed', label: 'Xác nhận', icon: '✅', field: 'confirmed_at' },
-  { key: 'packing', label: 'Đóng gói', icon: '📦', field: null },
-  { key: 'shipping', label: 'Vận chuyển', icon: '🚚', field: 'shipped_at' },
-  { key: 'delivered', label: 'Đã giao', icon: '📬', field: 'delivered_at' },
-  { key: 'completed', label: 'Hoàn thành', icon: '🎉', field: 'completed_at' },
+  { key: 'pending', label: 'Đặt hàng', field: 'created_at' },
+  { key: 'confirmed', label: 'Xác nhận', field: 'confirmed_at' },
+  { key: 'packing', label: 'Đóng gói', field: null },
+  { key: 'shipping', label: 'Vận chuyển', field: 'shipped_at' },
+  { key: 'delivered', label: 'Đã giao', field: 'delivered_at' },
+  { key: 'completed', label: 'Hoàn thành', field: 'completed_at' },
 ];
 
 const getStepStatus = (stepKey) => {
@@ -285,26 +313,64 @@ onMounted(() => fetchOrder());
 
       <!-- Timeline -->
       <div class="timeline-card" v-if="order.fulfillment_status !== 'cancelled'">
-        <h3 class="card-title">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Tiến trình đơn hàng
-        </h3>
+        <div class="timeline-card-header">
+          <div class="timeline-title-group">
+            <div class="timeline-title-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <h3 class="card-title">Tiến trình đơn hàng</h3>
+          </div>
+          <span class="timeline-badge" :class="getStatusBadgeClass(order.fulfillment_status)">
+            {{ getStatusLabel(order.fulfillment_status) }}
+          </span>
+        </div>
         <div class="timeline">
           <div v-for="(step, idx) in timelineSteps" :key="step.key" class="timeline-step" :class="getStepStatus(step.key)">
             <div class="step-connector" v-if="idx > 0"></div>
             <div class="step-dot">
-              <span class="step-icon">{{ step.icon }}</span>
+              <div class="step-dot-inner">
+                <!-- Đặt hàng -->
+                <svg v-if="step.key === 'pending'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                </svg>
+                <!-- Xác nhận -->
+                <svg v-else-if="step.key === 'confirmed'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <!-- Đóng gói -->
+                <svg v-else-if="step.key === 'packing'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+                <!-- Vận chuyển -->
+                <svg v-else-if="step.key === 'shipping'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                </svg>
+                <!-- Đã giao -->
+                <svg v-else-if="step.key === 'delivered'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+                <!-- Hoàn thành -->
+                <svg v-else-if="step.key === 'completed'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
+                </svg>
+              </div>
+              <div class="step-pulse" v-if="getStepStatus(step.key) === 'active'"></div>
             </div>
             <div class="step-info">
               <span class="step-label">{{ step.label }}</span>
               <span class="step-time" v-if="step.field && order[step.field]">{{ formatDate(order[step.field]) }}</span>
+              <span class="step-time" v-else-if="getStepStatus(step.key) === 'active'">Đang xử lý...</span>
             </div>
           </div>
         </div>
       </div>
       <div class="timeline-card cancelled-banner" v-else>
         <div class="cancelled-content">
-          <span class="cancelled-icon">❌</span>
+          <div class="cancelled-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+          </div>
           <div>
             <h3>Đơn hàng đã bị hủy</h3>
             <p v-if="order.cancel_reason">Lý do: {{ order.cancel_reason }}</p>
@@ -387,11 +453,8 @@ onMounted(() => fetchOrder());
             </div>
             <div class="action-group">
               <label class="action-label">Thanh toán</label>
-              <select class="form-select" v-model="order.payment_status" @change="updatePayment">
-                <option value="unpaid">Chưa thanh toán</option>
-                <option value="paid">Đã thanh toán</option>
-                <option value="failed">Thất bại</option>
-                <option value="refunded">Hoàn tiền</option>
+              <select class="form-select" v-model="order.payment_status" @change="updatePayment" :disabled="isPaymentDisabled(order)">
+                <option v-for="s in getAllowedPaymentOptions(order._prevPaymentStatus || order.payment_status)" :key="s.value" :value="s.value">{{ s.label }}</option>
               </select>
             </div>
           </div>
@@ -450,6 +513,48 @@ onMounted(() => fetchOrder());
         </div>
       </div>
     </template>
+
+    <!-- Cancel Reason Modal -->
+    <Transition name="modal">
+      <div v-if="showCancelModal" class="cancel-modal-overlay" @click.self="dismissCancelModal">
+        <div class="cancel-modal-box">
+          <div class="cancel-modal-header">
+            <h5>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Hủy đơn hàng
+            </h5>
+            <button class="cancel-modal-close" @click="dismissCancelModal">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="cancel-modal-body">
+            <p class="cancel-modal-desc">Chọn lý do hủy đơn:</p>
+            <div class="cancel-reason-list">
+              <label v-for="r in adminCancelReasons" :key="r" class="cancel-reason-item" :class="{ selected: selectedCancelReason === r }">
+                <input type="radio" v-model="selectedCancelReason" :value="r" @change="cancelValidationError = ''" />
+                <span>{{ r }}</span>
+              </label>
+            </div>
+            <textarea v-if="selectedCancelReason === 'Lý do khác'" v-model="customCancelReason" placeholder="Nhập lý do cụ thể..." class="cancel-custom-input" @input="cancelValidationError = ''"></textarea>
+            <p v-if="cancelValidationError" class="cancel-validation-error">{{ cancelValidationError }}</p>
+          </div>
+          <div class="cancel-modal-footer">
+            <button class="btn-cancel-dismiss" @click="dismissCancelModal">Quay lại</button>
+            <button class="btn-cancel-confirm" @click="confirmCancelReason">Xác nhận hủy</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Bootstrap Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+      <div class="toast align-items-center border-0" :class="toastData.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="orderDetailToast" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">{{ toastData.message }}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -516,69 +621,188 @@ onMounted(() => fetchOrder());
 .badge-danger { background: #fee2e2; color: #991b1b; }
 .badge-secondary { background: #e2e8f0; color: #475569; }
 
-/* Timeline Card */
+/* ====== Timeline Card — Premium Design ====== */
 .timeline-card {
   background: white;
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 16px;
+  padding: 28px 32px;
   margin-bottom: 24px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
 }
-.timeline-card .card-title { margin-top: 0; margin-bottom: 20px; }
+
+.timeline-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.timeline-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.timeline-title-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+.timeline-card-header .card-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.timeline-badge {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
 .timeline {
   display: flex;
   align-items: flex-start;
   gap: 0;
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding: 8px 0 12px;
 }
 .timeline-step {
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 1;
-  min-width: 100px;
+  min-width: 110px;
   position: relative;
 }
+
+/* Connector line */
 .step-connector {
   position: absolute;
-  top: 20px;
+  top: 23px;
   right: 50%;
   width: 100%;
   height: 3px;
   background: #e2e8f0;
   z-index: 0;
+  border-radius: 2px;
 }
-.timeline-step.done .step-connector { background: #22c55e; }
-.timeline-step.active .step-connector { background: linear-gradient(90deg, #22c55e 50%, #e2e8f0 50%); }
+.timeline-step.done .step-connector {
+  background: linear-gradient(90deg, #0284c7, #0ea5e9);
+}
+.timeline-step.active .step-connector {
+  background: linear-gradient(90deg, #0ea5e9 60%, #e2e8f0 60%);
+}
+
+/* Step dot */
 .step-dot {
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
-  border: 3px solid #e2e8f0;
+  background: #f8fafc;
+  border: 2.5px solid #e2e8f0;
   z-index: 1;
-  transition: all 0.3s;
-  font-size: 1.1rem;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
-.timeline-step.done .step-dot { background: #d1fae5; border-color: #22c55e; }
-.timeline-step.active .step-dot { background: #dbeafe; border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,0.15); }
-.step-info { text-align: center; margin-top: 10px; }
-.step-label { font-weight: 600; font-size: 0.82rem; color: #64748b; display: block; }
-.timeline-step.done .step-label { color: #065f46; }
-.timeline-step.active .step-label { color: #1e40af; }
-.step-time { font-size: 0.72rem; color: #94a3b8; margin-top: 2px; display: block; }
+.step-dot-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  transition: color 0.3s;
+}
 
-/* Cancelled Banner */
-.cancelled-banner { background: #fef2f2; border-color: #fecaca; }
-.cancelled-content { display: flex; align-items: center; gap: 16px; }
-.cancelled-icon { font-size: 2rem; }
-.cancelled-content h3 { margin: 0; color: #991b1b; font-size: 1.1rem; }
-.cancelled-content p { margin: 4px 0 0; color: #b91c1c; font-size: 0.9rem; }
+/* Done state */
+.timeline-step.done .step-dot {
+  background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+  border-color: #0ea5e9;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.18);
+}
+.timeline-step.done .step-dot-inner { color: #0284c7; }
+
+/* Active state */
+.timeline-step.active .step-dot {
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(59, 130, 246, 0.2);
+  transform: scale(1.08);
+}
+.timeline-step.active .step-dot-inner { color: #2563eb; }
+
+/* Pulse animation for active step */
+.step-pulse {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 2px solid #3b82f6;
+  animation: pulseRing 2s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes pulseRing {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+  70% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+
+/* Step info */
+.step-info {
+  text-align: center;
+  margin-top: 14px;
+  min-height: 36px;
+}
+.step-label {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  display: block;
+  transition: color 0.3s;
+  letter-spacing: 0.1px;
+}
+.timeline-step.done .step-label { color: #0369a1; font-weight: 700; }
+.timeline-step.active .step-label { color: #1d4ed8; font-weight: 700; }
+.step-time {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-top: 3px;
+  display: block;
+  font-weight: 500;
+}
+.timeline-step.active .step-time { color: #3b82f6; font-weight: 600; font-style: italic; }
+.timeline-step.done .step-time { color: #0284c7; }
+
+/* ====== Cancelled Banner ====== */
+.cancelled-banner {
+  background: linear-gradient(135deg, #fef2f2, #fff1f2);
+  border-color: #fecaca;
+}
+
+.cancelled-content { display: flex; align-items: center; gap: 20px; }
+.cancelled-icon-wrap {
+  width: 52px; height: 52px;
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dc2626;
+  flex-shrink: 0;
+}
+.cancelled-content h3 { margin: 0; color: #991b1b; font-size: 1.1rem; font-weight: 700; }
+.cancelled-content p { margin: 4px 0 0; color: #b91c1c; font-size: 0.88rem; }
 
 /* Grid Layout */
 .detail-grid {
@@ -608,7 +832,7 @@ onMounted(() => fetchOrder());
 .card-title svg { color: #0d6efd; }
 
 /* Action Card */
-.action-card { border-left: 4px solid #0d6efd; }
+.action-card { }
 .action-group { margin-bottom: 16px; }
 .action-group:last-child { margin-bottom: 0; }
 .action-label { font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 6px; display: block; }
@@ -707,8 +931,77 @@ onMounted(() => fetchOrder());
 @media (max-width: 992px) {
   .detail-grid { grid-template-columns: 1fr; }
   .detail-header { flex-direction: column; }
-  .timeline { flex-wrap: wrap; gap: 12px; }
-  .timeline-step { min-width: 80px; }
+  .timeline-card { padding: 20px; }
+  .timeline-card-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .timeline { flex-wrap: wrap; gap: 16px; justify-content: center; }
+  .timeline-step { min-width: 70px; }
   .step-connector { display: none; }
+  .step-dot { width: 42px; height: 42px; }
+  .step-dot-inner svg { width: 16px; height: 16px; }
+  .step-pulse { width: 42px; height: 42px; }
 }
+
+/* Cancel Modal */
+.cancel-modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; z-index: 1050;
+}
+.cancel-modal-box {
+  background: white; border-radius: 16px; width: 100%; max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15); overflow: hidden;
+}
+.cancel-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px; border-bottom: 1px solid #e2e8f0;
+}
+.cancel-modal-header h5 {
+  margin: 0; font-size: 1.05rem; font-weight: 700; color: #dc2626;
+  display: flex; align-items: center; gap: 10px;
+}
+.cancel-modal-header h5 svg { color: #dc2626; }
+.cancel-modal-close {
+  background: none; border: none; cursor: pointer; color: #94a3b8;
+  display: flex; padding: 4px; border-radius: 6px; transition: all 0.2s;
+}
+.cancel-modal-close:hover { background: #f1f5f9; color: #dc2626; }
+.cancel-modal-body { padding: 20px 24px; }
+.cancel-modal-desc { color: #64748b; font-size: 0.88rem; margin: 0 0 14px; }
+.cancel-reason-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+.cancel-reason-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px;
+  cursor: pointer; background: white; transition: all 0.15s; font-size: 0.88rem; color: #334155;
+}
+.cancel-reason-item:hover { border-color: #dc2626; background: #fef2f2; }
+.cancel-reason-item.selected { border-color: #dc2626; background: #fef2f2; }
+.cancel-reason-item input[type="radio"] { accent-color: #dc2626; width: 16px; height: 16px; flex-shrink: 0; }
+.cancel-custom-input {
+  width: 100%; margin-top: 12px; padding: 12px; border: 1.5px solid #e2e8f0;
+  border-radius: 10px; font-size: 0.88rem; min-height: 70px; resize: vertical;
+  outline: none; font-family: inherit; box-sizing: border-box;
+}
+.cancel-custom-input:focus { border-color: #dc2626; }
+.cancel-validation-error { color: #dc2626; font-size: 0.82rem; font-weight: 600; margin: 10px 0 0; }
+.cancel-modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 16px 24px; border-top: 1px solid #e2e8f0;
+}
+.btn-cancel-dismiss {
+  padding: 8px 20px; border-radius: 8px; border: 1px solid #e2e8f0;
+  background: white; color: #64748b; font-weight: 600; font-size: 0.88rem;
+  cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.btn-cancel-dismiss:hover { background: #f1f5f9; }
+.btn-cancel-confirm {
+  padding: 8px 20px; border-radius: 8px; border: none;
+  background: #dc2626; color: white; font-weight: 600; font-size: 0.88rem;
+  cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.btn-cancel-confirm:hover { background: #b91c1c; }
+
+/* Modal Transition */
+.modal-enter-active, .modal-leave-active { transition: all 0.25s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+.modal-enter-from .cancel-modal-box, .modal-leave-to .cancel-modal-box { transform: scale(0.95) translateY(10px); }
 </style>

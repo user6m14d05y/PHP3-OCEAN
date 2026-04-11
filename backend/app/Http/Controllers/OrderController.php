@@ -155,6 +155,31 @@ class OrderController extends Controller
                 ->first();
 
             if ($coupon) {
+                // Kiểm tra điều kiện áp dụng mã
+                $now = now();
+                if ($coupon->start_date && $now->lt($coupon->start_date)) {
+                    return response()->json(['status' => 'error', 'message' => 'Mã giảm giá chưa đến thời gian áp dụng!'], 400);
+                }
+                if ($coupon->end_date && $now->gt($coupon->end_date)) {
+                    return response()->json(['status' => 'error', 'message' => 'Mã giảm giá đã hết hạn!'], 400);
+                }
+                if ($coupon->min_order_value && $subtotal < $coupon->min_order_value) {
+                    return response()->json(['status' => 'error', 'message' => 'Đơn hàng không đạt giá trị tối thiểu để áp dụng mã này!'], 400);
+                }
+                if ($coupon->usage_limit !== null && $coupon->used_count >= $coupon->usage_limit) {
+                    return response()->json(['status' => 'error', 'message' => 'Mã giảm giá đã hết lượt sử dụng!'], 400);
+                }
+
+                // Nếu có giới hạn dùng mỗi user (usage_limit_per_user), cần check user_coupons
+                if ($coupon->usage_limit_per_user !== null) {
+                    $userUsedCount = \App\Models\UserCoupon::where('user_id', $userId)
+                        ->where('coupon_id', $coupon->id)
+                        ->value('used_count') ?? 0;
+                    if ($userUsedCount >= $coupon->usage_limit_per_user) {
+                        return response()->json(['status' => 'error', 'message' => 'Bạn đã hết lượt sử dụng mã này!'], 400);
+                    }
+                }
+
                 // Tính toán giảm giá
                 if ($coupon->type === 'percent') {
                     $disc = ($subtotal * $coupon->value) / 100;
@@ -237,6 +262,25 @@ class OrderController extends Controller
         // Bắt đầu transaction
         DB::beginTransaction();
         try {
+            // Khóa các variants để ngăn race condition (đặt hàng đồng thời vượt quá tồn kho)
+            $variantIds = $cartItems->pluck('variant_id');
+            $lockedVariants = ProductVariant::whereIn('variant_id', $variantIds)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('variant_id');
+
+            // Kiểm tra lại tồn kho sau khi đã khóa row
+            foreach ($cartItems as $cItem) {
+                $lockedVariant = $lockedVariants[$cItem->variant_id] ?? null;
+                if (!$lockedVariant || $lockedVariant->stock < $cItem->quantity) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Sản phẩm ' . $cItem->variant->product->name . ' đã hết hàng khi bạn đặt mua!'
+                    ], 400);
+                }
+            }
+
             // Chuỗi địa chỉ
             $fullAddress = implode(', ', array_filter([
                 $address->address_line,
@@ -494,10 +538,24 @@ class OrderController extends Controller
                 'note' => 'Khách hàng hủy đơn: ' . $cancelReason,
             ]);
 
-            // Hoàn lại tồn kho
+            // Hoàn lại tồn kho (N+1 query fix)
             $orderItems = OrderItem::where('order_id', $order->order_id)->get();
+            $cases = [];
+            $bindings = [];
+            $variantIds = [];
+            
             foreach ($orderItems as $item) {
-                ProductVariant::where('variant_id', $item->variant_id)->increment('stock', $item->quantity);
+                $cases[] = "WHEN ? THEN stock + ?";
+                $bindings[] = $item->variant_id;
+                $bindings[] = $item->quantity;
+                $variantIds[] = $item->variant_id;
+            }
+            
+            if (!empty($variantIds)) {
+                $ids = implode(',', array_fill(0, count($variantIds), '?'));
+                $casesSql = implode(' ', $cases);
+                $bindings = array_merge($bindings, $variantIds);
+                DB::statement("UPDATE product_variants SET stock = CASE variant_id {$casesSql} END, updated_at = NOW() WHERE variant_id IN ({$ids})", $bindings);
             }
 
             DB::commit();

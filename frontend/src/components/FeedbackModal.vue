@@ -1,7 +1,16 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import api from '@/axios';
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
+
+const toastData = ref({ message: '', type: 'success' });
+const showToast = (message, type = 'success') => {
+  toastData.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('feedbackToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  });
+};
 
 const props = defineProps({
   modelValue: {
@@ -58,7 +67,7 @@ const submitFeedback = async () => {
     );
 
     if (itemsToSubmit.length === 0) {
-        Swal.fire({ icon: 'warning', title: 'Thiếu thông tin', text: 'Vui lòng chọn số sao cho ít nhất 1 sản phẩm.' });
+        showToast('Vui lòng chọn số sao cho ít nhất 1 sản phẩm.', 'danger');
         submitting.value = false;
         return;
     }
@@ -85,25 +94,15 @@ const submitFeedback = async () => {
         }
 
         if (submittedCount > 0) {
-            Swal.fire({
-                icon: 'success',
-                title: 'Cảm ơn bạn!',
-                text: 'Các đánh giá hợp lệ đã được ghi nhận.',
-                timer: 2000,
-                showConfirmButton: false
-            });
+            showToast('Các đánh giá hợp lệ đã được ghi nhận. Cảm ơn bạn!', 'success');
             emit('feedback-submitted');
             closeModal();
         } else {
-            Swal.fire({ 
-                icon: 'error', 
-                title: 'Chưa có đánh giá nào được gửi', 
-                text: lastError ? lastError : 'Có thể bạn đã đánh giá toàn bộ sản phẩm trong đơn này rồi.' 
-            });
+            showToast(lastError ? lastError : 'Có thể bạn đã đánh giá toàn bộ sản phẩm trong đơn này rồi.', 'danger');
         }
     } catch (error) {
         console.error(error);
-        Swal.fire({ icon: 'error', title: 'Lỗi hệ thống', text: 'Không thể gửi đánh giá lúc này.' });
+        showToast('Không thể gửi đánh giá lúc này.', 'danger');
     } finally {
         submitting.value = false;
     }
@@ -188,6 +187,16 @@ const getImageUrl = (path) => {
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Bootstrap Toast (outside teleport so it's always accessible) -->
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 10050">
+    <div class="toast align-items-center border-0" :class="toastData.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="feedbackToast" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">{{ toastData.message }}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>

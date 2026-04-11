@@ -134,8 +134,8 @@ class ContactController extends Controller
 
         // Gửi email phản hồi
         try {
-            $emailUser = env('EMAIL_USER');
-            $emailPass = env('EMAIL_PASS');
+            $emailUser = config('services.email.username');
+            $emailPass = config('services.email.password');
 
             if (!$emailUser || !$emailPass) {
                 return response()->json([

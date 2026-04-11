@@ -24,6 +24,11 @@ class ProductCommentController extends Controller
         ]);
 
         $userId = auth('api')->id();
+        $commenterType = 'user';
+        if (!$userId && auth('admin')->check()) {
+            $userId = auth('admin')->user()->getKey();
+            $commenterType = 'admin';
+        }
         if (!$userId) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
         }
@@ -65,6 +70,7 @@ class ProductCommentController extends Controller
             $comment = ProductComment::create([
                 'product_id' => $request->product_id,
                 'user_id' => $userId,
+                'commenter_type' => $commenterType,
                 'order_item_id' => $request->order_item_id,
                 'rating' => $request->rating,
                 'content' => $request->content,
@@ -107,6 +113,23 @@ class ProductCommentController extends Controller
                         ->where('is_approved', 0)
                         ->orderBy('created_at', 'desc')
                         ->paginate(10);
+
+        // Append commenter_info từ đúng bảng
+        $comments->getCollection()->transform(function ($comment) {
+            if ($comment->commenter_type === 'admin') {
+                $admin = \App\Models\Admin::find($comment->user_id);
+                $comment->commenter_info = $admin ? [
+                    'full_name' => $admin->full_name,
+                    'avatar_url' => $admin->avatar_url,
+                ] : null;
+            } else {
+                $comment->commenter_info = $comment->user ? [
+                    'full_name' => $comment->user->full_name,
+                    'avatar_url' => $comment->user->avatar_url,
+                ] : null;
+            }
+            return $comment;
+        });
                         
         return response()->json([
             'status' => 'success',
@@ -144,6 +167,25 @@ class ProductCommentController extends Controller
         }
 
         $comments = $query->orderBy('created_at', 'desc')->paginate(15);
+
+        // Append commenter_info từ đúng bảng (users hoặc admins)
+        $comments->getCollection()->transform(function ($comment) {
+            if ($comment->commenter_type === 'admin') {
+                $admin = \App\Models\Admin::find($comment->user_id);
+                $comment->commenter_info = $admin ? [
+                    'full_name' => $admin->full_name,
+                    'email' => $admin->email,
+                    'avatar_url' => $admin->avatar_url,
+                ] : null;
+            } else {
+                $comment->commenter_info = $comment->user ? [
+                    'full_name' => $comment->user->full_name,
+                    'email' => $comment->user->email,
+                    'avatar_url' => $comment->user->avatar_url,
+                ] : null;
+            }
+            return $comment;
+        });
 
         return response()->json([
             'status' => 'success',

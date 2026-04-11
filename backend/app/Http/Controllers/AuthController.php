@@ -21,11 +21,11 @@ class AuthController extends Controller
             return false;
         }
 
-        $secretKey = env('TURNSTILE_SECRET_KEY');
+        $secretKey = config('services.turnstile.secret_key');
 
         if (!$secretKey) {
-            // Nếu chưa cấu hình Turnstile, bỏ qua verification (dev mode)
-            return true;
+            // Tắt bypass dev mode, luôn bắt buộc cấu hình Turnstile
+            return false;
         }
 
         try {
@@ -120,13 +120,13 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         // Verify Cloudflare Turnstile
-        // $turnstileToken = $request->input('turnstile_token');
-        // if (!$this->verifyTurnstile($turnstileToken)) {
-        //     return response()->json([
-        //         'status' => 'error',
-        //         'message' => 'Xác thực CAPTCHA thất bại! Vui lòng thử lại.'
-        //     ], 422);
-        // }
+        $turnstileToken = $request->input('turnstile_token');
+        if (!$this->verifyTurnstile($turnstileToken)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Xác thực CAPTCHA thất bại! Vui lòng thử lại.'
+            ], 422);
+        }
 
         $credentials = $request->only('email', 'password');
 
@@ -216,10 +216,10 @@ class AuthController extends Controller
         try {
             // Bước 1: Đổi authorization code lấy access_token
             $tokenResponse = Http::asForm()->post('https://oauth2.googleapis.com/token', [
-                'code' => $code,
-                'client_id' => env('GOOGLE_CLIENT_ID'),
-                'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-                'redirect_uri' => 'http://localhost:3302/api/auth/google/callback',
+                'code' => $request->code,
+                'client_id' => config('services.google.client_id'),
+                'client_secret' => config('services.google.client_secret'),
+                'redirect_uri' => config('services.google.redirect'),
                 'grant_type' => 'authorization_code',
             ]);
 
@@ -342,10 +342,10 @@ class AuthController extends Controller
         try {
             // Bước 1: Đổi code lấy access_token
             $tokenResponse = Http::get('https://graph.facebook.com/v19.0/oauth/access_token', [
-                'client_id' => env('FACEBOOK_ID'),
-                'client_secret' => env('FACEBOOK_SECRET'),
-                'redirect_uri' => env('FACEBOOK_REDIRECT'),
-                'code' => $code,
+                'client_id' => config('services.facebook.client_id'),
+                'client_secret' => config('services.facebook.client_secret'),
+                'redirect_uri' => config('services.facebook.redirect'),
+                'code' => $request->code,
             ]);
 
             if ($tokenResponse->failed()) {

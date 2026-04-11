@@ -41,4 +41,30 @@ return [
         'password' => env('EMAIL_PASS'),
     ],
 
+    'turnstile' => [
+        'secret_key' => env('TURNSTILE_SECRET_KEY'),
+    ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URL', 'http://localhost:3302/api/auth/google/callback'),
+    ],
+
+    'facebook' => [
+        'client_id' => env('FACEBOOK_ID'),
+        'client_secret' => env('FACEBOOK_SECRET'),
+        'redirect' => env('FACEBOOK_REDIRECT', 'http://localhost:3302/api/auth/facebook/callback'),
+    ],
+
+    'ghn' => [
+        'token' => env('VITE_TOKEN_GHN', ''),
+    ],
+
+    'store' => [
+        'wifi_ip' => env('STORE_WIFI_IP'),
+        'lat' => env('STORE_LAT'),
+        'lng' => env('STORE_LNG'),
+    ],
+
 ];

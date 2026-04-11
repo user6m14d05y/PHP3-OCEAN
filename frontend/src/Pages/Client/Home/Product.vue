@@ -2,7 +2,10 @@
 import { ref, computed, onMounted, watch } from "vue";
 import api from "../../../axios.js";
 import { useRouter, useRoute } from "vue-router";
+import { useFavorites } from "@/composables/useFavorites";
+import ProductCard from "../../../components/ProductCard.vue";
 
+const { isFavorited, toggleFavorite } = useFavorites();
 const router = useRouter();
 const route = useRoute();
 const Products = ref([]);
@@ -80,8 +83,7 @@ const fetchProducts = async () => {
         Products.value = response.data.data.map((item) => ({
             id: item.product_id,
             name: item.name,
-            price: Number(item.min_price || 0),
-            formatted_price: new Intl.NumberFormat("vi-VN", {
+            price: new Intl.NumberFormat("vi-VN", {
                 style: "currency",
                 currency: "VND",
             }).format(item.min_price || 0),
@@ -264,62 +266,12 @@ onMounted(async () => {
 
 
 
-                    <div
-                        class="products-grid"
-                        v-if="filteredProducts.length > 0"
-                    >
-                        <div
-                            class="product-card ocean-card"
+                    <div class="products-grid" v-if="filteredProducts.length > 0">
+                        <ProductCard
                             v-for="product in filteredProducts"
                             :key="product.id"
-                        >
-                            <router-link :to="'/product/' + product.slug">
-                                <div class="text-decoration-none">
-                                    <div class="product-img-wrapper">
-                                        <span class="product-badge" v-if="product.badge" :class="{
-                                            'badge-hot':
-                                                product.badge === 'Hot',
-                                        }">{{ product.badge }}</span>
-                                        <img :src="product.image.startsWith('http') ? product.image : 'http://localhost:8383/storage/' + product.image" :alt="product.name"
-                                            class="product-img" style="cursor: pointer" />
-                                        <div class="product-hover-action">
-                                            <button class="btn-icon">
-                                                <svg
-                                                    width="20"
-                                                    height="20"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                >
-                                                    <circle
-                                                        cx="9"
-                                                        cy="21"
-                                                        r="1"
-                                                    />
-                                                    <circle
-                                                        cx="20"
-                                                        cy="21"
-                                                        r="1"
-                                                    />
-                                                    <path
-                                                        d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"
-                                                    />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="product-info">
-                                        <h3 class="product-name">
-                                            {{ product.name }}
-                                        </h3>
-                                        <span class="product-price">{{
-                                            product.formatted_price
-                                        }}</span>
-                                    </div>
-                                </div>
-                            </router-link>
-                        </div>
+                            :product="product"
+                        />
                         <div class="pagination" v-if="totalPages > 1">
                             <button class="page-btn" :disabled="currentPage <= 1" @click="prevPage">Trước</button>
                             <template v-for="(item, index) in visiblePages" :key="index">
@@ -406,10 +358,10 @@ onMounted(async () => {
 
 /* ====== Tree-View Sidebar ====== */
 .sidebar-panel {
-    background: #fff;
-    border-radius: 14px;
-    border: 1px solid #e8ecf1;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    background: transparent;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
     overflow: hidden;
 }
 
@@ -417,37 +369,36 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 18px 20px;
+    padding: 18px 0;
     font-size: 1.05rem;
     font-weight: 800;
-    color: #1a2b4a;
-    border-bottom: 1px solid #f0f2f5;
-    background: #fafbfd;
+    color: var(--text-main);
+    border-bottom: 1px solid var(--border-color);
+    background: transparent;
 }
 
 .tree-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 20px;
+    padding: 12px 0;
     cursor: pointer;
     font-size: 0.92rem;
     font-weight: 500;
-    color: #5a6b82;
+    color: var(--text-muted);
     transition: all 0.18s ease;
-    border-left: 3px solid transparent;
+    border-left: none;
 }
 
 .tree-item:hover {
-    background: #f5f8fb;
-    color: #0369a1;
+    background: transparent;
+    color: var(--ocean-blue);
 }
 
 .tree-item.active {
-    background: linear-gradient(90deg, rgba(3, 105, 161, 0.08), rgba(3, 105, 161, 0.02));
-    color: #0369a1;
+    background: transparent;
+    color: var(--ocean-blue);
     font-weight: 700;
-    border-left-color: #0369a1;
 }
 
 .tree-parent {
@@ -523,8 +474,8 @@ onMounted(async () => {
 .custom-radio {
     width: 17px;
     height: 17px;
-    border: 2px solid #c8ced8;
-    border-radius: 50%;
+    border: 1px solid #c8ced8;
+    border-radius: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -533,7 +484,7 @@ onMounted(async () => {
 }
 
 .tree-price.active .custom-radio {
-    border-color: #0369a1;
+    border-color: var(--ocean-blue);
 }
 
 .radio-inner {
@@ -554,11 +505,12 @@ onMounted(async () => {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
-    background: white;
-    padding: 14px 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
-    border: 1px solid var(--border-color, #d9e8f0);
+    background: transparent;
+    padding: 14px 0;
+    border-radius: var(--radius-sm);
+    box-shadow: none;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .results-count {
@@ -585,7 +537,7 @@ onMounted(async () => {
 
 .custom-select {
     padding: 6px 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-micro);
     border: 1px solid #c9d6df;
     background: white;
     font-family: inherit;
@@ -622,20 +574,20 @@ onMounted(async () => {
 
 .page-btn {
     padding: 8px 14px;
-    border: 1px solid #d9e8f0;
-    background: #fff;
-    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    border-radius: var(--radius-micro);
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
-    color: #475569;
+    color: var(--text-muted);
     transition: all 0.2s;
 }
 
 .page-btn:hover:not(:disabled) {
-    background: #f0f7fa;
-    border-color: var(--ocean-blue, #0288d1);
-    color: var(--ocean-blue, #0288d1);
+    background: var(--ocean-blue);
+    border-color: var(--ocean-blue);
+    color: white;
 }
 
 .page-btn:disabled {
@@ -644,138 +596,19 @@ onMounted(async () => {
 }
 
 .page-btn--active {
-    background: var(--ocean-blue, #0288d1) !important;
-    color: #fff !important;
-    border-color: var(--ocean-blue, #0288d1) !important;
+    background: var(--ocean-blue) !important;
+    color: white !important;
+    border-color: var(--ocean-blue) !important;
 }
 
-.page-dots {
-    color: #475569;
-    font-weight: 700;
-    padding: 0 4px;
-}
-
-.product-card {
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    background: var(--card-bg, #ffffff);
-    border: 1px solid var(--border-color, #d9e8f0);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.product-card a {
-    text-decoration: none;
-    color: inherit;
-}
-
-.product-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-    border-color: rgba(2, 136, 209, 0.3);
-}
-
-/* Cho nhỏ chiều cao ảnh lại một xíu tẹo để bù trừ với việc chia 4 côt */
-.product-img-wrapper {
-    position: relative;
-    width: 100%;
-    height: 315px;
-    background: var(--ocean-deepest, #f0f7fa);
-    overflow: hidden;
-}
-
-.product-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    transition: transform 0.6s ease;
-}
-
-.product-card:hover .product-img {
-    transform: scale(1.08);
-}
-
-.product-badge {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background: var(--seafoam, #26a69a);
-    color: white;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    z-index: 10;
-}
-
-.badge-hot {
-    background: var(--coral, #ef5350);
-}
-
-/* Nút thêm vào giỏ giống Home */
-.product-hover-action {
-    position: absolute;
-    bottom: -40px;
-    right: 12px;
-    transition: all 0.3s ease;
-    z-index: 10;
-}
-
-.product-card:hover .product-hover-action {
-    bottom: 12px;
-}
-
-.btn-icon {
-    background: white;
-    border: none;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-main);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-icon:hover {
-    background: var(--ocean-blue, #0288d1);
-    color: white;
-    transform: scale(1.1);
-}
-
-.product-info {
-    padding: 16px 16px 20px 16px;
-}
-
-.product-name {
-    font-size: 1rem;
-    font-weight: 700;
-    margin-bottom: 6px;
-    color: var(--text-main, #102a43);
-    /* Giới hạn tên quá dài làm mất tỉ lệ 4 hàng ngang */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.product-price {
-    font-weight: 800;
-    color: var(--coral, #ef5350);
-    font-size: 1.05rem;
-}
+/* ======= OVERRIDES CLEANUP ======= */
 
 /* ======= EMPTY STATE ======= */
 .empty-state {
     text-align: center;
     padding: 60px 20px;
-    background: white;
-    border-radius: 12px;
+    background: transparent;
+    border-radius: var(--radius-sm);
     border: 1px dashed var(--ocean-blue);
 }
 
@@ -797,17 +630,18 @@ onMounted(async () => {
 
 .btn-outline {
     background: transparent;
-    color: var(--ocean-blue, #0288d1);
-    border: 2px solid var(--ocean-blue, #0288d1);
+    color: var(--ocean-blue);
+    border: 1px solid var(--ocean-blue);
     padding: 8px 20px;
-    border-radius: 8px;
+    border-radius: var(--radius-micro);
     font-weight: 700;
+    text-transform: uppercase;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .btn-outline:hover {
-    background: var(--ocean-blue, #0288d1);
+    background: var(--ocean-blue);
     color: white;
 }
 

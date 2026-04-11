@@ -12,7 +12,7 @@ const api = axios.create({
 // Request interceptor: tự động gắn JWT token + fix FormData Content-Type
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("auth_token");
+    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -38,6 +38,7 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       // Xóa token và thông tin user
       localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_token');
       sessionStorage.removeItem('user');
       
       // Redirect về trang login (nếu chưa ở trang login)

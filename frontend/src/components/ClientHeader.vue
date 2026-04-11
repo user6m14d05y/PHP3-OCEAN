@@ -110,7 +110,7 @@
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 00-2 2c0 1.1.9 2 2 2h4v-4h-4z"/>
             </svg>
-            <span class="action-label" style="color: #dc2626;">Săn Voucher</span>
+            <span class="action-label" style="color: var(--coral);">Săn Voucher</span>
           </router-link>
           
           <div class="account-menu" v-show="showVoucherDropdown">
@@ -257,7 +257,7 @@ const checkAuth = () => {
       isLoggedIn.value = true;
       userName.value = user.full_name || user.name || user.email;
       userEmail.value = user.email || '';
-      isAdmin.value = user.role === 'admin' || user.role === 'staff';
+      isAdmin.value = ['admin', 'staff', 'seller'].includes(user.role);
       
       const path = user.avatar_url;
       if (path) {
@@ -343,7 +343,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 .logo-text {
   font-size: 1.45rem;
   font-weight: 800;
-  color: #1a56db;
+  color: var(--ocean-blue);
   letter-spacing: -0.3px;
 }
 
@@ -369,9 +369,9 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 
 .category-btn:hover,
 .category-btn.is-open {
-  background: #1a56db;
+  background: var(--ocean-blue);
   color: #fff;
-  border-color: #1a56db;
+  border-color: var(--ocean-blue);
 }
 .category-btn:hover svg,
 .category-btn.is-open svg { stroke: #fff; }
@@ -390,8 +390,8 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   border: 1px solid #e2e5ea;
   border-radius: 16px;
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.10),
-    0 4px 16px rgba(0, 0, 0, 0.04);
+    0 16px 40px rgba(2, 136, 209, 0.08),
+    0 4px 12px rgba(2, 136, 209, 0.04);
   overflow: hidden;
   min-height: 360px;
 }
@@ -421,8 +421,8 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   gap: 8px;
 }
 
-.mega-sidebar-item:hover { background: #f3f4f6; color: #1a56db; }
-.mega-sidebar-item.active { background: #1a56db; color: #fff; }
+.mega-sidebar-item:hover { background: var(--hover-bg); color: var(--ocean-blue); }
+.mega-sidebar-item.active { background: var(--ocean-blue); color: #fff; }
 .mega-sidebar-item.active .mega-sidebar-arrow { stroke: #fff; }
 
 .mega-sidebar-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -431,7 +431,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 
 .mega-static-link { gap: 10px; justify-content: flex-start; }
 .mega-static-link svg { flex-shrink: 0; color: #9ca3af; }
-.mega-static-link:hover svg { color: #1a56db; }
+.mega-static-link:hover svg { color: var(--ocean-blue); }
 
 .mega-content { flex: 1; min-width: 460px; background: #fafbfc; }
 .mega-content-body { padding: 28px 32px; }
@@ -443,19 +443,19 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   font-size: 1rem; font-weight: 700; color: #111827;
   text-decoration: none; margin-bottom: 4px; transition: color 0.15s;
 }
-.mega-column-title:hover { color: #1a56db; }
+.mega-column-title:hover { color: var(--ocean-blue); }
 
 .mega-column-item {
   font-size: 0.88rem; color: #6b7280; text-decoration: none;
   padding: 3px 0; transition: color 0.15s; font-weight: 450;
 }
-.mega-column-item:hover { color: #1a56db; }
+.mega-column-item:hover { color: var(--ocean-blue); }
 
 .mega-column-viewall {
-  font-size: 0.85rem; font-weight: 600; color: #1a56db;
+  font-size: 0.85rem; font-weight: 600; color: var(--ocean-blue);
   text-decoration: none; margin-top: 4px; transition: color 0.15s;
 }
-.mega-column-viewall:hover { color: #1648b8; text-decoration: underline; }
+.mega-column-viewall:hover { color: rgba(2, 136, 209, 0.8); text-decoration: underline; }
 
 .mega-empty {
   display: flex; flex-direction: column; align-items: center;
@@ -476,7 +476,10 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   transition: border-color 0.2s;
 }
 
-.search-box:focus-within { border-color: #1a56db; }
+.search-box:focus-within {
+  border-color: var(--ocean-blue);
+  box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.15);
+}
 
 .search-input {
   flex: 1;
@@ -493,16 +496,16 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 
 .search-submit {
   padding: 8px 16px;
-  background: #1a56db;
+  background: var(--ocean-blue);
   border: none;
   color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
-  transition: background 0.2s;
+  transition: all 0.2s ease;
 }
 
-.search-submit:hover { background: #1648b8; }
+.search-submit:hover { background: rgba(2, 136, 209, 0.85); transform: scale(1.02); }
 
 .header-actions {
   display: flex;
@@ -526,7 +529,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   padding: 4px 2px;
 }
 
-.action-item:hover { color: #1a56db; }
+.action-item:hover { color: var(--ocean-blue); }
 
 .action-label {
   font-size: 0.85rem;
@@ -534,7 +537,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   white-space: nowrap;
 }
 
-.voucher-item svg { color: #dc2626; }
+.voucher-item svg { color: var(--coral); }
 .voucher-item:hover svg { color: #b91c1c; }
 
 /* Dropdown */
@@ -566,7 +569,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 
 .dropdown-avatar {
   width: 36px; height: 36px; border-radius: 50%;
-  background: #1a56db; color: #fff;
+  background: var(--ocean-blue); color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
 }
@@ -578,16 +581,16 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 
 .header-user-avatar {
   width: 32px; height: 32px; border-radius: 50%;
-  object-fit: cover; border: 1.5px solid #1a56db;
+  object-fit: cover; border: 1.5px solid var(--ocean-blue);
 }
 .header-user-avatar-fallback {
   width: 32px; height: 32px; border-radius: 50%;
-  background: #1a56db; color: #fff;
+  background: var(--ocean-blue); color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-size: 0.9rem; font-weight: 700;
 }
 .logged-in-name {
-  color: #1a56db !important;
+  color: var(--ocean-blue) !important;
   font-weight: 700 !important;
   max-width: 80px;
   overflow: hidden;
@@ -618,19 +621,19 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 }
 
 .account-menu-item:hover { background: #f3f4f6; }
-.account-logout { color: #dc2626; }
+.account-logout { color: var(--coral); }
 .account-logout:hover { background: #fff0f0; }
 
 /* Voucher Dropdown Style */
 .voucher-menu { min-width: 280px; }
 .dropdown-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; }
 .dropdown-title { font-size: 0.85rem; font-weight: 700; color: #111; }
-.view-all { font-size: 0.75rem; color: #1a56db; text-decoration: none; font-weight: 600; }
+.view-all { font-size: 0.75rem; color: var(--ocean-blue); text-decoration: none; font-weight: 600; }
 .view-all:hover { text-decoration: underline; }
 .empty-voucher { padding: 20px; text-align: center; font-size: 0.85rem; color: #888; }
 .voucher-list { padding: 4px; display: flex; flex-direction: column; gap: 4px; }
 .voucher-mini-card { padding: 10px 12px; border-radius: 8px; background: #fff5f5; border: 1px dashed #fecaca; }
-.cp-code { font-size: 0.85rem; font-weight: 700; color: #dc2626; margin-bottom: 2px; }
+.cp-code { font-size: 0.85rem; font-weight: 700; color: var(--coral); margin-bottom: 2px; }
 .cp-info { font-size: 0.75rem; color: #666; font-weight: 500; }
 
 /* Cart Badge */
@@ -642,7 +645,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   position: absolute;
   top: -6px;
   right: -10px;
-  background: #dc2626;
+  background: var(--coral);
   color: #fff;
   font-size: 0.65rem;
   font-weight: 700;
@@ -655,7 +658,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   padding: 0 4px;
   line-height: 1;
   border: 2px solid #fff;
-  box-shadow: 0 1px 4px rgba(220, 38, 38, 0.4);
+  box-shadow: 0 2px 6px rgba(239, 83, 80, 0.4);
 }
 
 @media (max-width: 768px) {

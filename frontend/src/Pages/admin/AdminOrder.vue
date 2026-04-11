@@ -1,12 +1,20 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue';
 import api from '@/axios';
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
 
+const toastData = ref({ message: '', type: 'success' });
+const showToastNotify = (message, type = 'success') => {
+  toastData.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('orderToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  });
+};
 const toast = {
-  success: (msg) => Swal.fire({ icon: 'success', title: 'Thành công', text: msg, timer: 2500, showConfirmButton: false }),
-  error: (msg) => Swal.fire({ icon: 'error', title: 'Lỗi', text: msg, timer: 3000, showConfirmButton: false }),
-  info: (msg) => Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: msg, timer: 5000, showConfirmButton: false })
+  success: (msg) => showToastNotify(msg, 'success'),
+  error: (msg) => showToastNotify(msg, 'danger'),
+  info: (msg) => showToastNotify(msg, 'info'),
 };
 
 const orders = ref([]);
@@ -15,6 +23,11 @@ const currentStatus = ref('');
 const searchQuery = ref('');
 const dateFrom = ref('');
 const dateTo = ref('');
+
+const selectedOrders = ref([]);
+const bulkActionLoading = ref(false);
+const bulkFulfillmentStatus = ref('');
+const bulkPaymentStatus = ref('');
 
 const pagination = ref({
     current_page: 1,
@@ -50,8 +63,37 @@ const getAllowedFulfillmentOptions = (currentStatus) => {
   return fulfillmentOptions.filter(s => allowed.includes(s.value));
 };
 
+// ===== Payment Status =====
+const paymentOptions = [
+  { value: 'unpaid', label: 'Chưa TT' },
+  { value: 'paid', label: 'Đã TT' },
+  { value: 'failed', label: 'Thất bại' },
+  { value: 'refunded', label: 'Hoàn tiền' },
+  { value: 'partially_refunded', label: 'Hoàn 1 phần' },
+];
+
+// Luồng chuyển đổi payment status hợp lệ
+const paymentTransitions = {
+  'unpaid':             ['unpaid', 'paid', 'failed'],
+  'paid':               ['paid', 'refunded', 'partially_refunded'],
+  'failed':             ['failed', 'unpaid', 'paid'],
+  'refunded':           ['refunded'],            // terminal
+  'partially_refunded': ['partially_refunded', 'refunded'],
+};
+
+const getAllowedPaymentOptions = (currentStatus) => {
+  const allowed = paymentTransitions[currentStatus] || [currentStatus];
+  return paymentOptions.filter(s => allowed.includes(s.value));
+};
+
+const isPaymentDisabled = (order) => {
+  // Đơn hủy hoặc payment đã terminal => disable
+  return order.fulfillment_status === 'cancelled' || order.payment_status === 'refunded';
+};
+
 const fetchOrders = async (page = 1) => {
   loading.value = true;
+  selectedOrders.value = []; // Clear selection when changing page
   try {
     const res = await api.get('/admin/orders', {
       params: {
@@ -68,7 +110,7 @@ const fetchOrders = async (page = 1) => {
       }
     });
     if (res.data.status === 'success') {
-      orders.value = res.data.data.data.map(o => ({ ...o, _prevFulfillmentStatus: o.fulfillment_status }));
+      orders.value = res.data.data.data.map(o => ({ ...o, _prevFulfillmentStatus: o.fulfillment_status, _prevPaymentStatus: o.payment_status }));
       pagination.value = {
         current_page: res.data.data.current_page,
         last_page: res.data.data.last_page,
@@ -117,53 +159,38 @@ const adminCancelReasons = [
   'Lý do khác',
 ];
 
-const showCancelReasonModal = async () => {
-  const { value: reason } = await Swal.fire({
-    title: '⚠️ Hủy đơn hàng',
-    html: `
-      <p style="color:#64748b; font-size:0.9rem; margin-bottom:16px;">Chọn lý do hủy đơn:</p>
-      <div style="text-align:left; max-height:240px; overflow-y:auto;">
-        ${adminCancelReasons.map(r => `
-          <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; margin-bottom:6px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; background:white;"
-                 onmouseover="this.style.borderColor='#dc2626'; this.style.background='#fef2f2'"
-                 onmouseout="if(!this.querySelector('input').checked){this.style.borderColor='#e2e8f0'; this.style.background='white'}">
-            <input type="radio" name="admin_cancel_reason" value="${r}" style="accent-color:#dc2626; width:16px; height:16px; flex-shrink:0;">
-            <span style="font-size:0.88rem; color:#334155;">${r}</span>
-          </label>
-        `).join('')}
-      </div>
-      <textarea id="admin-custom-reason" placeholder="Nhập lý do cụ thể..."
-        style="display:none; width:100%; margin-top:12px; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:0.9rem; min-height:70px; resize:vertical; outline:none; font-family:inherit;"></textarea>
-    `,
-    showCancelButton: true,
-    confirmButtonText: 'Xác nhận hủy',
-    cancelButtonText: 'Quay lại',
-    confirmButtonColor: '#dc2626',
-    cancelButtonColor: '#64748b',
-    width: 500,
-    didOpen: () => {
-      const radios = Swal.getPopup().querySelectorAll('input[name="admin_cancel_reason"]');
-      const customArea = Swal.getPopup().querySelector('#admin-custom-reason');
-      radios.forEach(radio => {
-        radio.addEventListener('change', () => {
-          radios.forEach(r => { const l = r.closest('label'); if (l) { l.style.borderColor = '#e2e8f0'; l.style.background = 'white'; } });
-          const lbl = radio.closest('label'); if (lbl) { lbl.style.borderColor = '#dc2626'; lbl.style.background = '#fef2f2'; }
-          customArea.style.display = radio.value === 'Lý do khác' ? 'block' : 'none';
-        });
-      });
-    },
-    preConfirm: () => {
-      const selected = Swal.getPopup().querySelector('input[name="admin_cancel_reason"]:checked');
-      if (!selected) { Swal.showValidationMessage('Vui lòng chọn lý do hủy đơn'); return false; }
-      if (selected.value === 'Lý do khác') {
-        const custom = Swal.getPopup().querySelector('#admin-custom-reason').value.trim();
-        if (!custom) { Swal.showValidationMessage('Vui lòng nhập lý do cụ thể'); return false; }
-        return custom;
-      }
-      return selected.value;
-    }
-  });
-  return reason || null;
+// Cancel modal state
+const showCancelModal = ref(false);
+const selectedCancelReason = ref('');
+const customCancelReason = ref('');
+const cancelValidationError = ref('');
+let cancelReasonResolver = null;
+
+const showCancelReasonModal = () => {
+  selectedCancelReason.value = '';
+  customCancelReason.value = '';
+  cancelValidationError.value = '';
+  showCancelModal.value = true;
+  return new Promise((resolve) => { cancelReasonResolver = resolve; });
+};
+
+const confirmCancelReason = () => {
+  if (!selectedCancelReason.value) {
+    cancelValidationError.value = 'Vui lòng chọn lý do hủy đơn';
+    return;
+  }
+  if (selectedCancelReason.value === 'Lý do khác' && !customCancelReason.value.trim()) {
+    cancelValidationError.value = 'Vui lòng nhập lý do cụ thể';
+    return;
+  }
+  const reason = selectedCancelReason.value === 'Lý do khác' ? customCancelReason.value.trim() : selectedCancelReason.value;
+  showCancelModal.value = false;
+  if (cancelReasonResolver) cancelReasonResolver(reason);
+};
+
+const dismissCancelModal = () => {
+  showCancelModal.value = false;
+  if (cancelReasonResolver) cancelReasonResolver(null);
 };
 
 const updateOrderFulfillment = async (order) => {
@@ -207,16 +234,20 @@ const updateOrderFulfillment = async (order) => {
 };
 
 const updateOrderPayment = async (order) => {
+  const oldPaymentStatus = order._prevPaymentStatus || 'unpaid';
   try {
     const res = await api.put(`/admin/orders/${order.order_id}/status`, {
       payment_status: order.payment_status
     });
 
     if (res.data.status === 'success') {
+      order._prevPaymentStatus = order.payment_status;
       toast.success('Cập nhật thanh toán thành công!');
     }
   } catch (error) {
-    toast.error(error.response?.data?.message || 'Lỗi cập nhật');
+    // Rollback về trạng thái cũ khi API lỗi
+    order.payment_status = oldPaymentStatus;
+    toast.error(error.response?.data?.message || 'Lỗi cập nhật thanh toán');
   }
 };
 
@@ -233,6 +264,58 @@ const formatDate = (dateString, includeTime=true) => {
 };
 
 const getStatusLabel = (status) => statuses.find(s => s.value === status)?.label || status;
+
+const isAllSelected = computed({
+  get() {
+    return orders.value.length > 0 && selectedOrders.value.length === orders.value.length;
+  },
+  set(value) {
+    if (value) {
+      selectedOrders.value = orders.value.map(o => o.order_id);
+    } else {
+      selectedOrders.value = [];
+    }
+  }
+});
+
+const applyBulkStatus = async () => {
+    if (selectedOrders.value.length === 0) return;
+    if (!bulkFulfillmentStatus.value && !bulkPaymentStatus.value) {
+        toast.error('Vui lòng chọn trạng thái muốn cập nhật hàng loạt');
+        return;
+    }
+
+    let note = '';
+    if (bulkFulfillmentStatus.value === 'cancelled') {
+        const reason = await showCancelReasonModal();
+        if (!reason) return;
+        note = reason;
+    }
+
+    bulkActionLoading.value = true;
+    try {
+        const payload = {
+            order_ids: selectedOrders.value,
+        };
+        if (bulkFulfillmentStatus.value) payload.fulfillment_status = bulkFulfillmentStatus.value;
+        if (bulkPaymentStatus.value) payload.payment_status = bulkPaymentStatus.value;
+        if (note) payload.note = note;
+
+        const res = await api.put('/admin/orders/bulk-status', payload);
+
+        if (res.data.status === 'success') {
+            toast.success(res.data.message);
+            selectedOrders.value = [];
+            bulkFulfillmentStatus.value = '';
+            bulkPaymentStatus.value = '';
+            fetchOrders(pagination.value.current_page);
+        }
+    } catch (error) {
+        toast.error(error.response?.data?.message || 'Có lỗi khi cập nhật hàng loạt');
+    } finally {
+        bulkActionLoading.value = false;
+    }
+};
 
 onMounted(() => {
   fetchOrders();
@@ -328,12 +411,34 @@ onUnmounted(() => {
         <p>Đang tải đơn hàng...</p>
     </div>
 
-    <!-- Table -->
-    <div v-else class="table-container ocean-card animate-in" style="animation-delay: 0.2s">
-        <div class="table-wrapper">
+    <div v-else>
+        <!-- Bulk Actions -->
+        <div v-if="selectedOrders.length > 0" class="bulk-actions-bar animate-in">
+            <span class="selected-count">Đã chọn <b>{{ selectedOrders.length }}</b> đơn hàng</span>
+            <div class="bulk-controls">
+                <select v-model="bulkFulfillmentStatus" class="bulk-select">
+                    <option value="">-- Trạng thái Giao hàng --</option>
+                    <option v-for="s in fulfillmentOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
+                </select>
+                <select v-model="bulkPaymentStatus" class="bulk-select">
+                    <option value="">-- Trạng thái Thanh toán --</option>
+                    <option v-for="s in paymentOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
+                </select>
+                <button class="btn-bulk-apply" @click="applyBulkStatus" :disabled="bulkActionLoading">
+                    {{ bulkActionLoading ? 'Đang xử lý...' : 'Áp dụng' }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container ocean-card animate-in" style="animation-delay: 0.2s">
+            <div class="table-wrapper">
             <table class="data-table">
                 <thead>
                     <tr>
+                        <th class="checkbox-cell">
+                            <input type="checkbox" v-model="isAllSelected" class="order-checkbox" />
+                        </th>
                         <th>Mã đơn & Ngày đặt</th>
                         <th>Khách hàng</th>
                         <th>Tổng tiền</th>
@@ -344,7 +449,7 @@ onUnmounted(() => {
                 </thead>
                 <tbody>
                     <tr v-if="orders.length === 0">
-                        <td colspan="6">
+                        <td colspan="7">
                             <div class="empty-state">
                                 <span class="empty-emoji">📦</span>
                                 <h3>Không tìm thấy đơn hàng</h3>
@@ -352,7 +457,10 @@ onUnmounted(() => {
                             </div>
                         </td>
                     </tr>
-                    <tr v-for="order in orders" :key="order.order_id" :class="{'is-new-order': order.is_new}">
+                    <tr v-for="order in orders" :key="order.order_id" :class="{'is-new-order': order.is_new, 'is-selected': selectedOrders.includes(order.order_id)}">
+                        <td class="checkbox-cell">
+                            <input type="checkbox" :value="order.order_id" v-model="selectedOrders" class="order-checkbox" />
+                        </td>
                         <td>
                             <div class="order-code-cell">
                                 <span class="badge-id">#{{ order.order_code }}</span>
@@ -378,11 +486,8 @@ onUnmounted(() => {
                         </td>
                         <td>
                             <div class="status-select-wrap" :class="'p-'+order.payment_status">
-                                <select class="status-select" v-model="order.payment_status" @change="updateOrderPayment(order)">
-                                    <option value="unpaid">Chưa TT</option>
-                                    <option value="paid">Đã TT</option>
-                                    <option value="failed">Thất bại</option>
-                                    <option value="refunded">Hoàn tiền</option>
+                                <select class="status-select" v-model="order.payment_status" @change="updateOrderPayment(order)" :disabled="isPaymentDisabled(order)">
+                                    <option v-for="s in getAllowedPaymentOptions(order._prevPaymentStatus || order.payment_status)" :key="s.value" :value="s.value">{{ s.label }}</option>
                                 </select>
                             </div>
                         </td>
@@ -413,12 +518,73 @@ onUnmounted(() => {
             >{{ page }}</button>
             <button class="page-btn" :disabled="pagination.current_page === pagination.last_page" @click="changePage(pagination.current_page + 1)">›</button>
         </div>
+    </div> <!-- Close table-container -->
+    </div> <!-- Close v-else main content -->
+
+    <!-- Cancel Reason Modal -->
+    <Transition name="modal">
+      <div v-if="showCancelModal" class="cancel-modal-overlay" @click.self="dismissCancelModal">
+        <div class="cancel-modal-box">
+          <div class="cancel-modal-header">
+            <h5>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Hủy đơn hàng
+            </h5>
+            <button class="cancel-modal-close" @click="dismissCancelModal">×</button>
+          </div>
+          <div class="cancel-modal-body">
+            <p class="cancel-modal-desc">Chọn lý do hủy đơn:</p>
+            <div class="cancel-reason-list">
+              <label v-for="r in adminCancelReasons" :key="r" class="cancel-reason-item" :class="{ selected: selectedCancelReason === r }">
+                <input type="radio" v-model="selectedCancelReason" :value="r" @change="cancelValidationError = ''" />
+                <span>{{ r }}</span>
+              </label>
+            </div>
+            <textarea v-if="selectedCancelReason === 'Lý do khác'" v-model="customCancelReason" placeholder="Nhập lý do cụ thể..." class="cancel-custom-input" @input="cancelValidationError = ''"></textarea>
+            <p v-if="cancelValidationError" class="cancel-validation-error">{{ cancelValidationError }}</p>
+          </div>
+          <div class="cancel-modal-footer">
+            <button class="btn-cancel-dismiss" @click="dismissCancelModal">Quay lại</button>
+            <button class="btn-cancel-confirm" @click="confirmCancelReason">Xác nhận hủy</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Bootstrap Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+      <div class="toast align-items-center border-0" :class="{ 'text-bg-success': toastData.type === 'success', 'text-bg-danger': toastData.type === 'danger', 'text-bg-info': toastData.type === 'info' }" id="orderToast" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">{{ toastData.message }}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .orders-page { font-family: var(--font-inter); }
+
+/* Bulk Actions */
+.bulk-actions-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--ocean-deepest); border: 2px dashed rgba(2, 136, 209, 0.5);
+    border-radius: 8px; padding: 12px 20px; margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(2, 136, 209, 0.05);
+}
+.selected-count { font-size: 0.95rem; color: var(--text-main); }
+.bulk-controls { display: flex; gap: 12px; }
+.bulk-select {
+    border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 12px;
+    font-family: inherit; font-size: 0.85rem; outline: none; background: white;
+}
+.btn-bulk-apply {
+    background: var(--ocean-blue); color: white; border: none; border-radius: 6px;
+    padding: 8px 20px; font-weight: 600; cursor: pointer; transition: 0.2s;
+}
+.btn-bulk-apply:hover:not(:disabled) { background: #0277bd; }
+.btn-bulk-apply:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Header */
 .page-header {
@@ -488,6 +654,11 @@ onUnmounted(() => {
 .data-table tbody tr:hover td { background: var(--hover-bg); }
 .is-new-order td { background: rgba(251, 191, 36, 0.05); }
 
+/* Checkbox */
+.checkbox-cell { width: 40px; text-align: center; padding-left: 16px !important; padding-right: 8px !important; }
+.order-checkbox { width: 16px; height: 16px; accent-color: var(--ocean-blue); cursor: pointer; }
+.is-selected td { background: rgba(2, 136, 209, 0.05) !important; }
+
 .order-code-cell { display: flex; flex-direction: column; gap: 4px; align-items: flex-start;}
 .badge-id { padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; background: rgba(2, 136, 209, 0.1); color: var(--ocean-blue); }
 .order-date { font-size: 0.75rem; color: var(--text-muted); }
@@ -551,4 +722,31 @@ onUnmounted(() => {
 .page-btn:hover:not(:disabled) { border-color: var(--ocean-blue); color: var(--ocean-blue); }
 .page-btn.active { background: var(--ocean-blue); color: white; border-color: var(--ocean-blue); }
 .page-btn:disabled { opacity: 0.5; cursor: not-allowed; background: var(--ocean-deepest); }
+
+/* Cancel Modal */
+.cancel-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.45); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1050; }
+.cancel-modal-box { background: white; border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); overflow: hidden; }
+.cancel-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #e2e8f0; }
+.cancel-modal-header h5 { margin: 0; font-size: 1.05rem; font-weight: 700; color: #dc2626; display: flex; align-items: center; gap: 10px; }
+.cancel-modal-header h5 svg { color: #dc2626; }
+.cancel-modal-close { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 1.5rem; line-height: 1; padding: 4px 8px; border-radius: 6px; transition: all 0.2s; }
+.cancel-modal-close:hover { background: #f1f5f9; color: #dc2626; }
+.cancel-modal-body { padding: 20px 24px; }
+.cancel-modal-desc { color: #64748b; font-size: 0.88rem; margin: 0 0 14px; }
+.cancel-reason-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+.cancel-reason-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; background: white; transition: all 0.15s; font-size: 0.88rem; color: #334155; }
+.cancel-reason-item:hover { border-color: #dc2626; background: #fef2f2; }
+.cancel-reason-item.selected { border-color: #dc2626; background: #fef2f2; }
+.cancel-reason-item input[type="radio"] { accent-color: #dc2626; width: 16px; height: 16px; flex-shrink: 0; }
+.cancel-custom-input { width: 100%; margin-top: 12px; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.88rem; min-height: 70px; resize: vertical; outline: none; font-family: inherit; box-sizing: border-box; }
+.cancel-custom-input:focus { border-color: #dc2626; }
+.cancel-validation-error { color: #dc2626; font-size: 0.82rem; font-weight: 600; margin: 10px 0 0; }
+.cancel-modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #e2e8f0; }
+.btn-cancel-dismiss { padding: 8px 20px; border-radius: 8px; border: 1px solid #e2e8f0; background: white; color: #64748b; font-weight: 600; font-size: 0.88rem; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-cancel-dismiss:hover { background: #f1f5f9; }
+.btn-cancel-confirm { padding: 8px 20px; border-radius: 8px; border: none; background: #dc2626; color: white; font-weight: 600; font-size: 0.88rem; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-cancel-confirm:hover { background: #b91c1c; }
+.modal-enter-active, .modal-leave-active { transition: all 0.25s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+.modal-enter-from .cancel-modal-box, .modal-leave-to .cancel-modal-box { transform: scale(0.95) translateY(10px); }
 </style>

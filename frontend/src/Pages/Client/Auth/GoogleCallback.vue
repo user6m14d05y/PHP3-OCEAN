@@ -23,7 +23,7 @@ onMounted(async () => {
 
     if (response.data.status === 'success') {
       // Lưu token + user info
-      localStorage.setItem('auth_token', response.data.access_token);
+      sessionStorage.setItem('auth_token', response.data.access_token);
       sessionStorage.setItem('user', JSON.stringify({
         isLoggedIn: true,
         ...response.data.user

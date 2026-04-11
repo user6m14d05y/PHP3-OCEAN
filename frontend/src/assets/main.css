@@ -1,26 +1,28 @@
 /* ===== OCEAN THEME - Light Flat Design ===== */
 :root {
-  /* Ocean Color Palette (Light Theme) */
-  --ocean-deepest: #f0f7fa;
+  /* Ocean Color Palette (Deep Ocean - Minimalism) */
+  --ocean-deepest: #ffffff;
   --ocean-deep: #ffffff;
-  --ocean-dark: #e1f0f6;
-  --ocean-mid: #b3e0f2;
-  --ocean-blue: #0288d1;
-  --ocean-bright: #03a9f4;
-  --ocean-light: #4fc3f7;
-  --text-main: #102a43;
-  --text-muted: #627d98;
-  --text-light: #9fb3c8;
+  --ocean-dark: #64748b;
+  --ocean-mid: #94a3b8;
+  --ocean-blue: #0F172A; 
+  --ocean-bright: #1e293b;
+  --ocean-light: #475569;
+  --text-main: #020617;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
 
   /* Accent */
-  --coral: #ef5350;
-  --seafoam: #26a69a;
-  --amber: #ffa726;
+  --coral: #334155;
+  --seafoam: #0F172A;
+  --amber: #0F172A;
 
   /* Border & Surface */
-  --border-color: #d9e8f0;
+  --border-color: #e2e8f0;
   --card-bg: #ffffff;
-  --hover-bg: #e6f4fa;
+  --hover-bg: #f8fafc;
+  --radius-micro: 6px;
+  --radius-sm: 10px;
 
   /* Font */
   --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
@@ -44,14 +46,14 @@ html.dark {
   --text-light: #64748b;
 
   /* Accent */
-  --coral: #ef4444;
-  --seafoam: #14b8a6;
-  --amber: #f59e0b;
+  --coral: #94a3b8;
+  --seafoam: #64748b;
+  --amber: #f8fafc;
 
   /* Border & Surface */
-  --border-color: #334155;
-  --card-bg: #1e293b;
-  --hover-bg: #0f172a;
+  --border-color: #1e293b;
+  --card-bg: #0f172a;
+  --hover-bg: #1e293b;
 }
 
 /* =======================================================
@@ -188,8 +190,8 @@ input, button, select, textarea, .form-control, .form-select, .btn {
 .ocean-card {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(2, 136, 209, 0.04);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
 }
 
 /* Simple fade-in */

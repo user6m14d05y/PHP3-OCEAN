@@ -14,9 +14,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('orders', function (Blueprint $table) {
-            $table->unique('order_code');
-        });
+        $indexExists = collect(
+            \DB::select("SHOW INDEX FROM orders WHERE Key_name = 'orders_order_code_unique'")
+        )->isNotEmpty();
+
+        if (!$indexExists) {
+            Schema::table('orders', function (Blueprint $table) {
+                $table->unique('order_code');
+            });
+        }
     }
 
     public function down(): void

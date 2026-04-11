@@ -57,16 +57,15 @@ const handleToggleFav = async () => {
                 />
                 
                 <!-- Quick Actions (Hover) -->
-                <div class="product-hover-action d-flex align-items-center gap-3">
-                    <button class="btn-icon btn-fav" 
+                <div class="product-hover-overlay">
+                    <button class="overlay-btn overlay-btn-fav" 
                             :class="{'is-active': isFavorited(props.product.id || props.product.product_id)}" 
-                            @click.prevent="handleToggleFav" 
-                            title="Yêu thích">
-                        <i class="fas fa-heart" v-if="isFavorited(props.product.id || props.product.product_id)"></i>
-                        <i class="far fa-heart" v-else></i>
+                            @click.prevent="handleToggleFav">
+                        <span v-if="isFavorited(props.product.id || props.product.product_id)">ĐÃ LƯU</span>
+                        <span v-else>YÊU THÍCH</span>
                     </button>
-                    <button class="btn-icon btn-cart" title="Xem chi tiết">
-                        <i class="fas fa-shopping-bag"></i>
+                    <button class="overlay-btn overlay-btn-cart">
+                        XEM CHI TIẾT
                     </button>
                 </div>
             </div>
@@ -86,18 +85,18 @@ const handleToggleFav = async () => {
     padding: 0;
     display: flex;
     flex-direction: column;
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: all 0.4s ease;
     background: var(--card-bg, #ffffff);
-    border: 1px solid var(--border-color, #d9e8f0);
-    border-radius: 16px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
     overflow: hidden;
     height: 100%;
 }
 
 .product-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 16px 32px rgba(2, 136, 209, 0.12);
-    border-color: rgba(2, 136, 209, 0.4);
+    transform: none;
+    box-shadow: none;
+    border-color: transparent;
 }
 
 .product-img-wrapper {
@@ -119,19 +118,19 @@ const handleToggleFav = async () => {
 }
 
 .product-badge {
-    background: var(--seafoam, #26a69a);
+    background: var(--ocean-blue);
     color: white;
     padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 0.75rem;
+    border-radius: var(--radius-micro);
+    font-size: 0.70rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    letter-spacing: 1px;
+    box-shadow: none;
 }
 
-.badge-hot { background: #ef4444; }
-.badge-new { background: #10b981; }
+.badge-hot { background: #0F172A; }
+.badge-new { background: #64748b; }
 
 .product-img {
     width: 100%;
@@ -142,87 +141,81 @@ const handleToggleFav = async () => {
 }
 
 .product-card:hover .main-img {
-    transform: scale(1.1);
+    transform: scale(1.05);
 }
 
-.product-hover-action {
+.product-hover-overlay {
     position: absolute;
-    bottom: -60px;
-    left: 50%;
-    transform: translateX(-50%);
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    z-index: 10;
-    opacity: 0;
-}
-
-.product-card:hover .product-hover-action {
-    bottom: 24px;
-    opacity: 1;
-}
-
-.btn-icon {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(4px);
-    border: none;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
+    bottom: 0;
+    left: 0;
+    width: 100%;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-main);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    background: rgba(255, 255, 255, 0.95);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-top: 1px solid var(--border-color);
+    z-index: 10;
+}
+
+.product-card:hover .product-hover-overlay {
+    transform: translateY(0);
+}
+
+.overlay-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 14px 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ocean-blue);
+    text-align: center;
     cursor: pointer;
-    transition: all 0.3s;
-    font-size: 1.2rem;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
 }
 
-.btn-cart:hover {
-    background: var(--ocean-blue, #0288d1);
+.overlay-btn-fav {
+    border-right: 1px solid var(--border-color);
+}
+
+.overlay-btn:hover {
+    background: var(--ocean-blue);
     color: white;
-    transform: translateY(-4px) scale(1.05);
 }
 
-.btn-fav {
-    color: #9ca3af;
-}
-
-.btn-fav:hover {
-    background: #fdf2f8;
-    color: #db2777;
-    transform: translateY(-4px) scale(1.05);
-}
-
-.btn-fav.is-active {
-    background: #fdf2f8;
-    color: #db2777;
+.overlay-btn-fav.is-active {
+    color: var(--text-muted);
 }
 
 .product-info {
-    padding: 20px 24px;
+    padding: 16px 0;
     background: white;
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: flex-start;
 }
 
 .product-name {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-    color: var(--text-main, #102a43);
-    transition: color 0.2s;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--text-main);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: opacity 0.2s;
 }
 
 .product-card:hover .product-name {
-    color: var(--ocean-blue, #0288d1);
+    opacity: 0.7;
+    color: var(--text-main);
 }
 
 .product-price {
-    font-weight: 800;
-    color: var(--coral, #ef5350);
-    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-main);
+    font-size: 0.95rem;
 }
 
 .swatch-dot {

@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->text('avatar_url')->nullable()->change();
+        Schema::table('admins', function (Blueprint $table) {
+            $table->enum('status', ['active', 'inactive'])->default('active')->after('role');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('avatar_url', 255)->nullable()->change();
+        Schema::table('admins', function (Blueprint $table) {
+            $table->dropColumn('status');
         });
     }
 };
