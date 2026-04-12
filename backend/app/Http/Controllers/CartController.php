@@ -359,17 +359,16 @@ class CartController extends Controller
         }
 
         $orderItems = OrderItem::where('order_id', $orderId)->get();
+        $cart = $this->getOrCreateCart($userId);
+        $totalAdded = 0;
+        $errorMessages = [];
 
         foreach ($orderItems as $orderItem) {
             $variant = ProductVariant::find($orderItem->variant_id);
             if (!$variant || $variant->status !== 'active') {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Sản phẩm này hiện không khả dụng.'
-                ], 422);
+                $errorMessages[] = "Sản phẩm " . ($variant->variant_name ?? 'không xác định') . " không khả dụng.";
+                continue;
             }
-
-            $cart = $this->getOrCreateCart($userId);
 
             // Kiểm tra xem variant đã có trong giỏ chưa
             $existingItem = CartItem::where('cart_id', $cart->cart_id)
@@ -378,20 +377,16 @@ class CartController extends Controller
 
             $newQuantity = $existingItem
                 ? $existingItem->quantity + $orderItem->quantity
-                : 1;
+                : $orderItem->quantity;
 
             // Kiểm tra tồn kho
             if ($newQuantity > $variant->stock) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => "Số lượng vượt quá tồn kho. Chỉ còn {$variant->stock} sản phẩm.",
-                    'available_stock' => $variant->stock,
-                ], 422);
+                $errorMessages[] = "Số lượng vượt quá tồn kho cho sản phẩm " . $variant->variant_name . ".";
+                continue;
             }
 
             if ($existingItem) {
                 $existingItem->update(['quantity' => $newQuantity]);
-                $message = 'Đã cập nhật số lượng trong giỏ hàng!';
             } else {
                 CartItem::create([
                     'cart_id' => $cart->cart_id,
@@ -399,17 +394,25 @@ class CartController extends Controller
                     'quantity' => $orderItem->quantity,
                     'selected' => true,
                 ]);
-                $message = 'Đã thêm sản phẩm vào giỏ hàng!';
             }
-
-            // Đếm tổng items trong giỏ
-            $totalItems = CartItem::where('cart_id', $cart->cart_id)->sum('quantity');
-
-            return response()->json([
-                'status' => 'success',
-                'message' => $message,
-                'total_items' => $totalItems,
-            ]);
+            $totalAdded++;
         }
+
+        // Đếm tổng items trong giỏ
+        $totalItems = CartItem::where('cart_id', $cart->cart_id)->sum('quantity');
+
+        if ($totalAdded === 0 && count($errorMessages) > 0) {
+            return response()->json([
+                'status' => 'error',
+                'message' => implode(' ', $errorMessages),
+            ], 422);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã thêm ' . $totalAdded . ' sản phẩm vào giỏ hàng!',
+            'errors' => $errorMessages,
+            'total_items' => $totalItems,
+        ]);
     }
 }
