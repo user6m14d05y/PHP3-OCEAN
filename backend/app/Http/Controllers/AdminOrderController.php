@@ -162,4 +162,34 @@ class AdminOrderController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Có lỗi xảy ra!'], 500);
         }
     }
+
+    /**
+     * Đồng bộ đơn hàng lên GHN
+     */
+    public function syncGHN($id)
+    {
+        $order = Order::with(['items', 'address'])->where('order_id', $id)->first();
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy đơn hàng!'], 404);
+        }
+
+        try {
+            $result = \App\Services\GHNService::createOrder($order);
+            
+            // Optionally, save the GHN order code to your database here
+            // if you add a 'shipping_code' column to the orders table.
+            // $order->update(['shipping_code' => $result['data']['order_code']]);
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Đã tạo đơn hàng trên GHN thành công!',
+                'data' => $result
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

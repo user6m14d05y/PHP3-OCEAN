@@ -254,6 +254,28 @@ const getStepStatus = (stepKey) => {
   return 'inactive';
 };
 
+const isSyncingGhn = ref(false);
+
+const syncGhn = async () => {
+  isSyncingGhn.value = true;
+  try {
+    const res = await api.post(`/admin/orders/${order.value.order_id}/ghn-sync`);
+    if (res.data.status === 'success') {
+      toast.success(res.data.message || 'Đã đẩy đơn lên GHN thành công!');
+      fetchOrder();
+    }
+  } catch (error) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Lỗi đồng bộ GHN',
+      text: error.response?.data?.message || 'Không thể đồng bộ',
+      confirmButtonText: 'Đóng'
+    });
+  } finally {
+    isSyncingGhn.value = false;
+  }
+};
+
 onMounted(() => fetchOrder());
 </script>
 
@@ -420,9 +442,14 @@ onMounted(() => fetchOrder());
 
           <!-- Thông tin giao hàng -->
           <div class="info-card">
-            <h3 class="card-title">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-              Giao hàng
+            <h3 class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="display:flex; align-items:center; gap: 10px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                Giao hàng
+              </div>
+              <button class="btn-ghn" @click="syncGhn" :disabled="isSyncingGhn || order.fulfillment_status === 'cancelled'">
+                 {{ isSyncingGhn ? 'Đang đẩy...' : 'Đẩy qua GHN' }}
+              </button>
             </h3>
             <div class="info-rows">
               <div class="info-row">
@@ -634,6 +661,21 @@ onMounted(() => fetchOrder());
 .info-value { font-size: 0.9rem; color: #0f172a; text-align: right; word-break: break-word; }
 .fw-bold { font-weight: 700 !important; }
 .note-text { background: #fffbeb; padding: 8px 12px; border-radius: 6px; font-style: italic; font-size: 0.85rem; border: 1px dashed #fbbf24; text-align: left; }
+
+.btn-ghn {
+  background-color: #f97316;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.btn-ghn:hover { background-color: #ea580c; }
+.btn-ghn:disabled { background-color: #fdba74; cursor: not-allowed; }
 
 /* Items List */
 .items-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }

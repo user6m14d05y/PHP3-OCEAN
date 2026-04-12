@@ -174,57 +174,60 @@ class OrderController extends Controller
             }
         }
 
-        // Tính phí vận chuyển động dựa trên ShippingZone
+        // Tính phí vận chuyển động
         $shippingFee = 30000; // Mặc định nếu không tìm thấy
-        $zones = \App\Models\ShippingZone::where('is_active', true)
-            ->orderByDesc('priority')
-            ->get();
-            
-        $matchedZone = null;
-        foreach ($zones as $zone) {
-            if (empty($zone->provinces)) {
-                if (!$matchedZone) $matchedZone = $zone; // Fallback
-                continue;
-            }
-            
-            // Đảm bảo provinces là mảng (Xử lý trường hợp DB lưu là json string hoặc comma-separated)
-            $provincesArray = [];
-            if (is_array($zone->provinces)) {
-                $provincesArray = $zone->provinces;
-            } elseif (is_string($zone->provinces)) {
-                $decoded = json_decode($zone->provinces, true);
-                if (is_array($decoded)) {
-                    $provincesArray = $decoded;
-                } else {
-                    $provincesArray = array_map('trim', explode(',', $zone->provinces));
-                }
-            }
-
-            $inProvince = false;
-            foreach ($provincesArray as $p) {
-                if (empty($p)) continue;
-                $provName = mb_strtolower($p, 'UTF-8');
-                $addrProv = mb_strtolower($address->province ?? '', 'UTF-8');
-                $addrDist = $address->district ? mb_strtolower($address->district, 'UTF-8') : '';
+        
+        if (class_exists(\App\Models\ShippingZone::class)) {
+            $zones = \App\Models\ShippingZone::where('is_active', true)
+                ->orderByDesc('priority')
+                ->get();
                 
-                if (str_contains($addrProv, $provName) || str_contains($provName, $addrProv) ||
-                    ($addrDist && (str_contains($addrDist, $provName) || str_contains($provName, $addrDist)))) {
-                    $inProvince = true;
+            $matchedZone = null;
+            foreach ($zones as $zone) {
+                if (empty($zone->provinces)) {
+                    if (!$matchedZone) $matchedZone = $zone; // Fallback
+                    continue;
+                }
+                
+                // Đảm bảo provinces là mảng (Xử lý trường hợp DB lưu là json string hoặc comma-separated)
+                $provincesArray = [];
+                if (is_array($zone->provinces)) {
+                    $provincesArray = $zone->provinces;
+                } elseif (is_string($zone->provinces)) {
+                    $decoded = json_decode($zone->provinces, true);
+                    if (is_array($decoded)) {
+                        $provincesArray = $decoded;
+                    } else {
+                        $provincesArray = array_map('trim', explode(',', $zone->provinces));
+                    }
+                }
+
+                $inProvince = false;
+                foreach ($provincesArray as $p) {
+                    if (empty($p)) continue;
+                    $provName = mb_strtolower($p, 'UTF-8');
+                    $addrProv = mb_strtolower($address->province ?? '', 'UTF-8');
+                    $addrDist = $address->district ? mb_strtolower($address->district, 'UTF-8') : '';
+                    
+                    if (str_contains($addrProv, $provName) || str_contains($provName, $addrProv) ||
+                        ($addrDist && (str_contains($addrDist, $provName) || str_contains($provName, $addrDist)))) {
+                        $inProvince = true;
+                        break;
+                    }
+                }
+                
+                if ($inProvince) {
+                    $matchedZone = $zone;
                     break;
                 }
             }
             
-            if ($inProvince) {
-                $matchedZone = $zone;
-                break;
-            }
-        }
-        
-        if ($matchedZone) {
-            if ($matchedZone->free_ship_threshold && $subtotal >= $matchedZone->free_ship_threshold) {
-                $shippingFee = 0;
-            } else {
-                $shippingFee = $matchedZone->shipping_fee;
+            if ($matchedZone) {
+                if ($matchedZone->free_ship_threshold && $subtotal >= $matchedZone->free_ship_threshold) {
+                    $shippingFee = 0;
+                } else {
+                    $shippingFee = $matchedZone->shipping_fee;
+                }
             }
         }
 
