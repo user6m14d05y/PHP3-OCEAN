@@ -66,7 +66,7 @@ const toggleSelect = async (item) => {
 
 // Cập nhật số lượng
 const updateQuantity = async (item, newQuantity) => {
-    if (newQuantity < 1) return;
+    if (newQuantity < 1 || updating.value[item.cart_item_id]) return;
     if (!item.variant || newQuantity > item.variant.stock) {
         showToast(`Chỉ còn ${item.variant?.stock || 0} sản phẩm trong kho.`, 'error');
         return;
