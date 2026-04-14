@@ -103,7 +103,7 @@ const userRole = ref('Seller');
 const userAvatar = ref('');
 
 onMounted(() => {
-  const userData = localStorage.getItem('user');
+  const userData = localStorage.getItem('user') || sessionStorage.getItem('user');
   if (userData) {
     try {
       const user = JSON.parse(userData);
@@ -123,6 +123,8 @@ const handleLogout = () => {
   if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('user');
     router.push('/client/login');
   }
 };

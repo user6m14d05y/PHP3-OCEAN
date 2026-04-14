@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Brand;
 use Illuminate\Http\Request;
 
+use Illuminate\Support\Facades\Cache;
+
 class BrandController extends Controller
 {
     /**
@@ -12,7 +14,9 @@ class BrandController extends Controller
      */
     public function index()
     {
-        $brands = Brand::all();
+        $brands = Cache::remember('brands:all', 86400, function () {
+            return Brand::all();
+        });
         return response()->json($brands);
     }
 

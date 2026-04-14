@@ -19,6 +19,12 @@ services:
       timeout: 5s
       retries: 5
 
+  # REDIS CACHE & SESSION
+  redis:
+    image: redis:alpine
+    container_name: ocean_redis
+    restart: always
+
   # BACKEND LARAVEL (PHP-FPM)
   backend:
     build:
@@ -31,7 +37,7 @@ services:
     env_file:
       - .env
     environment:
-      CACHE_STORE: file
+      CACHE_STORE: redis
     volumes:
       - ./backend:/var/www
       - ./.env:/var/www/.env

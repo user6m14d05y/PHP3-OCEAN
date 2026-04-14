@@ -120,7 +120,17 @@ const setFilter = (status) => {
   }
 };
 
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
+import { nextTick } from 'vue';
+
+const toastData = ref({ message: '', type: 'success' });
+const showToast = (message, type = 'success') => {
+  toastData.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('ordersToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  });
+};
 
 // Lý do hủy đơn phổ biến (chuẩn ecommerce)
 const cancelReasons = [
@@ -134,94 +144,56 @@ const cancelReasons = [
   'Lý do khác',
 ];
 
-const cancelOrder = async (orderId) => {
-  // Bước 1: Hiện Modal chọn lý do
-  const { value: selectedReason } = await Swal.fire({
-    title: 'Hủy đơn hàng',
-    html: `
-      <p style="color:#64748b; font-size:0.9rem; margin-bottom:16px;">Vui lòng cho chúng tôi biết lý do bạn muốn hủy đơn hàng:</p>
-      <div id="cancel-reasons-list" style="text-align:left; max-height:260px; overflow-y:auto;">
-        ${cancelReasons.map((r, i) => `
-          <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; margin-bottom:6px; border:1.5px solid #e2e8f0; border-radius:10px; cursor:pointer; transition:all 0.2s; background:white;" 
-                 onmouseover="this.style.borderColor='#0288d1'; this.style.background='#f0f9ff'" 
-                 onmouseout="if(!this.querySelector('input').checked){this.style.borderColor='#e2e8f0'; this.style.background='white'}">
-            <input type="radio" name="cancel_reason" value="${r}" style="accent-color:#0288d1; width:16px; height:16px; flex-shrink:0;">
-            <span style="font-size:0.9rem; color:#334155; line-height:1.4;">${r}</span>
-          </label>
-        `).join('')}
-      </div>
-      <textarea id="custom-cancel-reason" placeholder="Nhập lý do cụ thể của bạn..." 
-        style="display:none; width:100%; margin-top:12px; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:0.9rem; min-height:80px; resize:vertical; outline:none; font-family:inherit;"
-        onfocus="this.style.borderColor='#0288d1';" onblur="this.style.borderColor='#e2e8f0';"></textarea>
-    `,
-    showCancelButton: true,
-    confirmButtonText: 'Xác nhận hủy đơn',
-    cancelButtonText: 'Quay lại',
-    confirmButtonColor: '#dc2626',
-    cancelButtonColor: '#64748b',
-    width: 520,
-    customClass: { popup: 'cancel-modal-popup' },
-    didOpen: () => {
-      const radios = Swal.getPopup().querySelectorAll('input[name="cancel_reason"]');
-      const customArea = Swal.getPopup().querySelector('#custom-cancel-reason');
-      radios.forEach(radio => {
-        radio.addEventListener('change', () => {
-          // Reset all label styles
-          radios.forEach(r => {
-            const lbl = r.closest('label');
-            if (lbl) { lbl.style.borderColor = '#e2e8f0'; lbl.style.background = 'white'; }
-          });
-          // Highlight selected
-          const selectedLabel = radio.closest('label');
-          if (selectedLabel) { selectedLabel.style.borderColor = '#0288d1'; selectedLabel.style.background = '#f0f9ff'; }
-          // Show/hide custom textarea
-          customArea.style.display = radio.value === 'Lý do khác' ? 'block' : 'none';
-        });
-      });
-    },
-    preConfirm: () => {
-      const selected = Swal.getPopup().querySelector('input[name="cancel_reason"]:checked');
-      if (!selected) {
-        Swal.showValidationMessage('Vui lòng chọn một lý do hủy đơn');
-        return false;
-      }
-      if (selected.value === 'Lý do khác') {
-        const custom = Swal.getPopup().querySelector('#custom-cancel-reason').value.trim();
-        if (!custom) {
-          Swal.showValidationMessage('Vui lòng nhập lý do cụ thể');
-          return false;
-        }
-        return custom;
-      }
-      return selected.value;
-    }
-  });
+// Cancel modal state
+const showCancelModal = ref(false);
+const cancellingOrderId = ref(null);
+const selectedCancelReason = ref('');
+const customCancelReason = ref('');
+const cancelValidationError = ref('');
 
-  if (!selectedReason) return; // User cancelled
+const openCancelModal = (orderId) => {
+  cancellingOrderId.value = orderId;
+  selectedCancelReason.value = '';
+  customCancelReason.value = '';
+  cancelValidationError.value = '';
+  showCancelModal.value = true;
+};
 
-  // Bước 2: Gọi API hủy đơn
-  actionLoading.value = orderId;
+const dismissCancelModal = () => {
+  showCancelModal.value = false;
+  cancellingOrderId.value = null;
+};
+
+const confirmCancelOrder = async () => {
+  if (!selectedCancelReason.value) {
+    cancelValidationError.value = 'Vui lòng chọn một lý do hủy đơn';
+    return;
+  }
+  if (selectedCancelReason.value === 'Lý do khác' && !customCancelReason.value.trim()) {
+    cancelValidationError.value = 'Vui lòng nhập lý do cụ thể';
+    return;
+  }
+  const reason = selectedCancelReason.value === 'Lý do khác' ? customCancelReason.value.trim() : selectedCancelReason.value;
+  showCancelModal.value = false;
+
+  actionLoading.value = cancellingOrderId.value;
   try {
-    const res = await api.put(`/profile/orders/${orderId}/cancel`, {
-      cancel_reason: selectedReason
+    const res = await api.put(`/profile/orders/${cancellingOrderId.value}/cancel`, {
+      cancel_reason: reason
     });
     if (res.data.status === 'success') {
-      Swal.fire({
-        icon: 'success',
-        title: 'Đã hủy đơn hàng',
-        text: 'Đơn hàng của bạn đã được hủy thành công.',
-        timer: 2500,
-        showConfirmButton: false,
-      });
+      showToast('Đơn hàng của bạn đã được hủy thành công.', 'success');
       await fetchOrders(currentPage.value);
     }
   } catch (error) {
     const msg = error.response?.data?.message || 'Lỗi khi hủy đơn hàng';
-    Swal.fire({ icon: 'error', title: 'Không thể hủy', text: msg });
+    showToast(msg, 'danger');
   } finally {
     actionLoading.value = null;
+    cancellingOrderId.value = null;
   }
 };
+
 const buyAgain = async (orderId) => {
   actionLoading.value = orderId;
   try {
@@ -231,7 +203,7 @@ const buyAgain = async (orderId) => {
     }
   } catch (error) {
     const msg = error.response?.data?.message || 'Lỗi khi thêm vào giỏ hàng';
-    Swal.fire({ icon: 'error', title: 'Không thể thêm', text: msg });
+    showToast(msg, 'danger');
   } finally {
     actionLoading.value = null;
   }
@@ -299,7 +271,7 @@ onMounted(() => {
             <button 
               v-if="order.fulfillment_status === 'pending'" 
               class="btn-action btn-cancel-order"
-              @click="cancelOrder(order.order_id)"
+              @click="openCancelModal(order.order_id)"
               :disabled="actionLoading === order.order_id"
             >
               <span v-if="actionLoading === order.order_id" class="spinner-small"></span>
@@ -361,6 +333,43 @@ onMounted(() => {
         :order="selectedOrderForFeedback" 
         @feedback-submitted="onFeedbackSubmitted" 
     />
+
+    <!-- Cancel Reason Modal -->
+    <Transition name="modal">
+      <div v-if="showCancelModal" class="cancel-modal-overlay" @click.self="dismissCancelModal">
+        <div class="cancel-modal-box">
+          <div class="cancel-modal-header">
+            <h5>Hủy đơn hàng</h5>
+            <button class="cancel-modal-close" @click="dismissCancelModal">×</button>
+          </div>
+          <div class="cancel-modal-body">
+            <p class="cancel-modal-desc">Vui lòng cho chúng tôi biết lý do bạn muốn hủy đơn hàng:</p>
+            <div class="cancel-reason-list">
+              <label v-for="r in cancelReasons" :key="r" class="cancel-reason-item" :class="{ selected: selectedCancelReason === r }">
+                <input type="radio" v-model="selectedCancelReason" :value="r" @change="cancelValidationError = ''" />
+                <span>{{ r }}</span>
+              </label>
+            </div>
+            <textarea v-if="selectedCancelReason === 'Lý do khác'" v-model="customCancelReason" placeholder="Nhập lý do cụ thể của bạn..." class="cancel-custom-input" @input="cancelValidationError = ''"></textarea>
+            <p v-if="cancelValidationError" class="cancel-validation-error">{{ cancelValidationError }}</p>
+          </div>
+          <div class="cancel-modal-footer">
+            <button class="btn-cancel-dismiss" @click="dismissCancelModal">Quay lại</button>
+            <button class="btn-cancel-confirm" @click="confirmCancelOrder">Xác nhận hủy đơn</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Bootstrap Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+      <div class="toast align-items-center border-0" :class="toastData.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="ordersToast" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">{{ toastData.message }}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -654,4 +663,30 @@ onMounted(() => {
   .order-header-center { justify-content: flex-start; }
   .order-header-right { align-items: flex-start; }
 }
+
+/* Cancel Modal */
+.cancel-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.45); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1050; }
+.cancel-modal-box { background: white; border-radius: 16px; width: 100%; max-width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,0.15); overflow: hidden; }
+.cancel-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #e2e8f0; }
+.cancel-modal-header h5 { margin: 0; font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+.cancel-modal-close { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 1.5rem; line-height: 1; padding: 4px 8px; border-radius: 6px; transition: all 0.2s; }
+.cancel-modal-close:hover { background: #f1f5f9; color: #dc2626; }
+.cancel-modal-body { padding: 20px 24px; }
+.cancel-modal-desc { color: #64748b; font-size: 0.88rem; margin: 0 0 14px; }
+.cancel-reason-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.cancel-reason-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; cursor: pointer; background: white; transition: all 0.15s; font-size: 0.88rem; color: #334155; }
+.cancel-reason-item:hover { border-color: #0288d1; background: #f0f9ff; }
+.cancel-reason-item.selected { border-color: #0288d1; background: #f0f9ff; }
+.cancel-reason-item input[type="radio"] { accent-color: #0288d1; width: 16px; height: 16px; flex-shrink: 0; }
+.cancel-custom-input { width: 100%; margin-top: 12px; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.88rem; min-height: 80px; resize: vertical; outline: none; font-family: inherit; box-sizing: border-box; }
+.cancel-custom-input:focus { border-color: #0288d1; }
+.cancel-validation-error { color: #dc2626; font-size: 0.82rem; font-weight: 600; margin: 10px 0 0; }
+.cancel-modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #e2e8f0; }
+.btn-cancel-dismiss { padding: 8px 20px; border-radius: 8px; border: 1px solid #e2e8f0; background: white; color: #64748b; font-weight: 600; font-size: 0.88rem; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-cancel-dismiss:hover { background: #f1f5f9; }
+.btn-cancel-confirm { padding: 8px 20px; border-radius: 8px; border: none; background: #dc2626; color: white; font-weight: 600; font-size: 0.88rem; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-cancel-confirm:hover { background: #b91c1c; }
+.modal-enter-active, .modal-leave-active { transition: all 0.25s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+.modal-enter-from .cancel-modal-box, .modal-leave-to .cancel-modal-box { transform: scale(0.95) translateY(10px); }
 </style>

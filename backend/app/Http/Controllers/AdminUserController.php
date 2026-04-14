@@ -213,7 +213,7 @@ class AdminUserController extends Controller
         }
 
         $currentUser = auth('admin')->user() ?? auth('api')->user();
-        if ($currentUser && ($currentUser->user_id ?? $currentUser->admin_id) == $id) {
+        if ($currentUser && (string)($currentUser->user_id ?? $currentUser->admin_id) === (string)$id) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Bạn không thể đổi role của chính mình!'
@@ -248,7 +248,7 @@ class AdminUserController extends Controller
         }
 
         $currentUser = auth('admin')->user() ?? auth('api')->user();
-        if ($currentUser && ($currentUser->user_id ?? $currentUser->admin_id) == $id) {
+        if ($currentUser && (string)($currentUser->user_id ?? $currentUser->admin_id) === (string)$id) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Bạn không thể đổi status của chính mình!'

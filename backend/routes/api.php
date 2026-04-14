@@ -43,7 +43,7 @@ Route::post('/SubmitContactEmail', [ContactController::class, 'SubmitContactEmai
 
 // Forgot Password routes (Public) — có Rate Limiting cho send OTP
 Route::middleware('throttle:3,1')->post('/forgot-password/send-otp', [ForgotPasswordController::class, 'sendOtp']);
-Route::post('/forgot-password/verify-otp', [ForgotPasswordController::class, 'verifyOtp']);
+Route::middleware('throttle:5,1')->post('/forgot-password/verify-otp', [ForgotPasswordController::class, 'verifyOtp']);
 Route::post('/forgot-password/reset', [ForgotPasswordController::class, 'resetPassword']);
 
 // OAuth callbacks (Public)
@@ -102,10 +102,6 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
     // Đánh giá sản phẩm
     Route::post('/orders/feedback', [ProductCommentController::class, 'store']);
 
-    // Đánh giá sản phẩm
-    Route::post('/orders/feedback', [ProductCommentController::class, 'store']);
-
-
     // ── Notifications (Thông báo inbox) ──
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
@@ -130,52 +126,52 @@ Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
     Route::post('/buy-again/{orderId}', [CartController::class, 'buyAgain']);
 });
 
-// Nhóm các route yêu cầu quyền admin/staff (chỉ cho phép các thao tác cứng)
-Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->group(function () {    // Quản lý Khách hàng (bảng users)
-    Route::get('/users', [AdminUserController::class, 'index']);
+// ==========================================
+// NHÓM 1: QUAN TRỊ VIÊN CẤP CAO (admin)
+// ==========================================
+Route::middleware(['auth:api,admin', 'role:admin'])->prefix('admin')->group(function () {
+    // Quản lý Khách hàng (Thêm/Sửa/Xóa/Phân quyền)
     Route::post('/users', [AdminUserController::class, 'store']);
-    Route::get('/users/{id}', [AdminUserController::class, 'show']);
     Route::put('/users/{id}', [AdminUserController::class, 'update']);
     Route::delete('/users/{id}', [AdminUserController::class, 'destroy']);
     Route::put('/users/{id}/role', [AdminUserController::class, 'updateRole']);
     Route::put('/users/{id}/status', [AdminUserController::class, 'updateStatus']);
 
-    // Quản lý Nhân sự (bảng admins)
+    // Quản lý Nhân sự (Chỉ Admin)
     Route::get('/staff', [AdminStaffController::class, 'index']);
     Route::post('/staff', [AdminStaffController::class, 'store']);
     Route::put('/staff/{id}', [AdminStaffController::class, 'update']);
     Route::put('/staff/{id}/role', [AdminStaffController::class, 'updateRole']);
+    Route::put('/staff/{id}/status', [AdminStaffController::class, 'updateStatus']);
     Route::delete('/staff/{id}', [AdminStaffController::class, 'destroy']);
 
-    // Quản lý Liên hệ
+    // Quản lý Liên hệ (Xóa)
     Route::delete('/contacts/{id}', [ContactController::class, 'destroy']);
 
-    // Quản lý Mã giảm giá
+    // Quản lý Mã giảm giá (Chỉ Admin tạo/sửa/xóa)
     Route::get('/coupons', [CouponController::class, 'index']);
     Route::post('/coupons', [CouponController::class, 'store']);
     Route::put('/coupons/{id}', [CouponController::class, 'update']);
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
     Route::get('/coupons/{id}/usages', [CouponController::class, 'getCouponUsages']);
 
-    // Quản lý Đánh giá sản phẩm
+    // Dashboard Thống kê tổng quan
+    Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
+});
+
+// ==========================================
+// NHÓM 2: BÁN HÀNG & CHĂM SÓC KHÁCH HÀNG (admin, seller)
+// ==========================================
+Route::middleware(['auth:api,admin', 'role:admin,seller'])->prefix('admin')->group(function () {
+    // Quản lý Khách hàng (Chỉ Xem)
+    Route::get('/users', [AdminUserController::class, 'index']);
+    Route::get('/users/{id}', [AdminUserController::class, 'show']);
+
+    // Quản lý Đánh giá sản phẩm (Duyệt)
     Route::get('/reviews', [ProductCommentController::class, 'adminIndex']);
     Route::put('/reviews/{id}/approve', [ProductCommentController::class, 'approve']);
     Route::put('/reviews/{id}/reject', [ProductCommentController::class, 'reject']);
     Route::delete('/reviews/{id}', [ProductCommentController::class, 'destroy']);
-});
-
-// Nhóm route dành cho admin, staff và seller
-Route::middleware(['auth:api,admin', 'role:admin,staff,seller'])->prefix('admin')->group(function () {
-    // Tổng quan (Dashboard)
-    Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
-    
-    // Admin Statistics (Detailed dashboard)
-    Route::get('/statistics/overview', [\App\Http\Controllers\AdminStatisticsController::class, 'getOverview']);
-    Route::get('/statistics/revenue', [\App\Http\Controllers\AdminStatisticsController::class, 'getRevenueChart']);
-    Route::get('/statistics/orders-status', [\App\Http\Controllers\AdminStatisticsController::class, 'getOrderStatusChart']);
-    Route::get('/statistics/top-products', [\App\Http\Controllers\AdminStatisticsController::class, 'getTopProducts']);
-    Route::get('/statistics/top-customers', [\App\Http\Controllers\AdminStatisticsController::class, 'getTopCustomers']);
-    Route::get('/statistics/report', [\App\Http\Controllers\AdminStatisticsController::class, 'getRevenueReport']);
 
     // Quản lý Liên hệ (Xem và trả lời)
     Route::get('/contacts', [ContactController::class, 'index']);
@@ -183,6 +179,7 @@ Route::middleware(['auth:api,admin', 'role:admin,staff,seller'])->prefix('admin'
 
     // Quản lý Đơn hàng
     Route::get('/orders', [\App\Http\Controllers\AdminOrderController::class, 'index']);
+    Route::put('/orders/bulk-status', [\App\Http\Controllers\AdminOrderController::class, 'bulkUpdateStatus']);
     Route::get('/orders/{id}', [\App\Http\Controllers\AdminOrderController::class, 'show']);
     Route::put('/orders/{id}/status', [\App\Http\Controllers\AdminOrderController::class, 'updateStatus']);
 
@@ -197,8 +194,12 @@ Route::middleware(['auth:api,admin', 'role:admin,staff,seller'])->prefix('admin'
     Route::get('/live-chats/{id}', [\App\Http\Controllers\Admin\AdminChatController::class, 'getMessages']);
     Route::post('/live-chats/{id}/reply', [\App\Http\Controllers\Admin\AdminChatController::class, 'replyMessage']);
     Route::post('/live-chats/{id}/close', [\App\Http\Controllers\Admin\AdminChatController::class, 'closeSession']);
+});
 
-    // Quản lý Chấm công (Attendance)
+// ==========================================
+// NHÓM 3: CHẤM CÔNG (Tất cả nhân viên hệ thống)
+// ==========================================
+Route::middleware(['auth:api,admin', 'role:admin,seller,staff'])->prefix('admin')->group(function () {
     Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'index']);
     Route::post('/attendance/check-in', [\App\Http\Controllers\AttendanceController::class, 'checkIn']);
     Route::post('/attendance/check-out', [\App\Http\Controllers\AttendanceController::class, 'checkOut']);
@@ -215,7 +216,9 @@ Route::get('products/slug/{slug}', [ProductController::class, 'show']);
 Route::get('products/{product_id}/comments', [ProductCommentController::class, 'getByProduct']);
 Route::get('productFeatured', [ProductController::class, 'productFeatured']);
 
-// Admin/Staff only for modification
+// ==========================================
+// NHÓM 4: QUẢN LÝ KHO (admin, staff)
+// ==========================================
 Route::middleware(['auth:api,admin', 'role:admin,staff'])->group(function () {
     Route::post('categories', [CategoryController::class, 'store']);
     Route::put('categories/{id}', [CategoryController::class, 'update']);
@@ -251,13 +254,18 @@ Route::get('/posts', [PostController::class, 'index']);
 Route::post('/chatbot/message', [\App\Http\Controllers\ChatbotController::class, 'sendMessage']);
 
 // Live Chat (Realtime - Public/User)
-Route::post('/live-chat/init', [\App\Http\Controllers\ChatController::class, 'initSession']);
-Route::post('/live-chat/message', [\App\Http\Controllers\ChatController::class, 'sendMessage']);
+Route::middleware('throttle:30,1')->group(function () {
+    Route::post('/live-chat/init', [ChatController::class, 'initSession']);
+    Route::post('/live-chat/message', [ChatController::class, 'sendMessage']);
+});
+
 // VNPay Payment Gateway (Public — VNPay redirect về đây, rate limiting chống brute-force)
 Route::middleware('throttle:30,1')->get('/payment/vnpay-return', [\App\Http\Controllers\VNPayController::class, 'vnpayReturn']);
+Route::middleware('throttle:30,1')->post('/payment/vnpay-ipn', [\App\Http\Controllers\VNPayController::class, 'vnpayIpn']);
 
 // MoMo Payment Gateway
 Route::middleware('throttle:30,1')->get('/payment/momo-return', [\App\Http\Controllers\MoMoController::class, 'momoReturn']);
+
 Route::post('/payment/momo-ipn', [\App\Http\Controllers\MoMoController::class, 'momoIpn']);
 // =====================================================================
 // ██ DEBUG ROUTES — Chạy thủ công scheduler commands (XÓA KHI PRODUCTION)
@@ -396,3 +404,4 @@ Route::get('image-proxy', function (\Illuminate\Http\Request $request) {
     if (!file_exists($absolutePath)) abort(404);
     return response()->file($absolutePath);
 });
+Route::middleware('throttle:30,1')->post('/payment/momo-ipn', [\App\Http\Controllers\MoMoController::class, 'momoIpn']);

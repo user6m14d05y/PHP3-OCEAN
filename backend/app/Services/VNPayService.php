@@ -32,6 +32,9 @@ class VNPayService
         $now = new \DateTime('now', $vnTz);
         $expire = (clone $now)->modify('+30 minutes');
 
+        // IPN URL — VNPay sẽ gọi server-to-server để xác nhận giao dịch
+        $vnpIpnUrl = config('vnpay.ipn_url');
+
         $inputData = [
             "vnp_Version"    => "2.1.0",
             "vnp_TmnCode"    => $vnpTmnCode,
@@ -47,6 +50,11 @@ class VNPayService
             "vnp_TxnRef"     => $order->order_code,
             "vnp_ExpireDate" => $expire->format('YmdHis'),
         ];
+
+        // Chỉ thêm IPN URL nếu đã cấu hình (tránh gửi param rỗng)
+        if (!empty($vnpIpnUrl)) {
+            $inputData["vnp_IpnUrl"] = $vnpIpnUrl;
+        }
 
         // VNPay yêu cầu sort params theo alphabet trước khi hash
         ksort($inputData);

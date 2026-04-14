@@ -1,11 +1,19 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, nextTick, onMounted } from 'vue';
 import api from '@/axios';
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
 
+const toastData = ref({ message: '', type: 'success' });
+const showToast = (message, type = 'success') => {
+  toastData.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('reviewToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  });
+};
 const toast = {
-  success: (msg) => Swal.fire({ icon: 'success', title: 'Thành công', text: msg, timer: 2000, showConfirmButton: false }),
-  error:   (msg) => Swal.fire({ icon: 'error',   title: 'Lỗi',       text: msg, timer: 3000, showConfirmButton: false }),
+  success: (msg) => showToast(msg, 'success'),
+  error: (msg) => showToast(msg, 'danger'),
 };
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -75,15 +83,7 @@ const applyFilter = () => fetchReviews(1);
 const toggleApprove = async (review) => {
   const endpoint = review.is_approved ? 'reject' : 'approve';
   const label    = review.is_approved ? 'Ẩn'    : 'Duyệt';
-  const { isConfirmed } = await Swal.fire({
-    title: `${label} đánh giá?`,
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: label,
-    cancelButtonText: 'Hủy',
-    confirmButtonColor: review.is_approved ? '#f59e0b' : '#10b981',
-  });
-  if (!isConfirmed) return;
+  if (!confirm(`${label} đánh giá này?`)) return;
 
   try {
     await api.put(`/admin/reviews/${review.comment_id}/${endpoint}`);
@@ -95,16 +95,7 @@ const toggleApprove = async (review) => {
 };
 
 const deleteReview = async (review) => {
-  const { isConfirmed } = await Swal.fire({
-    title: 'Xóa đánh giá?',
-    text: 'Hành động này không thể hoàn tác!',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Xóa',
-    cancelButtonText: 'Hủy',
-    confirmButtonColor: '#ef4444',
-  });
-  if (!isConfirmed) return;
+  if (!confirm('Xóa đánh giá này? Hành động này không thể hoàn tác!')) return;
 
   try {
     await api.delete(`/admin/reviews/${review.comment_id}`);
@@ -214,10 +205,10 @@ onMounted(() => fetchReviews());
             <!-- Khách hàng -->
             <td>
               <div class="user-cell">
-                <img :src="avatarUrl(r.user?.avatar_url)" class="user-avatar" alt="" />
+                <img :src="avatarUrl((r.commenter_info || r.user)?.avatar_url)" class="user-avatar" alt="" />
                 <div>
-                  <div class="user-name">{{ r.user?.full_name || 'Ẩn danh' }}</div>
-                  <div class="user-email">{{ r.user?.email || '' }}</div>
+                  <div class="user-name">{{ (r.commenter_info || r.user)?.full_name || 'Ẩn danh' }}</div>
+                  <div class="user-email">{{ (r.commenter_info || r.user)?.email || '' }}</div>
                 </div>
               </div>
             </td>
@@ -271,6 +262,16 @@ onMounted(() => fetchReviews());
       <button class="page-btn" :disabled="!pagination.prev_page_url" @click="changePage(pagination.current_page - 1)">← Trước</button>
       <span class="page-info">Trang {{ pagination.current_page }} / {{ pagination.last_page }}</span>
       <button class="page-btn" :disabled="!pagination.next_page_url" @click="changePage(pagination.current_page + 1)">Tiếp →</button>
+    </div>
+
+    <!-- Bootstrap Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+      <div class="toast align-items-center border-0" :class="toastData.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="reviewToast" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">{{ toastData.message }}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
     </div>
   </div>
 </template>

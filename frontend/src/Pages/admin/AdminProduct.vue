@@ -1,7 +1,16 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import api from '../../axios.js';
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
+
+const toastData = ref({ message: '', type: 'success' });
+const showToastMsg = (message, type = 'success') => {
+  toastData.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('productToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  });
+};
 
 const products = ref([]);
 const isLoading = ref(true);
@@ -152,14 +161,16 @@ const handleImportFileChange = (e) => {
  * 4. Hiển thị kết quả chi tiết (số thành công, chi tiết lỗi)
  * 5. Tải lại danh sách sản phẩm
  */
+const importResult = ref(null);
+const showImportResult = ref(false);
+
 const handleImportExcel = async () => {
     if (!importFile.value) {
-        Swal.fire({ icon: 'warning', title: 'Chưa chọn file', text: 'Vui lòng chọn file Excel (.xlsx) để import.' });
+        showToastMsg('Vui lòng chọn file Excel (.xlsx) để import.', 'danger');
         return;
     }
 
     isImporting.value = true;
-    Swal.fire({ title: 'Đang import...', text: 'Vui lòng đợi trong giây lát.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     const formData = new FormData();
     formData.append('excel_file', importFile.value);
@@ -168,23 +179,15 @@ const handleImportExcel = async () => {
         const response = await api.post('/products/import', formData);
         const { success_count, error_count, errors } = response.data;
 
-        let htmlDetail = `<p style="font-size:1.05rem;margin-bottom:8px;"><strong>${success_count}</strong> sản phẩm đã được thêm thành công.</p>`;
-        if (error_count > 0) {
-            htmlDetail += `<p style="color:#e65100;margin-bottom:8px;"><strong>${error_count}</strong> dòng bị lỗi:</p>`;
-            htmlDetail += '<div style="text-align:left;max-height:180px;overflow-y:auto;font-size:0.85rem;background:#fef3cd;padding:10px;border-radius:8px;">';
-            errors.forEach(err => { htmlDetail += `<div style="margin-bottom:4px;">⚠️ ${err}</div>`; });
-            htmlDetail += '</div>';
-        }
-
-        Swal.fire({ icon: error_count > 0 ? 'warning' : 'success', title: 'Kết quả Import', html: htmlDetail, confirmButtonColor: '#0288d1' });
-
+        importResult.value = { success_count, error_count, errors };
         closeImportModal();
+        showImportResult.value = true;
         fetchProducts();
 
     } catch (error) {
         console.error('Import error:', error);
         const msg = error.response?.data?.message || 'Có lỗi xảy ra khi import file.';
-        Swal.fire({ icon: 'error', title: 'Import thất bại', text: msg });
+        showToastMsg(msg, 'danger');
     } finally {
         isImporting.value = false;
     }
@@ -207,7 +210,7 @@ const downloadTemplate = async () => {
         window.URL.revokeObjectURL(url);
     } catch (error) {
         console.error('Download template error:', error);
-        Swal.fire({ icon: 'error', title: 'Lỗi', text: 'Không thể tải file mẫu.' });
+        showToastMsg('Không thể tải file mẫu.', 'danger');
     }
 };
 
@@ -665,6 +668,43 @@ const qvTotalStock = computed(() => {
                 </div>
             </div>
         </Teleport>
+
+        <!-- Import Result Modal -->
+        <Teleport to="body">
+            <div class="import-backdrop" v-if="showImportResult" @click.self="showImportResult = false">
+                <div class="import-modal animate-in" style="max-width: 480px;">
+                    <div class="import-header">
+                        <h2>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" :stroke="importResult?.error_count > 0 ? '#e65100' : '#167a70'" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            Kết quả Import
+                        </h2>
+                        <button class="import-close" @click="showImportResult = false">×</button>
+                    </div>
+                    <div class="import-body" v-if="importResult">
+                        <p style="font-size:1rem;margin-bottom:8px;"><strong>{{ importResult.success_count }}</strong> sản phẩm đã được thêm thành công.</p>
+                        <div v-if="importResult.error_count > 0" style="margin-top:12px;">
+                            <p style="color:#e65100;margin-bottom:8px;"><strong>{{ importResult.error_count }}</strong> dòng bị lỗi:</p>
+                            <div style="max-height:180px;overflow-y:auto;font-size:0.85rem;background:#fef3cd;padding:10px;border-radius:8px;">
+                                <div v-for="(err, i) in importResult.errors" :key="i" style="margin-bottom:4px;">⚠️ {{ err }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="import-footer">
+                        <button class="btn-primary" @click="showImportResult = false">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Bootstrap Toast -->
+        <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+            <div class="toast align-items-center border-0" :class="toastData.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="productToast" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">{{ toastData.message }}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 

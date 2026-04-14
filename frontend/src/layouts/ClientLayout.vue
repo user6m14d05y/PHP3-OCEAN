@@ -36,7 +36,13 @@ import ChatbotWidget from '../components/ChatbotWidget.vue';
   flex: 1;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 24px; /* Chỉ padding hai bên để căn biên với header, các trang tự quản lý padding top/bottom */
+  padding: 0 24px; /* Default desktop padding */
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .site-main {
+    padding: 0 16px; /* Smaller padding on mobile */
+  }
 }
 </style>

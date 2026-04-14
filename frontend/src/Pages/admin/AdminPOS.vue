@@ -1,11 +1,19 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import api from '@/axios';
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
 
+const toastData = ref({ message: '', type: 'success' });
+const showToastNotify = (message, type = 'success') => {
+  toastData.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('posToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  });
+};
 const toast = {
-  success: (msg) => Swal.fire({ icon: 'success', title: 'Thành công', text: msg, timer: 2000, showConfirmButton: false }),
-  error: (msg) => Swal.fire({ icon: 'error', title: 'Lỗi', text: msg, timer: 3000, showConfirmButton: false })
+  success: (msg) => showToastNotify(msg, 'success'),
+  error: (msg) => showToastNotify(msg, 'danger'),
 };
 
 const formatPrice = (price) => {
@@ -247,13 +255,11 @@ const grandTotal = computed(() => {
   return Math.max(0, subtotal.value - discountAmount.value);
 });
 
+const isDownloadingPdf = ref(false);
+
 const downloadReceiptPdf = async (order) => {
     try {
-        Swal.fire({
-            title: 'Đang tạo hoán đơn PDF...',
-            allowOutsideClick: false,
-            didOpen: () => { Swal.showLoading(); }
-        });
+        isDownloadingPdf.value = true;
         
         const response = await api.get(`/admin/pos/orders/${order.order_id}/receipt-pdf`, { responseType: 'blob' });
         
@@ -265,14 +271,18 @@ const downloadReceiptPdf = async (order) => {
         link.click();
         link.parentNode.removeChild(link);
         
-        Swal.close();
         toast.success('Đã tải PDF thành công!');
     } catch (error) {
-        Swal.close();
         toast.error('Lỗi khi tải PDF hoá đơn. Vui lòng thử lại!');
         console.error('PDF error:', error);
+    } finally {
+        isDownloadingPdf.value = false;
     }
 };
+
+// Checkout success modal state
+const checkoutOrder = ref(null);
+const showCheckoutSuccess = ref(false);
 
 const handleCheckout = async () => {
   if (cartItems.value.length === 0) {
@@ -301,20 +311,9 @@ const handleCheckout = async () => {
     if (res.data.status === 'success') {
       const createdOrder = res.data.data;
       
-      // Mở hộp thoại thông báo + chức năng in/xuất pdf
-      Swal.fire({
-          icon: 'success',
-          title: 'Thanh toán thành công',
-          html: `Mã đơn hàng: <strong class="text-primary">${createdOrder.order_code}</strong>`,
-          confirmButtonText: 'Đóng',
-          showCancelButton: true,
-          cancelButtonText: '<i class="fas fa-file-pdf me-1"></i> Xuất File PDF',
-          cancelButtonColor: '#0ea5e9'
-      }).then((result) => {
-          if (result.dismiss === Swal.DismissReason.cancel) {
-              downloadReceiptPdf(createdOrder);
-          }
-      });
+      // Show checkout success modal
+      checkoutOrder.value = createdOrder;
+      showCheckoutSuccess.value = true;
 
       // Reset form
       cartItems.value = [];
@@ -756,6 +755,37 @@ onUnmounted(() => {
           <button type="button" class="btn btn-light me-2" @click="closeVariantModal">Hủy</button>
           <button type="button" class="btn btn-primary px-4" :disabled="!selectedVariant" @click="confirmVariantSelect">Thêm vào giỏ</button>
         </div>
+      </div>
+    </div>
+</div>
+
+  <!-- Checkout Success Modal -->
+  <div v-if="showCheckoutSuccess" class="vue-modal-backdrop">
+    <div class="vue-modal-container">
+      <div class="vue-modal-content" style="max-width:400px;text-align:center;">
+        <div style="margin-bottom:20px;">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h5 class="fw-bold mb-2">Thanh toán thành công!</h5>
+        <p class="text-muted mb-3">Mã đơn hàng: <strong class="text-primary">{{ checkoutOrder?.order_code }}</strong></p>
+        <div class="d-flex justify-content-center gap-2">
+          <button class="btn btn-outline-primary" @click="downloadReceiptPdf(checkoutOrder)" :disabled="isDownloadingPdf">
+            <i v-if="isDownloadingPdf" class="fas fa-spinner fa-spin me-1"></i>
+            <i v-else class="fas fa-file-pdf me-1"></i>
+            Xuất PDF
+          </button>
+          <button class="btn btn-primary" @click="showCheckoutSuccess = false">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap Toast -->
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+    <div class="toast align-items-center border-0" :class="toastData.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="posToast" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">{{ toastData.message }}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
       </div>
     </div>
   </div>

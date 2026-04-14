@@ -391,7 +391,6 @@ class CartController extends Controller
 
             if ($existingItem) {
                 $existingItem->update(['quantity' => $newQuantity]);
-                $message = 'Đã cập nhật số lượng trong giỏ hàng!';
             } else {
                 CartItem::create([
                     'cart_id' => $cart->cart_id,
@@ -399,17 +398,17 @@ class CartController extends Controller
                     'quantity' => $orderItem->quantity,
                     'selected' => true,
                 ]);
-                $message = 'Đã thêm sản phẩm vào giỏ hàng!';
             }
-
-            // Đếm tổng items trong giỏ
-            $totalItems = CartItem::where('cart_id', $cart->cart_id)->sum('quantity');
-
-            return response()->json([
-                'status' => 'success',
-                'message' => $message,
-                'total_items' => $totalItems,
-            ]);
         }
+
+        // Sau khi hoàn tất vòng lặp, tính tổng và trả kết quả
+        $cart = $this->getOrCreateCart($userId); // Lấy lại cart mới nhất
+        $totalItems = CartItem::where('cart_id', $cart->cart_id)->sum('quantity');
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã thêm các sản phẩm vào giỏ hàng!',
+            'total_items' => $totalItems,
+        ]);
     }
 }

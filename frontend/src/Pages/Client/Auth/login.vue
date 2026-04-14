@@ -9,6 +9,7 @@ import ClientFooter from '../../../components/ClientFooter.vue';
 const email = ref('');
 const password = ref('');
 const showPassword = ref(false);
+const rememberMe = ref(false);
 const isSubmitting = ref(false);
 const router = useRouter();
 const toast = ref({ message: '', type: 'success' });
@@ -121,16 +122,18 @@ const login = async () => {
     });
 
     if (response.data.status === 'success') {
-      localStorage.setItem('auth_token', response.data.access_token);
-      localStorage.setItem('user', JSON.stringify({
+      if (rememberMe.value) {
+        localStorage.setItem('auth_token', response.data.access_token);
+      } else {
+        sessionStorage.setItem('auth_token', response.data.access_token);
+      }
+      sessionStorage.setItem('user', JSON.stringify({
         isLoggedIn: true,
         ...response.data.user
       }));
 
-      if (response.data.user.role === 'admin' || response.data.user.role === 'staff') {
+      if (['admin', 'staff', 'seller'].includes(response.data.user.role)) {
         router.push('/admin');
-      } else if (response.data.user.role === 'seller') {
-        router.push('/seller');
       } else {
         router.push('/');
       }
@@ -208,10 +211,9 @@ const login = async () => {
 
 
 
-              <!-- Options -->
               <div class="form-options">
                 <label class="remember-me">
-                    <input type="checkbox" />
+                    <input type="checkbox" v-model="rememberMe" />
                     <span class="checkmark"></span>
                     <span>Ghi nhớ đăng nhập</span>
                 </label>

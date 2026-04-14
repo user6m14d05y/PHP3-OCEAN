@@ -33,7 +33,7 @@ const debouncedFetch = () => {
 const fetchStaff = async () => {
   try {
     loading.value = true;
-    const response = await api.get('/admin/sellers', { params: { search: searchQuery.value } });
+    const response = await api.get('/admin/staff', { params: { search: searchQuery.value } });
     staff.value = response.data.data;
   } catch (error) {
     showToast('Lỗi tải danh sách nhân sự!', 'error');
@@ -44,7 +44,7 @@ const fetchStaff = async () => {
 
 const updateRole = async (adminId, newRole) => {
   try {
-    const result = await api.put(`/admin/sellers/${adminId}`, { role: newRole });
+    const result = await api.put(`/admin/staff/${adminId}/role`, { role: newRole });
     showToast(result.data.message, 'success');
     fetchStaff();
   } catch (error) {
@@ -71,7 +71,7 @@ const createStaff = async () => {
   formError.value = '';
   isSubmitting.value = true;
   try {
-    await api.post('/admin/sellers', newStaff.value);
+    await api.post('/admin/staff', newStaff.value);
     showCreateModal.value = false;
     showToast('Đã tạo nhân sự mới thành công!', 'success');
     fetchStaff();
@@ -91,7 +91,7 @@ const confirmDelete = async () => {
   if (!deletingMember.value) return;
   try {
     const id = deletingMember.value.user_id || deletingMember.value.admin_id;
-    await api.delete(`/admin/sellers/${id}`);
+    await api.delete(`/admin/staff/${id}`);
     showDeleteModal.value = false;
     showToast('Đã xóa tài khoản nhân sự thành công!', 'success');
     fetchStaff();
@@ -111,8 +111,7 @@ const toggleStatus = async (member) => {
   
   const id = member.user_id || member.admin_id;
   try {
-    // Assuming backend endpoint defaults to seller or users update
-    await api.put(`/admin/sellers/${id}`, { status: newStatus });
+    await api.put(`/admin/staff/${id}/status`, { status: newStatus });
     showToast(`Tài khoản đã chuyển sang: ${newStatus === 'active' ? 'Hoạt động' : 'Tạm khóa'}`, 'success');
   } catch (error) {
     member.status = prevStatus; // Rollback
@@ -183,21 +182,23 @@ onMounted(fetchStaff);
                 @change="updateRole(member.admin_id, $event.target.value)"
                 class="role-select"
                 :class="'role-' + member.role"
+                :disabled="member.email === 'admin123@gmail.com'"
               >
                 <option value="admin">Quản trị viên</option>
-                <option value="staff">Nhân viên</option>
-                <option value="seller">Seller (Hệ thống)</option>
+                <option value="staff">Nhân viên kho (Staff)</option>
+                <option value="seller">Nhân viên bán hàng (Seller)</option>
               </select>
             </td>
             <td class="date-cell">{{ formatDate(member.created_at) }}</td>
             <td class="status-cell">
-              <label class="staff-toggle" :title="member.status === 'active' || member.status === 1 ? 'Đang hoạt động' : 'Tạm khóa'">
+              <label v-if="member.email !== 'admin123@gmail.com'" class="staff-toggle" :title="member.status === 'active' || member.status === 1 ? 'Đang hoạt động' : 'Tạm khóa'">
                 <input type="checkbox" :checked="member.status === 'active' || member.status === 1" @change="toggleStatus(member)" />
                 <span class="staff-slider"></span>
               </label>
+              <span v-else class="super-badge">Vĩnh viễn</span>
             </td>
             <td class="actions-cell">
-              <button @click="openDeleteConfirm(member)" class="btn-delete" title="Xóa nhân sự">
+              <button v-if="member.email !== 'admin123@gmail.com'" @click="openDeleteConfirm(member)" class="btn-delete" title="Xóa nhân sự">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
@@ -205,6 +206,9 @@ onMounted(fetchStaff);
                   <line x1="14" y1="11" x2="14" y2="17"></line>
                 </svg>
               </button>
+              <div v-else class="super-lock">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d32f2f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -239,9 +243,9 @@ onMounted(fetchStaff);
               <div class="staff-form-group">
                 <label>Vai trò</label>
                 <select v-model="newStaff.role" class="staff-form-control staff-form-select">
-                  <option value="staff">Nhân viên (Staff)</option>
+                  <option value="staff">Nhân viên kho (Staff)</option>
                   <option value="admin">Quản trị viên (Admin)</option>
-                  <option value="seller">Người bán (Seller)</option>
+                  <option value="seller">Nhân viên bán hàng (Seller)</option>
                 </select>
               </div>
             </div>
@@ -394,6 +398,9 @@ onMounted(fetchStaff);
   cursor: pointer; transition: all 0.2s;
 }
 .btn-delete:hover { background: #ffcdd2; color: #c62828; border-color: #ef9a9a; }
+
+.super-badge { background: #ffebee; color: #d32f2f; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+.super-lock { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; background: #fafafa; border: 1.5px dashed #ccc; border-radius: 8px; cursor: not-allowed; opacity: 0.7; }
 </style>
 
 <!-- Non-scoped styles for Teleported modals/toasts -->

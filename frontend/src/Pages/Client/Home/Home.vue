@@ -1,8 +1,11 @@
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
 import api from "../../../axios.js";
 import ProductCard from "../../../components/ProductCard.vue";
 import ProductSkeleton from "../../../components/ProductSkeleton.vue";
+
+const router = useRouter();
 
 const Products = ref([]);
 const Categories = ref([]);
@@ -16,16 +19,16 @@ const currentCategoryId = ref(null);
 const currentSlide = ref(0);
 const heroSlides = ref([
     {
-        image: "http://localhost:8383/storage/banners/banner_1.png",
+        image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
         subtitle: "BST MỚI 2026",
-        title: "Phong Cách<br />Thời Thượng",
+        title: "Phong Cách<br />Tối Giản",
         desc: "Định hình cá tính của bạn với bộ sưu tập thời trang mới nhất. <br />Thiết kế tối giản, dễ mặc, dễ phối cho mọi lứa tuổi.",
         btn: "Mua sắm ngay"
     },
     {
-        image: "https://images.unsplash.com/photo-1445205170230-053b83016050?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+        image: "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
         subtitle: "SUMMER SALE",
-        title: "Giảm Giá<br />Mùa Hè Sôi Động",
+        title: "Giảm Giá<br />Sôi Động",
         desc: "Lên đến 50% cho hơn 1000 sản phẩm với mẫu mã thời thượng nhất.",
         btn: "Khám phá sale"
     }
@@ -145,12 +148,13 @@ setInterval(() => {
             <div class="hero-slider">
                 <div class="slide-container" v-for="(slide, i) in heroSlides" :key="i" :class="{'active-slide': currentSlide === i}">
                     <img :src="slide.image" alt="banner" class="slider-bg-img" />
+                    <div class="hero-dark-overlay"></div>
                     <!-- Lớp Glassmorphism overlay cho text readability -->
                     <div class="banner-content glass-card">
                         <span class="banner-subtitle">{{ slide.subtitle }}</span>
-                        <h1 class="banner-title text-main" v-html="slide.title"></h1>
-                        <p class="banner-desc fs-6 text-muted" v-html="slide.desc"></p>
-                        <button class="btn-primary btn-large mt-4">
+                        <h1 class="banner-title" v-html="slide.title"></h1>
+                        <p class="banner-desc fs-6" v-html="slide.desc"></p>
+                        <button class="btn-primary btn-hero-slider mt-4" @click="router.push('/product')">
                             {{ slide.btn }} <i class="fas fa-arrow-right ms-2"></i>
                         </button>
                     </div>
@@ -279,45 +283,49 @@ setInterval(() => {
 
 /* Buttons */
 .btn-primary {
-    background: var(--ocean-blue, #0288d1);
+    background: var(--ocean-blue, #0F172A);
     color: white;
-    padding: 10px 24px;
-    border-radius: 8px;
-    font-weight: 600;
-    border: none;
+    padding: 12px 28px;
+    border-radius: var(--radius-micro);
+    font-weight: 700;
+    border: 1px solid var(--ocean-blue, #0F172A);
     cursor: pointer;
     transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .btn-primary:hover {
-    background: var(--ocean-bright, #03a9f4);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(2, 136, 209, 0.3);
+    background: transparent;
+    color: var(--ocean-blue, #0F172A);
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-large {
-    padding: 14px 32px;
-    font-size: 1.1rem;
-    border-radius: 30px;
+    padding: 16px 40px;
+    font-size: 0.95rem;
 }
 
 .btn-outline {
     display: inline-block;
     background: transparent;
-    color: var(--ocean-blue, #0288d1);
-    border: 2px solid var(--ocean-blue, #0288d1);
+    color: var(--ocean-blue, #0F172A);
+    border: 1px solid var(--ocean-blue, #0F172A);
     padding: 12px 28px;
-    border-radius: 30px;
+    border-radius: var(--radius-micro);
     font-weight: 700;
     cursor: pointer;
     text-decoration: none;
     transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .btn-outline:hover {
-    background: var(--ocean-blue, #0288d1);
+    background: var(--ocean-blue, #0F172A);
     color: white;
-    box-shadow: 0 4px 12px rgba(2,136,209,0.2);
+    box-shadow: none;
 }
 
 .home-main {
@@ -348,12 +356,13 @@ setInterval(() => {
 /* 1. Carousel Hero Banner (New Design) */
 .hero-slider {
     position: relative;
-    width: 100%;
-    height: 500px;
-    border-radius: 20px;
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    height: 700px;
+    border-radius: 0;
     overflow: hidden;
-    margin-bottom: 50px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+    margin-bottom: 60px;
+    box-shadow: none;
 }
 
 .slide-container {
@@ -376,23 +385,29 @@ setInterval(() => {
     object-position: center 20%;
 }
 
-/* Glassmorphism Card on Hero */
+.hero-dark-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.1) 60%, transparent 100%);
+    z-index: 1;
+}
+
 .glass-card {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    left: 8%;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255, 0.4);
-    padding: 40px;
-    border-radius: 20px;
-    max-width: 480px;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+    left: 10%;
+    background: transparent;
+    backdrop-filter: none;
+    border: none;
+    padding: 0;
+    max-width: 500px;
+    box-shadow: none;
+    z-index: 2;
 }
 
 .banner-subtitle {
-    color: var(--ocean-blue, #0288d1);
+    color: #e2e8f0;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -402,11 +417,31 @@ setInterval(() => {
 }
 
 .banner-title {
-    font-size: 3rem;
-    font-weight: 900;
-    line-height: 1.15;
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 1.1;
     margin-bottom: 16px;
-    color: #1a202c;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.banner-desc {
+    color: #cbd5e1;
+}
+
+.btn-hero-slider {
+    background: #ffffff;
+    color: var(--ocean-blue, #0F172A);
+    border: 1px solid #ffffff;
+    padding: 16px 40px;
+    border-radius: var(--radius-micro);
+    font-size: 0.95rem;
+}
+
+.btn-hero-slider:hover {
+    background: transparent;
+    color: #ffffff;
 }
 
 .slider-indicators {
@@ -498,8 +533,9 @@ setInterval(() => {
 
 /* Promo Parallax Banner */
 .promo-parallax-banner {
-    width: 100%;
-    border-radius: 20px;
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    border-radius: 0;
     background-image: url('https://images.unsplash.com/photo-1490481651829-270f644b9ff3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
     background-attachment: fixed;
     background-position: center;
@@ -585,15 +621,14 @@ setInterval(() => {
 
 @media (max-width: 768px) {
     .glass-card {
-        top: auto;
-        bottom: 10%;
+        top: 50%;
+        bottom: auto;
         left: 5%;
         right: 5%;
-        transform: none;
-        padding: 24px;
+        text-align: center;
     }
     
-    .hero-slider { height: 600px; }
+    .hero-slider { height: 500px; }
     
     .products-grid {
         grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

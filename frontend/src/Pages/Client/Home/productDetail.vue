@@ -202,20 +202,20 @@ const showToast = (message, type = 'success') => {
 };
 
 const addToCart = async () => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
     if (!token) {
         router.push({ name: 'login', query: { redirect: route.fullPath } });
-        return;
+        return false;
     }
 
     if (!selectedVariant.value) {
         showToast('Vui lòng chọn phiên bản sản phẩm!', 'error');
-        return;
+        return false;
     }
 
     if (quantity.value < 1) {
         showToast('Số lượng tối thiểu là 1!', 'error');
-        return;
+        return false;
     }
 
     addingToCart.value = true;
@@ -227,12 +227,21 @@ const addToCart = async () => {
         if (response.data.status === 'success') {
             showToast(response.data.message, 'success');
             window.dispatchEvent(new Event('cart-updated'));
+            return true;
         }
     } catch (error) {
         const msg = error.response?.data?.message || 'Không thể thêm vào giỏ hàng.';
         showToast(msg, 'error');
     } finally {
         addingToCart.value = false;
+    }
+    return false;
+};
+
+const buyNow = async () => {
+    const success = await addToCart();
+    if (success) {
+        router.push('/checkout');
     }
 };
 
@@ -357,7 +366,7 @@ onMounted(() => {
           </button>
         </div>
         <div class="action-buttons-row">
-          <button class="btn-primary btn-buyNow">Mua ngay</button>
+          <button class="btn-primary btn-buyNow" @click="buyNow" :disabled="addingToCart">Mua ngay</button>
           <button class="btn-outline btn-hero-fav" 
                   :class="{'is-active': product && isFavorited(product.product_id)}" 
                   @click="handleToggleFav" 
@@ -399,9 +408,9 @@ onMounted(() => {
           <div v-if="reviews.length === 0" class="no-reviews">Chưa có đánh giá nào cho sản phẩm này.</div>
           <div class="review-item" v-for="review in reviews" :key="review.comment_id">
             <div class="review-header">
-              <img :src="review.user?.avatar_url ? getImageUrl(review.user.avatar_url) : 'https://placehold.co/44x44?text=U'" :alt="review.user?.full_name" class="reviewer-avatar" />
+              <img :src="(review.commenter_info || review.user)?.avatar_url ? getImageUrl((review.commenter_info || review.user).avatar_url) : 'https://placehold.co/44x44?text=U'" :alt="(review.commenter_info || review.user)?.full_name" class="reviewer-avatar" />
               <div class="reviewer-info">
-                <h4 class="reviewer-name">{{ review.user ? review.user.full_name : 'Người dùng Ẩn danh' }}</h4>
+                <h4 class="reviewer-name">{{ (review.commenter_info || review.user)?.full_name || 'Người dùng Ẩn danh' }}</h4>
                 <div class="stars small">
                   <i class="fas fa-star active" v-for="i in review.rating" :key="`star-${i}`"></i>
                   <i class="fas fa-star" v-for="i in 5 - review.rating" :key="`empty-${i}`"></i>
@@ -541,9 +550,9 @@ onMounted(() => {
 .main-image-container {
   width: 100%;
   aspect-ratio: 1/1;
-  border-radius: 16px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  border: 1px solid var(--border-color, #d9e8f0);
+  border: 1px solid transparent;
   background: white;
 }
 .main-image {
@@ -558,14 +567,14 @@ onMounted(() => {
   padding-bottom: 8px;
 }
 .thumbnail-list::-webkit-scrollbar { height: 6px; }
-.thumbnail-list::-webkit-scrollbar-thumb { background: #d9e8f0; border-radius: 4px; }
+.thumbnail-list::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 0; }
 .thumbnail-item {
   width: 80px;
   height: 80px;
-  border-radius: 10px;
+  border-radius: var(--radius-micro);
   overflow: hidden;
   cursor: pointer;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   opacity: 0.6;
   transition: all 0.2s;
   flex-shrink: 0;
@@ -583,20 +592,24 @@ onMounted(() => {
 /* Khối thông tin */
 .category-badge {
   display: inline-block;
-  background: rgba(2, 136, 209, 0.1);
-  color: var(--ocean-blue, #0288d1);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.8rem;
+  background: var(--ocean-blue);
+  color: white;
+  padding: 4px 14px;
+  border-radius: var(--radius-micro);
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 1px;
   margin-bottom: 16px;
 }
 .product-title {
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: 1.85rem;
+  font-weight: 700;
   line-height: 1.3;
   margin-bottom: 16px;
+  color: var(--ocean-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 .product-rating {
   display: flex;
@@ -702,10 +715,10 @@ onMounted(() => {
 .quantity-selector {
   display: flex;
   align-items: center;
-  border: 1px solid var(--border-color, #d9e8f0);
-  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-micro);
   overflow: hidden;
-  background: white;
+  background: transparent;
 }
 .quantity-selector button {
   width: 44px;
@@ -713,10 +726,10 @@ onMounted(() => {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: #102a43;
+  color: var(--text-main);
   transition: background 0.2s;
 }
-.quantity-selector button:hover { background: #f0f4f8; }
+.quantity-selector button:hover { background: #f8fafc; }
 .quantity-selector input {
   width: 50px;
   text-align: center;
@@ -724,20 +737,37 @@ onMounted(() => {
   font-weight: 700;
   font-size: 1rem;
   outline: none;
+  background: transparent;
 }
 .btn-addToCart {
   flex: 1;
   padding: 0;
   height: 48px;
-  border-radius: 10px;
+  border-radius: var(--radius-micro);
   font-size: 1.05rem;
+  font-weight: 700;
+  background: var(--ocean-blue);
+  border: 1px solid var(--ocean-blue);
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.btn-addToCart:hover {
+  background: transparent;
+  color: var(--ocean-blue);
 }
 .btn-buyNow {
   flex: 1;
   height: 48px;
-  background: var(--text-main, #102a43);
+  border-radius: var(--radius-micro);
+  background: transparent;
+  color: var(--ocean-blue);
+  border: 1px solid var(--ocean-blue);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
-.btn-buyNow:hover { background: #0b1d30; }
+.btn-buyNow:hover { background: var(--ocean-blue); color: white; }
 
 .action-buttons-row {
   display: flex;
@@ -751,21 +781,23 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: var(--radius-micro);
   font-size: 1.25rem;
-  color: #9ca3af;
+  color: var(--text-muted);
   flex-shrink: 0;
   padding: 0;
+  border: 1px solid var(--border-color);
+  background: transparent;
 }
 .btn-hero-fav:hover {
-  background: #fdf2f8;
-  color: #db2777;
-  border-color: #fbcfe8;
+  background: transparent;
+  color: var(--ocean-blue);
+  border-color: var(--ocean-blue);
 }
 .btn-hero-fav.is-active {
-  color: #db2777;
-  border-color: #fbcfe8;
-  background: #fdf2f8;
+  color: var(--ocean-blue);
+  border-color: var(--ocean-blue);
+  background: transparent;
 }
 
 /* Perks */

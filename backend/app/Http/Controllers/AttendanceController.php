@@ -11,7 +11,7 @@ class AttendanceController extends Controller
     private function getUserId()
     {
         if (Auth::guard('admin')->check()) {
-            return Auth::guard('admin')->user()->admin_id; 
+            return Auth::guard('admin')->user()->admin_id;
         }
         return Auth::guard('api')->check() ? Auth::guard('api')->user()->user_id : null;
     }
@@ -39,11 +39,11 @@ class AttendanceController extends Controller
     public function index(Request $request)
     {
         $attendances = Attendance::orderBy('created_at', 'desc')->paginate(15);
-        
+
         // Load relationships manually if user logic is dynamic, or if they are in admins table.
         // Assuming we look up the full name via the admin or user model.
         // For simplicity, we just return the raw data and let front-end handle or we can join:
-        
+
         foreach ($attendances as $attendance) {
             $admin = \App\Models\Admin::find($attendance->user_id);
             if ($admin) {
@@ -54,7 +54,7 @@ class AttendanceController extends Controller
                 $attendance->user_name = $user ? $user->full_name : 'Unknown';
             }
         }
-        
+
         return response()->json([
             'status' => 'success',
             'data' => $attendances
@@ -64,7 +64,7 @@ class AttendanceController extends Controller
     public function checkIn(Request $request)
     {
         $userId = $this->getUserId();
-        
+
         if (!$userId) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
         }
@@ -87,7 +87,7 @@ class AttendanceController extends Controller
             // Allow 50 meters
             if ($distance > 50) {
                 return response()->json([
-                    'status' => 'error', 
+                    'status' => 'error',
                     'message' => 'Vị trí của bạn nằm ngoài phạm vi cửa hàng. Bạn phải ở cách cửa hàng dưới 50m thì camera mới kiểm soát được bạn.'
                 ], 400);
             }
@@ -126,8 +126,8 @@ class AttendanceController extends Controller
         ]);
 
         return response()->json([
-            'status' => 'success', 
-            'message' => 'Đã Check-in thành công!', 
+            'status' => 'success',
+            'message' => 'Đã Check-in thành công!',
             'data' => $attendance
         ]);
     }
@@ -135,7 +135,7 @@ class AttendanceController extends Controller
     public function checkOut(Request $request)
     {
         $userId = $this->getUserId();
-        
+
         if (!$userId) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
         }
@@ -163,7 +163,7 @@ class AttendanceController extends Controller
             $distance = $this->calculateDistanceDistanceInMeters($storeLat, $storeLng, $userLat, $userLng);
             if ($distance > 50) {
                 return response()->json([
-                    'status' => 'error', 
+                    'status' => 'error',
                     'message' => 'Vị trí của bạn nằm ngoài phạm vi cửa hàng. Bạn phải ở cách cửa hàng dưới 50m thì camera mới kiểm soát được bạn.'
                 ], 400);
             }
@@ -187,7 +187,7 @@ class AttendanceController extends Controller
         ]);
 
         return response()->json([
-            'status' => 'success', 
+            'status' => 'success',
             'message' => 'Đã Check-out thành công!'
         ]);
     }

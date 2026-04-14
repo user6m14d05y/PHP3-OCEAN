@@ -13,7 +13,12 @@ class LocationController extends Controller
      * Sau khi sáp nhập đơn vị hành chính VN (2025)
      */
     private string $apiBaseUrl = 'https://online-gateway.ghn.vn/shiip/public-api/master-data/';
-    private string $token = env('TOKEN_API_GHN');
+    private string $token = '';
+
+    public function __construct()
+    {
+        $this->token = config('services.ghn.token');
+    }
 
     /**
      * Lấy danh sách tỉnh/thành phố
