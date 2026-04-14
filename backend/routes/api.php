@@ -168,6 +168,14 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->prefix('admin')->grou
 Route::middleware(['auth:api,admin', 'role:admin,staff,seller'])->prefix('admin')->group(function () {
     // Tổng quan (Dashboard)
     Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
+    
+    // Admin Statistics (Detailed dashboard)
+    Route::get('/statistics/overview', [\App\Http\Controllers\AdminStatisticsController::class, 'getOverview']);
+    Route::get('/statistics/revenue', [\App\Http\Controllers\AdminStatisticsController::class, 'getRevenueChart']);
+    Route::get('/statistics/orders-status', [\App\Http\Controllers\AdminStatisticsController::class, 'getOrderStatusChart']);
+    Route::get('/statistics/top-products', [\App\Http\Controllers\AdminStatisticsController::class, 'getTopProducts']);
+    Route::get('/statistics/top-customers', [\App\Http\Controllers\AdminStatisticsController::class, 'getTopCustomers']);
+    Route::get('/statistics/report', [\App\Http\Controllers\AdminStatisticsController::class, 'getRevenueReport']);
 
     // Quản lý Liên hệ (Xem và trả lời)
     Route::get('/contacts', [ContactController::class, 'index']);
@@ -379,4 +387,12 @@ Route::prefix('debug')->group(function () {
             'pending_orders' => $orders,
         ]);
     });
+});
+
+Route::get('image-proxy', function (\Illuminate\Http\Request $request) {
+    $path = $request->query('path');
+    if (!$path) abort(404);
+    $absolutePath = storage_path('app/public/' . $path);
+    if (!file_exists($absolutePath)) abort(404);
+    return response()->file($absolutePath);
 });

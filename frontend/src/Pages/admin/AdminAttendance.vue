@@ -20,6 +20,28 @@ const attendanceNote = ref('');
 const currentTime = ref('');
 let clockInterval = null;
 
+const videoElement = ref(null);
+const canvasElement = ref(null);
+let videoStream = null;
+
+const startCamera = async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        videoStream = stream;
+        if (videoElement.value) {
+            videoElement.value.srcObject = stream;
+        }
+    } catch (err) {
+        showToast("Không thể truy cập camera. Vui lòng cấp quyền!", "error");
+    }
+};
+
+const stopCamera = () => {
+    if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+    }
+};
+
 const updateClock = () => {
     const now = new Date();
     currentTime.value = now.toLocaleTimeString('vi-VN', { hour12: false });
@@ -28,10 +50,12 @@ const updateClock = () => {
 onMounted(() => {
     updateClock();
     clockInterval = setInterval(updateClock, 1000);
+    startCamera();
 });
 
 onUnmounted(() => {
     clearInterval(clockInterval);
+    stopCamera();
 });
 
 // Hàm lấy GPS bằng Promise
@@ -48,15 +72,36 @@ const getGeolocation = () => {
     });
 };
 
+const captureImage = () => {
+    if (!videoElement.value || !canvasElement.value) return null;
+    const canvas = canvasElement.value;
+    const context = canvas.getContext('2d');
+    const width = videoElement.value.videoWidth || 640;
+    const height = videoElement.value.videoHeight || 480;
+    
+    if (width === 0 || height === 0) return null;
+    
+    canvas.width = width;
+    canvas.height = height;
+    context.drawImage(videoElement.value, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', 0.8);
+};
+
 const handleCheckIn = async () => {
   loading.value = true;
   try {
       const position = await getGeolocation();
+      const imageBase64 = captureImage();
+      
+      if (!imageBase64) {
+          throw new Error("Không thể chụp ảnh từ camera, hãy đảm bảo camera đang hoạt động!");
+      }
       
       const payload = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-          note: attendanceNote.value
+          note: attendanceNote.value,
+          image: imageBase64
       };
 
       const response = await api.post('/admin/attendance/check-in', payload);
@@ -77,14 +122,29 @@ const handleCheckIn = async () => {
 const handleCheckOut = async () => {
   loading.value = true;
   try {
-      // For check-out, we might not strictly need location, but it's good practice. 
-      // Using a quick ping first to just hit the backend. 
-      const response = await api.post('/admin/attendance/check-out');
+      const position = await getGeolocation();
+      const imageBase64 = captureImage();
+      
+      if (!imageBase64) {
+          throw new Error("Không thể chụp ảnh từ camera, hãy đảm bảo camera đang hoạt động!");
+      }
+      
+      const payload = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          image: imageBase64
+      };
+      
+      const response = await api.post('/admin/attendance/check-out', payload);
       showToast(response.data.message || 'Check-out thành công!', 'success');
       attendanceNote.value = '';
   } catch (error) {
-     const msg = error.response?.data?.message || error.message || "Đã xảy ra lỗi khi Check-out";
-     showToast(msg, 'error');
+     if (error.code === error.PERMISSION_DENIED) {
+         showToast("Bạn cần cấp quyền truy cập vị trí để check-out!", 'error');
+     } else {
+         const msg = error.response?.data?.message || error.message || "Đã xảy ra lỗi khi Check-out";
+         showToast(msg, 'error');
+     }
   } finally {
       loading.value = false;
   }
@@ -143,8 +203,9 @@ const handleCheckOut = async () => {
         <div class="card shadow-sm border-0 h-100">
           <div class="card-body p-4 d-flex flex-column justify-content-center align-items-center text-center">
             
-            <div class="mb-4">
-               <img src="https://cdn-icons-png.flaticon.com/512/8206/8206173.png" alt="Attendance" class="img-fluid" style="max-height: 150px;" />
+            <div class="mb-4 w-100 px-3">
+               <video ref="videoElement" autoplay playsinline class="w-100 rounded shadow-sm border" style="max-height: 250px; background: #000; object-fit: cover;"></video>
+               <canvas ref="canvasElement" style="display: none;"></canvas>
             </div>
 
             <!-- Ghi chú nếu muốn lưu -->

@@ -71,23 +71,6 @@ class AttendanceController extends Controller
 
         $userIp = $request->ip();
 
-        // Validate Wifi Network
-        $storeWifiIps = env('STORE_WIFI_IP');
-        if ($storeWifiIps) {
-            $allowedIps = array_map('trim', explode(',', $storeWifiIps));
-            // Default check, allow if the local address is ::1 and 127.0.0.1 is in the list
-            if ($userIp === '::1' && in_array('127.0.0.1', $allowedIps)) {
-                $userIp = '127.0.0.1';
-            }
-
-            if (!in_array($userIp, $allowedIps)) {
-                return response()->json([
-                    'status' => 'error', 
-                    'message' => 'Bạn không dùng Wifi của cửa hàng. Vui lòng kết nối đúng mạng Wi-Fi tại cửa hàng để chấm công! (IP hiện tại: ' . $userIp . ')'
-                ], 400);
-            }
-        }
-
         // Validate Location Distance
         $storeLat = env('STORE_LAT');
         $storeLng = env('STORE_LNG');
@@ -120,12 +103,25 @@ class AttendanceController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Bạn đã check-in vào ca làm việc chưa kết thúc!'], 400);
         }
 
+        $imagePath = null;
+        if ($request->has('image') && $request->image) {
+            $imageParts = explode(';base64,', $request->image);
+            if (count($imageParts) == 2) {
+                $image_base64 = base64_decode($imageParts[1]);
+                $fileName = 'attendance_' . $userId . '_' . time() . '.jpg';
+                $path = 'attendances/' . $fileName;
+                \Illuminate\Support\Facades\Storage::disk('public')->put($path, $image_base64);
+                $imagePath = '/storage/' . $path;
+            }
+        }
+
         $attendance = Attendance::create([
             'user_id' => $userId,
             'check_in_at' => now(),
-            'ip_address' => $request->ip(),
+            'ip_address' => $userIp,
             'latitude' => $userLat,
             'longitude' => $userLng,
+            'image_path' => $imagePath,
             'note' => $request->note,
         ]);
 
@@ -153,8 +149,41 @@ class AttendanceController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Bạn chưa check-in hoặc đã check-out rồi!'], 400);
         }
 
+        // Validate Location Distance
+        $storeLat = env('STORE_LAT');
+        $storeLng = env('STORE_LNG');
+        $userLat = $request->lat;
+        $userLng = $request->lng;
+
+        if (!$userLat || !$userLng) {
+            return response()->json(['status' => 'error', 'message' => 'Không thể lấy tọa độ GPS từ thiết bị của bạn!'], 400);
+        }
+
+        if ($storeLat && $storeLng) {
+            $distance = $this->calculateDistanceDistanceInMeters($storeLat, $storeLng, $userLat, $userLng);
+            if ($distance > 50) {
+                return response()->json([
+                    'status' => 'error', 
+                    'message' => 'Vị trí của bạn nằm ngoài phạm vi cửa hàng. Bạn phải ở cách cửa hàng dưới 50m thì camera mới kiểm soát được bạn.'
+                ], 400);
+            }
+        }
+
+        $imagePath = null;
+        if ($request->has('image') && $request->image) {
+            $imageParts = explode(';base64,', $request->image);
+            if (count($imageParts) == 2) {
+                $image_base64 = base64_decode($imageParts[1]);
+                $fileName = 'checkout_' . $userId . '_' . time() . '.jpg';
+                $path = 'attendances/' . $fileName;
+                \Illuminate\Support\Facades\Storage::disk('public')->put($path, $image_base64);
+                $imagePath = '/storage/' . $path;
+            }
+        }
+
         $attendance->update([
             'check_out_at' => now(),
+            'check_out_image_path' => $imagePath,
         ]);
 
         return response()->json([
