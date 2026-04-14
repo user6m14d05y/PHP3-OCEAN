@@ -290,8 +290,8 @@ const router = createRouter({
 // ==================== Navigation Guard ====================
 
 router.beforeEach((to, from) => {
-    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user') || sessionStorage.getItem('user');
+    const token = sessionStorage.getItem('auth_token');
+    const userData = sessionStorage.getItem('user');
     const user = userData ? JSON.parse(userData) : null;
 
     // Route yêu cầu đăng nhập

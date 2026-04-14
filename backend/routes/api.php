@@ -26,6 +26,7 @@ use App\Http\Controllers\ProductCommentController;
 use App\Http\Controllers\SellerController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\ChatController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -121,6 +122,7 @@ Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
     Route::get('/count', [CartController::class, 'getCount']);
     Route::post('/items', [CartController::class, 'addItem']);
     Route::put('/items/{id}', [CartController::class, 'updateItem']);
+    Route::put('/items/{id}/variant', [CartController::class, 'changeVariant']);
     Route::delete('/items/{id}', [CartController::class, 'removeItem']);
     Route::delete('/', [CartController::class, 'clearCart']);
     Route::post('/buy-again/{orderId}', [CartController::class, 'buyAgain']);
@@ -154,9 +156,6 @@ Route::middleware(['auth:api,admin', 'role:admin'])->prefix('admin')->group(func
     Route::put('/coupons/{id}', [CouponController::class, 'update']);
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
     Route::get('/coupons/{id}/usages', [CouponController::class, 'getCouponUsages']);
-
-    // Dashboard Thống kê tổng quan
-    Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
 });
 
 // ==========================================
@@ -203,6 +202,17 @@ Route::middleware(['auth:api,admin', 'role:admin,seller,staff'])->prefix('admin'
     Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'index']);
     Route::post('/attendance/check-in', [\App\Http\Controllers\AttendanceController::class, 'checkIn']);
     Route::post('/attendance/check-out', [\App\Http\Controllers\AttendanceController::class, 'checkOut']);
+
+    // Tổng quan (Dashboard)
+    Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
+    
+    // Admin Statistics (Detailed dashboard)
+    Route::get('/statistics/overview', [\App\Http\Controllers\AdminStatisticsController::class, 'getOverview']);
+    Route::get('/statistics/revenue', [\App\Http\Controllers\AdminStatisticsController::class, 'getRevenueChart']);
+    Route::get('/statistics/orders-status', [\App\Http\Controllers\AdminStatisticsController::class, 'getOrderStatusChart']);
+    Route::get('/statistics/top-products', [\App\Http\Controllers\AdminStatisticsController::class, 'getTopProducts']);
+    Route::get('/statistics/top-customers', [\App\Http\Controllers\AdminStatisticsController::class, 'getTopCustomers']);
+    Route::get('/statistics/report', [\App\Http\Controllers\AdminStatisticsController::class, 'getRevenueReport']);
 });
 
 
@@ -212,6 +222,7 @@ Route::get('categories', [CategoryController::class, 'index']);
 Route::get('categories/{id}', [CategoryController::class, 'show']);
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{id}', [ProductController::class, 'show']);
+Route::get('products/{id}/variants', [ProductController::class, 'getVariants']);
 Route::get('products/slug/{slug}', [ProductController::class, 'show']);
 Route::get('products/{product_id}/comments', [ProductCommentController::class, 'getByProduct']);
 Route::get('productFeatured', [ProductController::class, 'productFeatured']);

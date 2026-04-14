@@ -103,7 +103,7 @@ const userRole = ref('Seller');
 const userAvatar = ref('');
 
 onMounted(() => {
-  const userData = localStorage.getItem('user') || sessionStorage.getItem('user');
+  const userData = sessionStorage.getItem('user');
   if (userData) {
     try {
       const user = JSON.parse(userData);

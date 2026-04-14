@@ -38,8 +38,10 @@ let slideInterval = null;
 
 const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
 
+const defaultSvg = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="100%" height="100%" opacity="0.6"><rect width="400" height="500" fill="#f4f9f9" /><g transform="translate(130, 230)"><path d="M150,50 C150,50 170,-20 100,-40 C30,-60 -20,20 -40,30 C-60,40 -80,20 -90,40 C-100,60 -70,90 -50,90 C-30,90 80,100 150,50 Z" fill="#1b8a9e" /><path d="M-80,40 C-100,10 -110,-10 -90,0 C-70,10 -60,20 -80,40 Z" fill="#0f4c5c" /><path d="M-30,80 C20,90 80,80 110,60" fill="none" stroke="#f4f9f9" stroke-width="4" /><path d="M-20,70 C30,80 70,70 100,50" fill="none" stroke="#f4f9f9" stroke-width="4" /><circle cx="100" cy="-10" r="4" fill="#062f3a" /><path d="M80,-40 C80,-60 60,-80 50,-70" fill="none" stroke="#48b8c9" stroke-width="4" stroke-linecap="round"/><path d="M90,-40 C95,-60 110,-70 120,-60" fill="none" stroke="#48b8c9" stroke-width="4" stroke-linecap="round"/><path d="M85,-40 C85,-70 90,-90 90,-90" fill="none" stroke="#48b8c9" stroke-width="4" stroke-linecap="round"/></g><path d="M0,320 Q50,290 100,320 T200,320 T300,320 T400,320 L400,500 L0,500 Z" fill="#8de1ed" opacity="0.6"/><path d="M0,350 Q50,330 100,350 T200,350 T300,350 T400,350 L400,500 L0,500 Z" fill="#48b8c9" opacity="0.4"/></svg>`);
+
 const getImageUrl = (path) => {
-    if (!path || path === '0') return 'https://placehold.co/400x500?text=No+Image';
+    if (!path || path === '0') return defaultSvg;
     if (path.startsWith('http')) return path;
     return `${BASE_URL}/storage/${path}`;
 };
@@ -206,7 +208,7 @@ setInterval(() => {
                         <p class="fs-5 mb-0" style="max-width: 500px;">
                             Sở hữu ngay những items hot nhất với mức giảm lên đến <strong class="text-warning">50%</strong>. Giao hàng miễn phí.
                         </p>
-                        <button class="btn btn-warning btn-lg fw-bold rounded-pill px-5 mt-4 text-dark shadow-sm border-0" style="background-color: #f7b731; color:  #102a43;">Khám phá ưu đãi</button>
+                        <button class="btn btn-warning btn-lg fw-bold rounded-pill px-5 mt-4 text-white shadow-sm border-0" style="background-color: var(--coral);">Khám phá ưu đãi</button>
                     </div>
                     
                     <div class="promo-right-countdown text-white text-center">
@@ -388,7 +390,7 @@ setInterval(() => {
 .hero-dark-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.1) 60%, transparent 100%);
+    background: linear-gradient(90deg, rgba(10, 40, 70, 0.8) 0%, rgba(10, 40, 70, 0.1) 60%, transparent 100%);
     z-index: 1;
 }
 
@@ -431,17 +433,21 @@ setInterval(() => {
 }
 
 .btn-hero-slider {
-    background: #ffffff;
-    color: var(--ocean-blue, #0F172A);
-    border: 1px solid #ffffff;
+    background: var(--coral);
+    color: #ffffff;
+    border: none;
     padding: 16px 40px;
-    border-radius: var(--radius-micro);
+    border-radius: var(--radius-sm);
     font-size: 0.95rem;
+    box-shadow: 0 4px 14px rgba(242, 100, 87, 0.4);
+    transition: all 0.3s ease;
 }
 
 .btn-hero-slider:hover {
-    background: transparent;
+    background: #e35a4d;
     color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(242, 100, 87, 0.5);
 }
 
 .slider-indicators {
@@ -522,7 +528,7 @@ setInterval(() => {
 
 /* Grid */
  .products-section, .category-tabs-section {
-    margin-bottom: 80px;
+    margin-bottom: 100px;
 }
 
 .products-grid {
@@ -548,7 +554,7 @@ setInterval(() => {
 .promo-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.4) 100%);
+    background: linear-gradient(90deg, rgba(15,76,92,0.9) 0%, rgba(15,76,92,0.6) 100%);
     z-index: 1;
 }
 
@@ -559,16 +565,16 @@ setInterval(() => {
 }
 
 .cd-box {
-    background: rgba(255,255,255,0.15);
+    background: var(--ocean-blue);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.1);
     border-radius: 12px;
     padding: 16px;
     min-width: 80px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .cd-num { font-size: 2rem; font-weight: 800; line-height: 1; margin-bottom: 4px; }

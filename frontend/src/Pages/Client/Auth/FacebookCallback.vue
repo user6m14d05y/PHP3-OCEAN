@@ -22,21 +22,24 @@ onMounted(async () => {
     const response = await api.post('/auth/facebook/callback', { code });
 
     if (response.data.status === 'success') {
-      // Lưu token + user info
-      sessionStorage.setItem('auth_token', response.data.access_token);
-      sessionStorage.setItem('user', JSON.stringify({
+      const userData = JSON.stringify({
         isLoggedIn: true,
-        id: response.data.user.id,
-        name: response.data.user.name,
-        email: response.data.user.email,
-        role: response.data.user.role
-      }));
+        ...response.data.user
+      });
+
+      // OAuth luôn dùng sessionStorage
+      sessionStorage.setItem('auth_token', response.data.access_token);
+      sessionStorage.setItem('user', userData);
+      // Xóa localStorage nếu có từ session cũ
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
 
       status.value = 'success';
 
       // Redirect theo role
       setTimeout(() => {
-        if (response.data.user.role === 'admin' || response.data.user.role === 'staff') {
+        const role = response.data.user?.role;
+        if (['admin', 'staff', 'seller'].includes(role)) {
           router.push('/admin');
         } else {
           router.push('/');

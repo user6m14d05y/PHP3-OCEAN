@@ -122,15 +122,17 @@ const login = async () => {
     });
 
     if (response.data.status === 'success') {
-      if (rememberMe.value) {
-        localStorage.setItem('auth_token', response.data.access_token);
-      } else {
-        sessionStorage.setItem('auth_token', response.data.access_token);
-      }
-      sessionStorage.setItem('user', JSON.stringify({
+      const userData = JSON.stringify({
         isLoggedIn: true,
         ...response.data.user
-      }));
+      });
+
+      // Luôn lưu vào sessionStorage — SessionSync sẽ tự đồng bộ sang tab mới
+      sessionStorage.setItem('auth_token', response.data.access_token);
+      sessionStorage.setItem('user', userData);
+      // Xóa sạch localStorage khỏi session cũ (nếu có)
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
 
       if (['admin', 'staff', 'seller'].includes(response.data.user.role)) {
         router.push('/admin');

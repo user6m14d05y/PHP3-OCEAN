@@ -96,8 +96,16 @@
 
       <!-- Search -->
       <div class="search-box">
-        <input type="text" placeholder="Tìm kiếm sản phẩm, thương hiệu..." class="search-input" />
-        <button class="search-submit">
+        <input
+          id="headerSearchInput"
+          v-model="searchQuery"
+          type="text"
+          placeholder="Tìm kiếm sản phẩm, thương hiệu..."
+          class="search-input"
+          autocomplete="off"
+          @keyup.enter="handleSearch"
+        />
+        <button class="search-submit" @click="handleSearch" title="Tìm kiếm">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
       </div>
@@ -202,11 +210,13 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import api from '../axios.js';
+import { broadcastLogout } from '../sessionSync.js';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const route = useRoute();
+const router = useRouter();
 
 const isLoggedIn = ref(false);
 const userName = ref('');
@@ -220,6 +230,22 @@ const categories = ref([]);
 const publicCoupons = ref([]);
 const hoveredCategory = ref(null);
 const cartCount = ref(0);
+
+// Tìm kiếm
+const searchQuery = ref('');
+
+const handleSearch = () => {
+  const q = searchQuery.value.trim();
+  if (!q) return;
+  router.push({ path: '/product', query: { q } });
+};
+
+// Đồng bộ ô tìm kiếm với URL khi đang ở trang sản phẩm
+watch(() => route.query.q, (newQ) => {
+  if (route.path === '/product') {
+    searchQuery.value = newQ || '';
+  }
+}, { immediate: true });
 
 const fetchCategories = async () => {
   try {
@@ -278,7 +304,7 @@ const checkAuth = () => {
 };
 
 const fetchCartCount = async () => {
-  const token = localStorage.getItem('auth_token');
+  const token = sessionStorage.getItem('auth_token');
   if (!token) { cartCount.value = 0; return; }
   try {
     const response = await api.get('/cart/count');
@@ -288,17 +314,19 @@ const fetchCartCount = async () => {
 
 const handleLogout = async () => {
   try { await api.post('/logout'); } catch (e) { /* ignore */ }
+  // Broadcast logout sang tất cả các tab khác đang mở
+  broadcastLogout();
+  // Xóa session tab hiện tại
   localStorage.removeItem('auth_token');
+  localStorage.removeItem('user');
   localStorage.removeItem('ocean_live_chat_token');
+  sessionStorage.removeItem('auth_token');
+  sessionStorage.removeItem('user');
   sessionStorage.removeItem('ocean_chatbot_messages');
   sessionStorage.removeItem('ocean_chatbot_history');
-  sessionStorage.removeItem('user');
   isLoggedIn.value = false;
   showDropdown.value = false;
 
-  // Ở lại trang hiện tại nếu không phải trang cần auth,
-  // nhưng thực tế trang hiện tại có thể yêu cầu auth nên router guard sẽ tự xử lý.
-  // Người dùng yêu cầu: "khi ấn đăng xuất thì vẫn ở lại trang đó chứ ko trả về trang login"
   window.location.reload();
 };
 
@@ -360,7 +388,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   background: #fff;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #333;
+  color: var(--text-main);
   cursor: pointer;
   font-family: inherit;
   flex-shrink: 0;
@@ -440,7 +468,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 .mega-column { display: flex; flex-direction: column; gap: 6px; }
 
 .mega-column-title {
-  font-size: 1rem; font-weight: 700; color: #111827;
+  font-size: 1rem; font-weight: 700; color: var(--text-main);
   text-decoration: none; margin-bottom: 4px; transition: color 0.15s;
 }
 .mega-column-title:hover { color: var(--ocean-blue); }
@@ -488,7 +516,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   outline: none;
   font-size: 0.95rem;
   font-family: inherit;
-  color: #333;
+  color: var(--text-main);
   background: transparent;
 }
 
@@ -519,7 +547,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  color: #4b5563;
+  color: var(--text-main);
   text-decoration: none;
   cursor: pointer;
   background: none;
@@ -598,7 +626,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   white-space: nowrap;
 }
 
-.dropdown-name { font-size: 0.85rem; font-weight: 600; color: #111; }
+.dropdown-name { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
 .dropdown-email { font-size: 0.75rem; color: #888; }
 .dropdown-divider { height: 1px; background: #e5e7eb; margin: 4px 0; }
 
@@ -610,7 +638,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 500;
-  color: #333;
+  color: var(--text-main);
   text-decoration: none;
   cursor: pointer;
   background: none;
@@ -627,7 +655,7 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 /* Voucher Dropdown Style */
 .voucher-menu { min-width: 280px; }
 .dropdown-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; }
-.dropdown-title { font-size: 0.85rem; font-weight: 700; color: #111; }
+.dropdown-title { font-size: 0.85rem; font-weight: 700; color: var(--text-main); }
 .view-all { font-size: 0.75rem; color: var(--ocean-blue); text-decoration: none; font-weight: 600; }
 .view-all:hover { text-decoration: underline; }
 .empty-voucher { padding: 20px; text-align: center; font-size: 0.85rem; color: #888; }

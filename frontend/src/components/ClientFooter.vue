@@ -98,7 +98,7 @@ const submitNewsletter = async () => {
 
 <style scoped>
 .site-footer {
-  background: #fafbfc;
+  background: #f4f9f9;
   border-top: 1px solid #e5e7eb;
   padding: 48px 0 0;
 }
@@ -130,7 +130,7 @@ const submitNewsletter = async () => {
 
 .footer-desc { font-size: 0.95rem; color: #6b7280; line-height: 1.6; margin-bottom: 24px; }
 
-.newsletter-title { font-size: 0.95rem; font-weight: 700; color: #111; margin-bottom: 10px; }
+.newsletter-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 10px; }
 
 .newsletter-form {
   display: flex;
@@ -147,7 +147,7 @@ const submitNewsletter = async () => {
 
 .newsletter-btn:hover { background: rgba(2, 136, 209, 0.85); transform: scale(1.02); }
 
-.footer-heading { font-size: 1rem; font-weight: 700; color: #111; margin-bottom: 16px; font-style: italic; }
+.footer-heading { font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 16px; font-style: italic; }
 
 .footer-links {
   list-style: none;

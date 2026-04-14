@@ -326,6 +326,81 @@ class CartController extends Controller
     }
 
     /**
+     * PUT /cart/items/{id}/variant — Đổi biến thể (màu/size) của một cart item
+     */
+    public function changeVariant(Request $request, $id)
+    {
+        $userId = $this->getUserId();
+
+        if (!$userId) {
+            return response()->json(['status' => 'error', 'message' => 'Bạn cần đăng nhập!'], 401);
+        }
+
+        $request->validate([
+            'variant_id' => 'required|integer|exists:product_variants,variant_id',
+        ]);
+
+        // Tìm cart item hiện tại và kiểm tra quyền sở hữu
+        $cartItem = CartItem::where('cart_item_id', $id)
+            ->whereHas('cart', function ($query) use ($userId) {
+                $query->where('user_id', $userId)->where('status', 'active');
+            })
+            ->first();
+
+        if (!$cartItem) {
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy sản phẩm trong giỏ hàng.'], 404);
+        }
+
+        $newVariant = ProductVariant::find($request->variant_id);
+
+        if (!$newVariant || $newVariant->status !== 'active') {
+            return response()->json(['status' => 'error', 'message' => 'Biến thể sản phẩm không khả dụng.'], 422);
+        }
+
+        // Kiểm tra variant mới thuộc cùng sản phẩm với variant cũ
+        $oldVariant = ProductVariant::find($cartItem->variant_id);
+        if (!$oldVariant || $oldVariant->product_id !== $newVariant->product_id) {
+            return response()->json(['status' => 'error', 'message' => 'Biến thể không hợp lệ.'], 422);
+        }
+
+        // Nếu chọn lại chính variant đang có → không làm gì
+        if ($cartItem->variant_id == $request->variant_id) {
+            return response()->json(['status' => 'success', 'message' => 'Biến thể không thay đổi.']);
+        }
+
+        // Kiểm tra tồn kho
+        if ($cartItem->quantity > $newVariant->stock) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Số lượng vượt quá tồn kho. Chỉ còn {$newVariant->stock} sản phẩm.",
+                'available_stock' => $newVariant->stock,
+            ], 422);
+        }
+
+        // Kiểm tra variant mới đã có sẵn trong giỏ chưa (để merge)
+        $cart = Cart::where('user_id', $userId)->where('status', 'active')->first();
+        $existingItem = CartItem::where('cart_id', $cart->cart_id)
+            ->where('variant_id', $request->variant_id)
+            ->where('cart_item_id', '!=', $id)
+            ->first();
+
+        if ($existingItem) {
+            // Merge: cộng dồn số lượng vào item đã có, xóa item hiện tại
+            $mergedQty = $existingItem->quantity + $cartItem->quantity;
+            if ($mergedQty > $newVariant->stock) {
+                $mergedQty = $newVariant->stock;
+            }
+            $existingItem->update(['quantity' => $mergedQty]);
+            $cartItem->delete();
+        } else {
+            // Đổi variant_id trực tiếp
+            $cartItem->update(['variant_id' => $request->variant_id]);
+        }
+
+        return response()->json(['status' => 'success', 'message' => 'Đã cập nhật biến thể sản phẩm!']);
+    }
+
+    /**
      * GET /cart/count — Lấy số lượng item trong giỏ (dành cho badge header)
      */
     public function getCount()
@@ -340,7 +415,7 @@ class CartController extends Controller
             ->where('status', 'active')
             ->first();
 
-        $count = $cart ? $cart->items()->count() : 0;
+        $count = $cart ? $cart->items()->sum('quantity') : 0;
 
         return response()->json(['count' => $count]);
     }

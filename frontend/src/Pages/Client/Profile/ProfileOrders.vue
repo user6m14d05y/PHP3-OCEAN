@@ -199,6 +199,7 @@ const buyAgain = async (orderId) => {
   try {
     const res = await api.post(`/cart/buy-again/${orderId}`);
     if (res.data.status === 'success') {
+      window.dispatchEvent(new Event('cart-updated'));
       router.push('/cart');
     }
   } catch (error) {

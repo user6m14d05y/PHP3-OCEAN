@@ -132,7 +132,7 @@ class ProductController extends Controller
     }
     public function productFeatured(Request $request)
     {
-        $products = Cache::tags(['products'])->remember('products:productFeatured', 1800, function () {
+        $products = Cache::remember('products:productFeatured', 1800, function () {
             $query = Product::with([
                 'mainImage' => function ($q) {
                     $q->select('image_id', 'image_url', 'product_id');
@@ -160,12 +160,18 @@ class ProductController extends Controller
     /**
      * Chi tiết sản phẩm theo slug (client)
      */
-    public function show($slug)
+    public function show($identifier)
     {
-        $product = Cache::tags(['products'])->remember("product:slug:{$slug}", 1800, function () use ($slug) {
-            return Product::with(['category', 'brand', 'images', 'variants'])
-                ->where('slug', $slug)
-                ->first();
+        $product = Cache::remember("product:identifier:{$identifier}", 1800, function () use ($identifier) {
+            $query = Product::with(['category', 'brand', 'images', 'variants']);
+            
+            if (is_numeric($identifier)) {
+                $query->where('product_id', $identifier)->orWhere('slug', $identifier);
+            } else {
+                $query->where('slug', $identifier);
+            }
+            
+            return $query->first();
         });
 
         if (!$product) {
@@ -181,7 +187,7 @@ class ProductController extends Controller
      */
     public function featured()
     {
-        $products = Cache::tags(['products'])->remember('products:featured', 1800, function () {
+        $products = Cache::remember('products:featured', 1800, function () {
             return Product::with([
                 'mainImage' => function ($q) {
                     $q->select('image_id', 'image_url', 'product_id');
@@ -202,7 +208,41 @@ class ProductController extends Controller
     }
 
     /**
+     * GET /products/{id}/variants — Lấy danh sách biến thể của sản phẩm (public)
+     */
+    public function getVariants($id)
+    {
+        $product = Product::with(['variants' => function ($q) {
+            $q->where('status', 'active')->orderBy('color')->orderBy('size');
+        }])->where('product_id', $id)->first();
 
+        if (!$product) {
+            return response()->json(['status' => 'error', 'message' => 'Sản phẩm không tồn tại.'], 404);
+        }
+
+        $variants = $product->variants->map(function ($v) {
+            return [
+                'variant_id'       => $v->variant_id,
+                'color'            => $v->color,
+                'size'             => $v->size,
+                'variant_name'     => $v->variant_name,
+                'price'            => $v->price,
+                'compare_at_price' => $v->compare_at_price,
+                'stock'            => $v->stock,
+                'status'           => $v->status,
+                'image_url'        => $v->image_url,
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $variants,
+        ]);
+    }
+
+
+
+    /**
      * Danh sách tất cả sản phẩm (public, phân trang)
      */
     public function all(Request $request)
@@ -213,7 +253,7 @@ class ProductController extends Controller
         
         $cacheKey = "products:all:page:{$page}:limit:{$limit}";
 
-        $products = Cache::tags(['products'])->remember($cacheKey, 1800, function () use ($offset, $limit) {
+        $products = Cache::remember($cacheKey, 1800, function () use ($offset, $limit) {
             return Product::with([
                 'mainImage' => function ($q) {
                     $q->select('image_id', 'image_url', 'product_id');
@@ -443,7 +483,7 @@ class ProductController extends Controller
             }
 
             DB::commit();
-            Cache::tags(['products'])->flush();
+            Cache::flush();
 
             return response()->json([
                 'success' => true,
@@ -751,7 +791,7 @@ class ProductController extends Controller
             }
 
             DB::commit();
-            Cache::tags(['products'])->flush();
+            Cache::flush();
 
             return response()->json([
                 'success' => true,
@@ -777,7 +817,7 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
             $product->delete();
-            Cache::tags(['products'])->flush();
+            Cache::flush();
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Product deleted successfully',
@@ -818,7 +858,7 @@ class ProductController extends Controller
             $errors = $import->getErrors();
 
             if ($successCount > 0) {
-                Cache::tags(['products'])->flush();
+                Cache::flush();
             }
 
             return response()->json([
