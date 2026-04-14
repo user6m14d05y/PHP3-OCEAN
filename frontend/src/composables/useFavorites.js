@@ -1,5 +1,19 @@
 import { ref } from 'vue';
-import api from '@/axios';
+import api from '@/axios'; // Giả sử axios instance được cấu hình sẵn token JWT
+import Swal from 'sweetalert2';
+
+// Cấu hình Toast chung
+const Toast = Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    didOpen: (toast) => {
+        toast.addEventListener('mouseenter', Swal.stopTimer);
+        toast.addEventListener('mouseleave', Swal.resumeTimer);
+    }
+});
 
 // State global, chỉ khởi tạo 1 lần
 const favoriteIds = ref([]);
@@ -29,8 +43,11 @@ export function useFavorites() {
      * Toggle trái tim (thêm/xoá)
      */
     const toggleFavorite = async (productId) => {
-        if (!isLoggedIn()) {
-            alert('Vui lòng đăng nhập để yêu thích sản phẩm');
+        if (!localStorage.getItem('auth_token')) {
+            Toast.fire({
+                icon: 'warning',
+                title: 'Vui lòng đăng nhập để yêu thích sản phẩm'
+            });
             return false;
         }
 
@@ -47,6 +64,17 @@ export function useFavorites() {
         try {
             const response = await api.post('/profile/favorites/toggle', { product_id: productId });
             if (response.data && response.data.status === 'success') {
+                if (originallyFavorited) {
+                    Toast.fire({
+                        icon: 'info',
+                        title: 'Đã bỏ yêu thích sản phẩm'
+                    });
+                } else {
+                    Toast.fire({
+                        icon: 'success',
+                        title: 'Đã thêm vào yêu thích'
+                    });
+                }
                 return true;
             }
         } catch (error) {
@@ -58,7 +86,10 @@ export function useFavorites() {
                 const idx = favoriteIds.value.indexOf(productId);
                 if (idx !== -1) favoriteIds.value.splice(idx, 1);
             }
-            alert('Có lỗi xảy ra, vui lòng thử lại.');
+            Toast.fire({
+                icon: 'error',
+                title: 'Có lỗi xảy ra, vui lòng thử lại.'
+            });
             return false;
         }
     };
