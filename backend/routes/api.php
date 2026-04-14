@@ -181,6 +181,7 @@ Route::middleware(['auth:api,admin', 'role:admin,seller'])->prefix('admin')->gro
     Route::put('/orders/bulk-status', [\App\Http\Controllers\AdminOrderController::class, 'bulkUpdateStatus']);
     Route::get('/orders/{id}', [\App\Http\Controllers\AdminOrderController::class, 'show']);
     Route::put('/orders/{id}/status', [\App\Http\Controllers\AdminOrderController::class, 'updateStatus']);
+    Route::post('/orders/{id}/ghn-sync', [\App\Http\Controllers\AdminOrderController::class, 'syncGHN']);
 
     // POS - Bán hàng trực tiếp
     Route::get('/pos/products/search', [PosController::class, 'searchProducts']);

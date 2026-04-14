@@ -48,7 +48,7 @@ class OrderController extends Controller
         $query = Order::with(['items.product', 'items.variant', 'items.comment'])
             ->where('user_id', $userId)
             ->orderBy('created_at', 'desc');
-            
+
         // Có thể lọc theo status (pending, completed, v.v.)
         if ($request->has('status') && $request->status !== 'all') {
             $query->where('fulfillment_status', $request->status);
@@ -192,14 +192,69 @@ class OrderController extends Controller
                 } elseif ($coupon->type === 'free_ship') {
                     // Xử lý freeship sau ở phần phí vận chuyển
                 }
-                
+
                 // Thu nhỏ discountAmount sao cho không vượt subtotal
                 $discountAmount = min($discountAmount, $subtotal);
                 $couponId = $coupon->id;
             }
         }
 
-        $shippingFee = floatval($request->input('shipping_fee', 30000));
+        // Tính phí vận chuyển động
+        $shippingFee = 30000; // Mặc định nếu không tìm thấy
+
+        if (class_exists(\App\Models\ShippingZone::class)) {
+            $zones = \App\Models\ShippingZone::where('is_active', true)
+                ->orderByDesc('priority')
+                ->get();
+
+            $matchedZone = null;
+            foreach ($zones as $zone) {
+                if (empty($zone->provinces)) {
+                    if (!$matchedZone) $matchedZone = $zone; // Fallback
+                    continue;
+                }
+
+                // Đảm bảo provinces là mảng (Xử lý trường hợp DB lưu là json string hoặc comma-separated)
+                $provincesArray = [];
+                if (is_array($zone->provinces)) {
+                    $provincesArray = $zone->provinces;
+                } elseif (is_string($zone->provinces)) {
+                    $decoded = json_decode($zone->provinces, true);
+                    if (is_array($decoded)) {
+                        $provincesArray = $decoded;
+                    } else {
+                        $provincesArray = array_map('trim', explode(',', $zone->provinces));
+                    }
+                }
+
+                $inProvince = false;
+                foreach ($provincesArray as $p) {
+                    if (empty($p)) continue;
+                    $provName = mb_strtolower($p, 'UTF-8');
+                    $addrProv = mb_strtolower($address->province ?? '', 'UTF-8');
+                    $addrDist = $address->district ? mb_strtolower($address->district, 'UTF-8') : '';
+
+                    if (str_contains($addrProv, $provName) || str_contains($provName, $addrProv) ||
+                        ($addrDist && (str_contains($addrDist, $provName) || str_contains($provName, $addrDist)))) {
+                        $inProvince = true;
+                        break;
+                    }
+                }
+
+                if ($inProvince) {
+                    $matchedZone = $zone;
+                    break;
+                }
+            }
+
+            if ($matchedZone) {
+                if ($matchedZone->free_ship_threshold && $subtotal >= $matchedZone->free_ship_threshold) {
+                    $shippingFee = 0;
+                } else {
+                    $shippingFee = $matchedZone->shipping_fee;
+                }
+            }
+        }
 
         if (isset($coupon) && $coupon->type === 'free_ship') {
             $shippingFee = 0; // Áp dụng coupon freeship
@@ -292,8 +347,8 @@ class OrderController extends Controller
                     $userCoupon->increment('used_count');
                 } else {
                     UserCoupon::create([
-                        'user_id' => $userId, 
-                        'coupon_id' => $couponId, 
+                        'user_id' => $userId,
+                        'coupon_id' => $couponId,
                         'used_count' => 1,
                         'is_saved' => false
                     ]);
@@ -460,7 +515,7 @@ class OrderController extends Controller
         if (!$userId) return response()->json(['status' => 'error'], 401);
 
         $order = Order::where('order_id', $id)->where('user_id', $userId)->first();
-        
+
         if (!$order) {
             return response()->json(['status' => 'error', 'message' => 'Không tìm thấy đơn hàng!'], 404);
         }
@@ -491,14 +546,14 @@ class OrderController extends Controller
             $cases = [];
             $bindings = [];
             $variantIds = [];
-            
+
             foreach ($orderItems as $item) {
                 $cases[] = "WHEN ? THEN stock + ?";
                 $bindings[] = $item->variant_id;
                 $bindings[] = $item->quantity;
                 $variantIds[] = $item->variant_id;
             }
-            
+
             if (!empty($variantIds)) {
                 $ids = implode(',', array_fill(0, count($variantIds), '?'));
                 $casesSql = implode(' ', $cases);
@@ -507,7 +562,7 @@ class OrderController extends Controller
             }
 
             DB::commit();
-            
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Đã hủy đơn hàng thành công!'
@@ -527,7 +582,7 @@ class OrderController extends Controller
         if (!$userId) return response()->json(['status' => 'error'], 401);
 
         $order = Order::where('order_code', $order_code)->where('user_id', $userId)->first();
-        
+
         if (!$order) {
             return response()->json(['status' => 'error', 'message' => 'Không tìm thấy đơn hàng!'], 404);
         }

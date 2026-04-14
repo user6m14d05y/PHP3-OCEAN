@@ -21,11 +21,11 @@ class AdminOrderController extends Controller
         if ($request->has('status') && $request->status !== 'all') {
             $query->where('fulfillment_status', $request->status);
         }
-        
+
         if ($request->has('payment_status') && $request->payment_status !== 'all') {
             $query->where('payment_status', $request->payment_status);
         }
-        
+
         if ($request->has('search') && $request->search) {
             $searchTerm = $request->search;
             $query->where(function($q) use ($searchTerm) {
@@ -39,7 +39,7 @@ class AdminOrderController extends Controller
         if ($request->has('date_from') && $request->date_from) {
             $query->whereDate('created_at', '>=', $request->date_from);
         }
-        
+
         if ($request->has('date_to') && $request->date_to) {
             $query->whereDate('created_at', '<=', $request->date_to);
         }
@@ -58,7 +58,7 @@ class AdminOrderController extends Controller
     public function show($id)
     {
         $order = Order::with(['items.product', 'items.variant', 'user', 'statusHistories'])->where('order_id', $id)->first();
-        
+
         if (!$order) {
             return response()->json(['status' => 'error', 'message' => 'Không tìm thấy đơn hàng!'], 404);
         }
@@ -100,9 +100,9 @@ class AdminOrderController extends Controller
         try {
             $oldFulfillmentStatus = $order->fulfillment_status;
             $oldPaymentStatus = $order->payment_status;
-            
+
             $updates = [];
-            
+
             if ($request->has('fulfillment_status') && $request->fulfillment_status !== $order->fulfillment_status) {
                 // Kiểm tra luồng trạng thái hợp lệ
                 $allowed = $allowedTransitions[$order->fulfillment_status] ?? [];
@@ -114,7 +114,7 @@ class AdminOrderController extends Controller
                 }
 
                 $updates['fulfillment_status'] = $request->fulfillment_status;
-                
+
                 // Tự động set thời gian
                 $statusFieldMap = [
                     'confirmed' => 'confirmed_at',
@@ -123,25 +123,25 @@ class AdminOrderController extends Controller
                     'completed' => 'completed_at',
                     'cancelled' => 'cancelled_at'
                 ];
-                
+
                 if (isset($statusFieldMap[$request->fulfillment_status])) {
                     $updates[$statusFieldMap[$request->fulfillment_status]] = now();
                 }
-                
+
                 if ($request->fulfillment_status === 'cancelled') {
                     $updates['cancel_reason'] = $request->note ?? 'Hủy bởi Admin';
                     // Hoàn lại tồn kho bằng 1 query duy nhất để tránh N+1 update
                     $cases = [];
                     $bindings = [];
                     $variantIds = [];
-                    
+
                     foreach ($order->items as $item) {
                         $cases[] = "WHEN ? THEN stock + ?";
                         $bindings[] = $item->variant_id;
                         $bindings[] = $item->quantity;
                         $variantIds[] = $item->variant_id;
                     }
-                    
+
                     if (!empty($variantIds)) {
                         $ids = implode(',', array_fill(0, count($variantIds), '?'));
                         $casesSql = implode(' ', $cases);
@@ -184,7 +184,7 @@ class AdminOrderController extends Controller
 
             if (!empty($updates)) {
                 $order->update($updates);
-                
+
                 // Lưu lịch sử nếu fulfillment status đổi
                 if (isset($updates['fulfillment_status'])) {
                     OrderStatusHistory::create([
@@ -194,7 +194,7 @@ class AdminOrderController extends Controller
                         'note' => $request->note ?? "Chuyển trạng thái bởi Admin",
                     ]);
                 }
-                
+
                 if (isset($updates['payment_status'])) {
                     OrderStatusHistory::create([
                         'order_id' => $order->order_id,
@@ -367,13 +367,39 @@ class AdminOrderController extends Controller
 
             DB::commit();
             return response()->json([
-                'status' => 'success', 
+                'status' => 'success',
                 'message' => 'Cập nhật trạng thái hàng loạt đổi thành công cho ' . count($orders) . ' đơn hàng!'
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Cập nhật trạng thái hàng loạt lỗi: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'Có lỗi hệ thống xảy ra!'], 500);
+     * Đồng bộ đơn hàng lên GHN
+     */
+    public function syncGHN($id)
+    {
+        $order = Order::with(['items', 'address'])->where('order_id', $id)->first();
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy đơn hàng!'], 404);
+        }
+
+        try {
+            $result = \App\Services\GHNService::createOrder($order);
+
+            // Optionally, save the GHN order code to your database here
+            // if you add a 'shipping_code' column to the orders table.
+            // $order->update(['shipping_code' => $result['data']['order_code']]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Đã tạo đơn hàng trên GHN thành công!',
+                'data' => $result
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 }
