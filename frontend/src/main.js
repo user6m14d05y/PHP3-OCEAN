@@ -6,7 +6,12 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import './bootstrap';
 import './echo';
 import router from './router';
+import { initSessionSync } from './sessionSync';
 
-const app = createApp(App);
-app.use(router);
-app.mount('#app');
+// Khởi tạo session sync trước khi mount app
+// Đảm bảo tab mới có thể nhận session từ tab cũ trong ~150ms
+initSessionSync().then(() => {
+    const app = createApp(App);
+    app.use(router);
+    app.mount('#app');
+});

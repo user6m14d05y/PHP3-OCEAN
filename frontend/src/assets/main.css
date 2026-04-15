@@ -5,22 +5,22 @@
   --ocean-deep: #ffffff;
   --ocean-dark: #64748b;
   --ocean-mid: #94a3b8;
-  --ocean-blue: #0F172A; 
-  --ocean-bright: #1e293b;
-  --ocean-light: #475569;
-  --text-main: #020617;
-  --text-muted: #64748b;
-  --text-light: #94a3b8;
+  --ocean-blue: #0f4c5c; 
+  --ocean-bright: #1b8a9e;
+  --ocean-light: #48b8c9;
+  --text-main: #062f3a;
+  --text-muted: #4e6a71;
+  --text-light: #89a1a8;
 
   /* Accent */
-  --coral: #334155;
-  --seafoam: #0F172A;
-  --amber: #0F172A;
+  --coral: #f26457;
+  --seafoam: #0f4c5c;
+  --amber: #f7b731;
 
   /* Border & Surface */
   --border-color: #e2e8f0;
   --card-bg: #ffffff;
-  --hover-bg: #f8fafc;
+  --hover-bg: #f2f7f9;
   --radius-micro: 6px;
   --radius-sm: 10px;
 
@@ -33,27 +33,27 @@
 /* ===== OCEAN THEME - Dark Theme ===== */
 html.dark {
   /* Ocean Color Palette (Dark Theme) */
-  --ocean-deepest: #0f172a; /* tailwind slate-900 */
-  --ocean-deep: #1e293b;   /* tailwind slate-800 */
-  --ocean-dark: #334155;   /* tailwind slate-700 */
-  --ocean-mid: #475569;    /* tailwind slate-600 */
-  --ocean-blue: #38bdf8;   /* tailwind sky-400 */
-  --ocean-bright: #7dd3fc;
-  --ocean-light: #bae6fd;
+  --ocean-deepest: #061c22;
+  --ocean-deep: #092e38;
+  --ocean-dark: #0f4c5c;
+  --ocean-mid: #156d84;
+  --ocean-blue: #1b8a9e;
+  --ocean-bright: #48b8c9;
+  --ocean-light: #8de1ed;
   
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-light: #64748b;
+  --text-main: #f0f7f9;
+  --text-muted: #b7cbcf;
+  --text-light: #89a1a8;
 
   /* Accent */
-  --coral: #94a3b8;
-  --seafoam: #64748b;
-  --amber: #f8fafc;
+  --coral: #f26457;
+  --seafoam: #156d84;
+  --amber: #f7b731;
 
   /* Border & Surface */
-  --border-color: #1e293b;
-  --card-bg: #0f172a;
-  --hover-bg: #1e293b;
+  --border-color: #092e38;
+  --card-bg: #03151a;
+  --hover-bg: #092e38;
 }
 
 /* =======================================================

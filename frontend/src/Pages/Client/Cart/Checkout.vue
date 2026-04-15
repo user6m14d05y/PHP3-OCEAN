@@ -103,18 +103,7 @@ const fetchCoupons = async () => {
     }
 };
 
-// Lấy danh sách phí vận chuyển
-const shippingZones = ref([]);
-const fetchShippingZones = async () => {
-    try {
-        const res = await api.get('/shipping-zones/active');
-        if (res.data?.status === 'success') {
-            shippingZones.value = res.data.data;
-        }
-    } catch (e) {
-        console.error('Lỗi tải phí vận chuyển:', e);
-    }
-};
+// Đã bỏ tính năng ShippingZone tự làm do sử dụng GHN API
 
 
 // Format full address để render UI
@@ -460,7 +449,7 @@ const showToast = (message, type = 'success') => {
 };
 
 onMounted(async () => {
-    await Promise.all([fetchCart(), fetchAddresses(), fetchCoupons(), fetchShippingZones(), getGHNProvinces()]);
+    await Promise.all([fetchCart(), fetchAddresses(), fetchCoupons(), getGHNProvinces()]);
     loading.value = false;
 });
 </script>

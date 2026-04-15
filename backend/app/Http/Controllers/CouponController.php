@@ -66,7 +66,7 @@ class CouponController extends Controller
             $coupon->categories()->sync($request->category_ids);
         }
         
-        Cache::tags(['coupons'])->flush();
+        Cache::flush();
 
         // Gửi email thông báo cho khách hàng
         if ($request->input('send_email')) {
@@ -147,7 +147,7 @@ class CouponController extends Controller
             $coupon->categories()->sync($request->category_ids ?? []);
         }
         
-        Cache::tags(['coupons'])->flush();
+        Cache::flush();
 
         return response()->json([
             'status' => 'success',
@@ -171,7 +171,7 @@ class CouponController extends Controller
         }
 
         $coupon->delete();
-        Cache::tags(['coupons'])->flush();
+        Cache::flush();
 
         return response()->json([
             'status' => 'success',
@@ -184,7 +184,7 @@ class CouponController extends Controller
      */
     public function getPublicCoupons()
     {
-        $coupons = Cache::tags(['coupons'])->remember('coupons:public_active', 1800, function () {
+        $coupons = Cache::remember('coupons:public_active', 1800, function () {
             $now = now();
             return Coupon::where('is_public', true)
                 ->where('is_active', true)

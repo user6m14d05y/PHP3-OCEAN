@@ -164,16 +164,40 @@ class AuthController extends Controller
 
     public function refresh()
     {
-        $guard = auth('admin')->check() ? 'admin' : 'api';
-        $newToken = auth($guard)->refresh();
+        // Khi token hết hạn, auth()->check() trả về false cho cả hai guard
+        // → không thể dùng check() để detect guard.
+        // Giải pháp: thử refresh từng guard, guard nào thành công thì dùng.
 
-        return response()->json([
-            'status' => 'success',
-            'access_token' => $newToken,
-            'refresh_token' => $newToken,
-            'token_type' => 'Bearer',
-            'expires_in' => auth($guard)->factory()->getTTL() * 60,
-        ]);
+        // Thử guard 'admin' trước
+        try {
+            $newToken = auth('admin')->refresh();
+            return response()->json([
+                'status'        => 'success',
+                'access_token'  => $newToken,
+                'refresh_token' => $newToken,
+                'token_type'    => 'Bearer',
+                'expires_in'    => auth('admin')->factory()->getTTL() * 60,
+            ]);
+        } catch (\Exception $e) {
+            // Không phải admin guard, thử tiếp
+        }
+
+        // Thử guard 'api' (customer)
+        try {
+            $newToken = auth('api')->refresh();
+            return response()->json([
+                'status'        => 'success',
+                'access_token'  => $newToken,
+                'refresh_token' => $newToken,
+                'token_type'    => 'Bearer',
+                'expires_in'    => auth('api')->factory()->getTTL() * 60,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.',
+            ], 401);
+        }
     }
 
     public function me()

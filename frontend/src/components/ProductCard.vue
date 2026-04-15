@@ -56,16 +56,16 @@ const handleToggleFav = async () => {
                     loading="lazy"
                 />
                 
-                <!-- Quick Actions (Hover) -->
-                <div class="product-hover-overlay">
-                    <button class="overlay-btn overlay-btn-fav" 
-                            :class="{'is-active': isFavorited(props.product.id || props.product.product_id)}" 
-                            @click.prevent="handleToggleFav">
-                        <span v-if="isFavorited(props.product.id || props.product.product_id)">ĐÃ LƯU</span>
-                        <span v-else>YÊU THÍCH</span>
+                <!-- Top Right Actions -->
+                <div class="action-cluster">
+                    <button class="icon-action-btn cart-icon-btn" @click.prevent="() => {}" title="Thêm vào giỏ">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/><path d="M20 20a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                     </button>
-                    <button class="overlay-btn overlay-btn-cart">
-                        XEM CHI TIẾT
+                    <button class="icon-action-btn fav-icon-btn" 
+                            :class="{'is-active': isFavorited(props.product.id || props.product.product_id)}" 
+                            @click.prevent="handleToggleFav" title="Yêu thích">
+                        <svg v-if="isFavorited(props.product.id || props.product.product_id)" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                        <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
                     </button>
                 </div>
             </div>
@@ -85,23 +85,26 @@ const handleToggleFav = async () => {
     padding: 0;
     display: flex;
     flex-direction: column;
-    transition: all 0.4s ease;
+    transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
     background: var(--card-bg, #ffffff);
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
+    border: 1px solid #ebebeb;
+    border-radius: 12px;
     overflow: hidden;
     height: 100%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .product-card:hover {
-    transform: none;
-    box-shadow: none;
-    border-color: transparent;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    border-color: rgba(2, 136, 209, 0.15);
 }
 
 .product-img-wrapper {
     position: relative;
     width: 100%;
+    margin: 0;
+    border-radius: 10px;
     aspect-ratio: 3/4; /* Chuẩn tỉ lệ ảnh thời trang */
     background: #f8fafc;
     overflow: hidden;
@@ -137,60 +140,69 @@ const handleToggleFav = async () => {
     height: 100%;
     object-fit: cover;
     object-position: center;
-    transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .product-card:hover .main-img {
-    transform: scale(1.05);
+    transform: scale(1.05); /* Slight gentle zoom */
 }
 
-.product-hover-overlay {
+/* Action cluster top right */
+.action-cluster {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
+    top: 12px;
+    right: 12px;
     display: flex;
-    background: rgba(255, 255, 255, 0.95);
-    transform: translateY(100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border-top: 1px solid var(--border-color);
+    flex-direction: column;
+    gap: 8px;
     z-index: 10;
 }
 
-.product-card:hover .product-hover-overlay {
-    transform: translateY(0);
-}
-
-.overlay-btn {
-    flex: 1;
-    background: transparent;
+.icon-action-btn {
+    background: #ffffff;
     border: none;
-    padding: 14px 0;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--ocean-blue);
-    text-align: center;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted, #64748b);
     cursor: pointer;
-    letter-spacing: 0.5px;
-    transition: all 0.2s;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    opacity: 0;
+    transform: translateX(10px);
 }
 
-.overlay-btn-fav {
-    border-right: 1px solid var(--border-color);
+/* Stagger animation */
+.cart-icon-btn { transition-delay: 0.05s; }
+.fav-icon-btn { transition-delay: 0.1s; }
+
+.product-card:hover .icon-action-btn, 
+.fav-icon-btn.is-active {
+    opacity: 1;
+    transform: translateX(0);
 }
 
-.overlay-btn:hover {
-    background: var(--ocean-blue);
-    color: white;
+.icon-action-btn:hover {
+    color: var(--ocean-blue, #0288D1);
+    transform: translateX(0) scale(1.08) !important;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.12);
 }
 
-.overlay-btn-fav.is-active {
-    color: var(--text-muted);
+.fav-icon-btn.is-active {
+    color: #ff4757;
+}
+
+.fav-icon-btn.is-active:hover {
+    background: #ffffff;
+    color: #ff6b81;
 }
 
 .product-info {
-    padding: 16px 0;
-    background: white;
+    padding: 12px 16px 20px;
+    background: transparent;
     flex-grow: 1;
     display: flex;
     flex-direction: column;
@@ -198,13 +210,19 @@ const handleToggleFav = async () => {
 }
 
 .product-name {
-    font-size: 0.85rem;
-    font-weight: 500;
-    margin-bottom: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 12px;
     color: var(--text-main);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     transition: opacity 0.2s;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 44px; /* ~2 lines */
+    line-height: 1.4;
 }
 
 .product-card:hover .product-name {
@@ -213,9 +231,9 @@ const handleToggleFav = async () => {
 }
 
 .product-price {
-    font-weight: 700;
-    color: var(--text-main);
-    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--ocean-blue);
+    font-size: 1.05rem;
 }
 
 .swatch-dot {

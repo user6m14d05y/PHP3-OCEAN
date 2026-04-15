@@ -56,11 +56,11 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $page = $request->query('page', 1);
-        $limit = $request->query('limit', 12);
-        $search = $request->query('search', '');
-        $status = $request->query('status', '');
-        $offset = ($page - 1) * $limit;
+        $page    = $request->query('page', 1);
+        $limit   = $request->query('limit', 12);
+        $search  = $request->query('search', '');
+        $status  = $request->query('status', '');
+        $offset  = ($page - 1) * $limit;
 
         $query = Product::with([
             'mainImage' => function ($q) {
@@ -73,23 +73,39 @@ class ProductController extends Controller
             'brand:brand_id,name',
         ])->withSum('variants', 'stock');
 
+        // ── Tìm kiếm qua Meilisearch Scout ─────────────────────────────────
         if ($search) {
-            $query->where(function ($q) use ($search)
-            {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('slug', 'like', "%{$search}%");
-            });
+            try {
+                $matchedIds = Product::search($search)->keys()->toArray();
+                if (empty($matchedIds)) {
+                    return response()->json([
+                        'data'        => [],
+                        'total'       => 0,
+                        'total_pages' => 0,
+                        'page'        => (int) $page,
+                        'limit'       => (int) $limit,
+                    ]);
+                }
+                $query->whereIn('product_id', $matchedIds);
+            } catch (\Throwable $e) {
+                // Fallback: nếu Meilisearch down thì dùng LIKE
+                Log::warning('[Scout] Meilisearch fallback: ' . $e->getMessage());
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('slug', 'like', "%{$search}%");
+                });
+            }
         }
 
         if ($status && in_array($status, ['draft', 'active', 'inactive', 'out_of_stock'])) {
-            $query->where('status', $status);
+            $query->where('status', $status)->where('deleted_at', null);
         }
 
         // Lọc theo danh mục (bao gồm cả danh mục con)
         $categoryId = $request->query('category_id');
         if ($categoryId && $categoryId !== 'All') {
             $categoryIds = [$categoryId];
-            $childIds = \App\Models\Category::where('parent_id', $categoryId)->pluck('category_id')->toArray();
+            $childIds    = \App\Models\Category::where('parent_id', $categoryId)->pluck('category_id')->toArray();
             $categoryIds = array_merge($categoryIds, $childIds);
             $query->whereIn('category_id', $categoryIds);
         }
@@ -113,26 +129,23 @@ class ProductController extends Controller
         } elseif ($sortBy === 'price-desc') {
             $query->orderBy('min_price', 'desc');
         } else {
-            // newest hoặc default
             $query->orderBy('product_id', 'desc');
         }
 
-        $total = $query->count();
-        $products = $query->offset($offset)
-            ->limit($limit)
-            ->get();
+        $total    = $query->count();
+        $products = $query->offset($offset)->limit($limit)->get();
 
         return response()->json([
-            'data' => $products,
-            'total' => $total,
+            'data'        => $products,
+            'total'       => $total,
             'total_pages' => ceil($total / $limit),
-            'page' => (int) $page,
-            'limit' => (int) $limit,
+            'page'        => (int) $page,
+            'limit'       => (int) $limit,
         ]);
     }
     public function productFeatured(Request $request)
     {
-        $products = Cache::tags(['products'])->remember('products:productFeatured', 1800, function () {
+        $products = Cache::remember('products:productFeatured', 1800, function () {
             $query = Product::with([
                 'mainImage' => function ($q) {
                     $q->select('image_id', 'image_url', 'product_id');
@@ -160,12 +173,26 @@ class ProductController extends Controller
     /**
      * Chi tiết sản phẩm theo slug (client)
      */
-    public function show($slug)
+    public function show($identifier)
     {
-        $product = Cache::tags(['products'])->remember("product:slug:{$slug}", 1800, function () use ($slug) {
-            return Product::with(['category', 'brand', 'images', 'variants'])
-                ->where('slug', $slug)
-                ->first();
+        $product = Cache::remember("product:identifier:{$identifier}", 1800, function () use ($identifier) {
+            $query = Product::with([
+                'category',
+                'brand',
+                'images',
+                'variants' => function ($q) {
+                    // Sắp xếp variants theo giá tăng dần để frontend dễ tính premium upsell
+                    $q->where('status', 'active')->orderBy('price', 'asc');
+                },
+            ]);
+
+            if (is_numeric($identifier)) {
+                $query->where('product_id', $identifier)->orWhere('slug', $identifier);
+            } else {
+                $query->where('slug', $identifier);
+            }
+
+            return $query->first();
         });
 
         if (!$product) {
@@ -176,12 +203,67 @@ class ProductController extends Controller
     }
 
     /**
+     * Sản phẩm liên quan theo slug (cùng danh mục, loại trừ SP hiện tại)
+     * GET /products/{slug}/related
+     */
+    public function related($slug)
+    {
+        $product = Cache::remember("product:identifier:{$slug}", 1800, function () use ($slug) {
+            $query = Product::with(['category', 'brand', 'images', 'variants']);
+            if (is_numeric($slug)) {
+                $query->where('product_id', $slug)->orWhere('slug', $slug);
+            } else {
+                $query->where('slug', $slug);
+            }
+            return $query->first();
+        });
+
+        if (!$product) {
+            return response()->json(['status' => 'error', 'message' => 'Product not found'], 404);
+        }
+
+        $cacheKey = "products:related:{$product->product_id}";
+        $related = Cache::remember($cacheKey, 900, function () use ($product) {
+            return Product::with([
+                'mainImage' => function ($q) {
+                    $q->select('image_id', 'image_url', 'product_id');
+                },
+                'lowestPriceVariant' => function ($q) {
+                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                },
+                'category:category_id,name',
+            ])
+                ->where('category_id', $product->category_id)
+                ->where('product_id', '!=', $product->product_id)
+                ->where('status', 'active')
+                ->whereNull('deleted_at')
+                ->orderBy('product_id', 'desc')
+                ->limit(4)
+                ->get()
+                ->map(function ($p) {
+                    return [
+                        'product_id'  => $p->product_id,
+                        'name'        => $p->name,
+                        'slug'        => $p->slug,
+                        'min_price'   => $p->min_price,
+                        'thumbnail_url' => $p->mainImage?->image_url ?? $p->thumbnail_url,
+                    ];
+                });
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $related,
+        ]);
+    }
+
+    /**
 
      * Danh sách sản phẩm nổi bật
      */
     public function featured()
     {
-        $products = Cache::tags(['products'])->remember('products:featured', 1800, function () {
+        $products = Cache::remember('products:featured', 1800, function () {
             return Product::with([
                 'mainImage' => function ($q) {
                     $q->select('image_id', 'image_url', 'product_id');
@@ -202,7 +284,41 @@ class ProductController extends Controller
     }
 
     /**
+     * GET /products/{id}/variants — Lấy danh sách biến thể của sản phẩm (public)
+     */
+    public function getVariants($id)
+    {
+        $product = Product::with(['variants' => function ($q) {
+            $q->where('status', 'active')->orderBy('color')->orderBy('size');
+        }])->where('product_id', $id)->first();
 
+        if (!$product) {
+            return response()->json(['status' => 'error', 'message' => 'Sản phẩm không tồn tại.'], 404);
+        }
+
+        $variants = $product->variants->map(function ($v) {
+            return [
+                'variant_id'       => $v->variant_id,
+                'color'            => $v->color,
+                'size'             => $v->size,
+                'variant_name'     => $v->variant_name,
+                'price'            => $v->price,
+                'compare_at_price' => $v->compare_at_price,
+                'stock'            => $v->stock,
+                'status'           => $v->status,
+                'image_url'        => $v->image_url,
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $variants,
+        ]);
+    }
+
+
+
+    /**
      * Danh sách tất cả sản phẩm (public, phân trang)
      */
     public function all(Request $request)
@@ -213,7 +329,7 @@ class ProductController extends Controller
         
         $cacheKey = "products:all:page:{$page}:limit:{$limit}";
 
-        $products = Cache::tags(['products'])->remember($cacheKey, 1800, function () use ($offset, $limit) {
+        $products = Cache::remember($cacheKey, 1800, function () use ($offset, $limit) {
             return Product::with([
                 'mainImage' => function ($q) {
                     $q->select('image_id', 'image_url', 'product_id');
@@ -443,7 +559,7 @@ class ProductController extends Controller
             }
 
             DB::commit();
-            Cache::tags(['products'])->flush();
+            Cache::flush();
 
             return response()->json([
                 'success' => true,
@@ -751,7 +867,7 @@ class ProductController extends Controller
             }
 
             DB::commit();
-            Cache::tags(['products'])->flush();
+            Cache::flush();
 
             return response()->json([
                 'success' => true,
@@ -776,11 +892,13 @@ class ProductController extends Controller
     {
         try {
             $product = Product::findOrFail($id);
-            $product->delete();
-            Cache::tags(['products'])->flush();
+            $product->update([
+                'deleted_at' => now(),
+            ]);
+            Cache::flush();
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Product deleted successfully',
+                'message' => 'Xóa sản phẩm thành công',
             ]);
         } catch (\Exception $e) {
             $isDbError = $e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException;
@@ -818,7 +936,7 @@ class ProductController extends Controller
             $errors = $import->getErrors();
 
             if ($successCount > 0) {
-                Cache::tags(['products'])->flush();
+                Cache::flush();
             }
 
             return response()->json([

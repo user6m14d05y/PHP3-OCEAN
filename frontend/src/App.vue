@@ -6,9 +6,8 @@
 import { onMounted } from 'vue';
 
 onMounted(() => {
-  // Dọn dẹp data cũ ở localStorage để ẩn toàn bộ thông tin user theo yêu cầu
-  if (localStorage.getItem('user')) {
-    localStorage.removeItem('user');
-  }
+  // Dọn dẹp token/user cũ ở localStorage (di sản từ phiên bản cũ dùng localStorage)
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user');
 });
 </script>

@@ -10,12 +10,14 @@ const router = useRouter();
 const route = useRoute();
 const Products = ref([]);
 const Categories = ref([]);
+const isSearching = ref(false);
 
 // State lưu trữ bộ lọc
 const selectedCategory = ref("All");
 const selectedSubcategory = ref("All"); // Thêm state cho sub category
 const selectedPriceRange = ref("All");
 const sortBy = ref("newest");
+const searchQuery = ref(""); // Từ khoá tìm kiếm
 const expandedCategories = ref({});  // track danh mục cha nào đang mở
 
 const toggleCategory = (catId) => {
@@ -56,14 +58,17 @@ const visiblePages = computed(() => {
 
 const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
 
+const defaultSvg = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="100%" height="100%" opacity="0.6"><rect width="400" height="500" fill="#f4f9f9" /><g transform="translate(130, 230)"><path d="M150,50 C150,50 170,-20 100,-40 C30,-60 -20,20 -40,30 C-60,40 -80,20 -90,40 C-100,60 -70,90 -50,90 C-30,90 80,100 150,50 Z" fill="#1b8a9e" /><path d="M-80,40 C-100,10 -110,-10 -90,0 C-70,10 -60,20 -80,40 Z" fill="#0f4c5c" /><path d="M-30,80 C20,90 80,80 110,60" fill="none" stroke="#f4f9f9" stroke-width="4" /><path d="M-20,70 C30,80 70,70 100,50" fill="none" stroke="#f4f9f9" stroke-width="4" /><circle cx="100" cy="-10" r="4" fill="#062f3a" /><path d="M80,-40 C80,-60 60,-80 50,-70" fill="none" stroke="#48b8c9" stroke-width="4" stroke-linecap="round"/><path d="M90,-40 C95,-60 110,-70 120,-60" fill="none" stroke="#48b8c9" stroke-width="4" stroke-linecap="round"/><path d="M85,-40 C85,-70 90,-90 90,-90" fill="none" stroke="#48b8c9" stroke-width="4" stroke-linecap="round"/></g><path d="M0,320 Q50,290 100,320 T200,320 T300,320 T400,320 L400,500 L0,500 Z" fill="#8de1ed" opacity="0.6"/><path d="M0,350 Q50,330 100,350 T200,350 T300,350 T400,350 L400,500 L0,500 Z" fill="#48b8c9" opacity="0.4"/></svg>`);
+
 const getImageUrl = (path) => {
-    if (!path || path === '0') return 'https://placehold.co/400x500?text=No+Image';
+    if (!path || path === '0') return defaultSvg;
     if (path.startsWith('http')) return path;
     return `${BASE_URL}/storage/${path}`;
 };
 
 const fetchProducts = async () => {
     try {
+        isSearching.value = true;
         let queryParams = `limit=12&page=${currentPage.value}`;
         
         let targetCategory = selectedSubcategory.value !== "All" ? selectedSubcategory.value : selectedCategory.value;
@@ -79,6 +84,11 @@ const fetchProducts = async () => {
             queryParams += `&sort_by=${sortBy.value}`;
         }
 
+        // Gửi từ khoá tìm kiếm lên API
+        if (searchQuery.value.trim()) {
+            queryParams += `&search=${encodeURIComponent(searchQuery.value.trim())}`;
+        }
+
         const response = await api.get(`/products?${queryParams}`);
         Products.value = response.data.data.map((item) => ({
             id: item.product_id,
@@ -87,7 +97,11 @@ const fetchProducts = async () => {
                 style: "currency",
                 currency: "VND",
             }).format(item.min_price || 0),
-            image: getImageUrl(item.thumbnail_url),
+            image: getImageUrl(
+                item.thumbnail_url ||
+                item.mainImage?.image_url ||
+                null
+            ),
             badge: item.is_featured ? "Hot" : null,
             slug: item.slug,
             category_id: item.category_id,
@@ -96,6 +110,8 @@ const fetchProducts = async () => {
         totalPages.value = response.data.total_pages || 1;
     } catch (error) {
         console.error("Error fetching products:", error);
+    } finally {
+        isSearching.value = false;
     }
 };
 
@@ -129,9 +145,20 @@ const filteredProducts = computed(() => Products.value);
 
 // Lắng nghe sự thay đổi của bộ lọc để fetch lại
 watch([selectedCategory, selectedSubcategory, selectedPriceRange, sortBy], () => {
-    currentPage.value = 1; // Reset về trang 1
+    currentPage.value = 1;
     fetchProducts();
 });
+
+// Lắng nghe khi header search điều hướng sang /product?q=...
+watch(() => route.query.q, (newQ) => {
+    searchQuery.value = newQ || '';
+    currentPage.value = 1;
+    fetchProducts();
+});
+
+const clearSearch = () => {
+    router.replace({ path: '/product', query: {} });
+};
 
 const goToPage = (page) => {
     if (page >= 1 && page <= totalPages.value) {
@@ -160,6 +187,12 @@ watch(currentPage, () => {
 onMounted(async () => {
     const pageFromUrl = parseInt(route.query.page);
     if (pageFromUrl && pageFromUrl > 0) currentPage.value = pageFromUrl;
+
+    // Đọc từ khoá tìm kiếm từ URL (do header search điều hướng đến)
+    if (route.query.q) {
+        searchQuery.value = route.query.q;
+    }
+
     await Promise.all([fetchProducts(), fetchCategories()]);
 
     // Xử lý query param ?category=slug
@@ -235,6 +268,15 @@ onMounted(async () => {
                     class="products-content animate-in"
                     style="animation-delay: 0.2s"
                 >
+                    <!-- Hiển thị từ khoá tìm kiếm nếu có -->
+                    <div v-if="searchQuery" class="search-result-hint">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        Kết quả tìm kiếm cho: <strong>"{{ searchQuery }}"</strong>
+                        <button class="clear-search-tag" @click="clearSearch" title="Xóa tìm kiếm">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+
                     <!-- Thanh công cụ (Action Bar) -->
                     <div class="action-bar">
                         <div class="results-count">
@@ -284,16 +326,20 @@ onMounted(async () => {
 
                     <!-- Empty State khi không có sản phẩm -->
                     <div v-else class="empty-state">
+                        <div class="empty-icon">🔍</div>
                         <h3>Không tìm thấy sản phẩm nào!</h3>
-                        <p>
-                            Không có sản phẩm nào phù hợp với bộ lọc bạn vừa
-                            chọn.
+                        <p v-if="searchQuery">
+                            Không có sản phẩm nào khớp với từ khoá <strong>"{{ searchQuery }}"</strong>.
+                        </p>
+                        <p v-else>
+                            Không có sản phẩm nào phù hợp với bộ lọc bạn vừa chọn.
                         </p>
                         <button
                             class="btn-outline"
                             @click="
                                 selectedCategory = 'All';
                                 selectedPriceRange = 'All';
+                                clearSearch();
                             "
                         >
                             Xóa bộ lọc
@@ -553,10 +599,51 @@ onMounted(async () => {
     border-color: var(--ocean-blue);
 }
 
+/* ======== SEARCH RESULT HINT ======== */
+.search-result-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 8px 14px;
+    background: rgba(2, 136, 209, 0.07);
+    border: 1px solid rgba(2, 136, 209, 0.2);
+    border-radius: 999px;
+    font-size: 0.88rem;
+    color: var(--text-muted, #627d98);
+}
+
+.search-result-hint strong {
+    color: var(--ocean-blue, #0288d1);
+    font-weight: 700;
+}
+
+.search-result-hint svg {
+    color: var(--ocean-blue, #0288d1);
+    flex-shrink: 0;
+}
+
+.clear-search-tag {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: 50%;
+    transition: background 0.18s, color 0.18s;
+    margin-left: 2px;
+}
+
+.clear-search-tag:hover {
+    background: rgba(2, 136, 209, 0.15);
+    color: var(--ocean-blue, #0288d1);
+}
 /* ======== PRODUCTS GRID (Đúng 4 cột hàng ngang) ======== */
 .products-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 20px;
 }
 

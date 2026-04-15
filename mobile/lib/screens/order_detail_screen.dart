@@ -1,0 +1,706 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'main_wrapper.dart';
+import 'review_screen.dart';
+
+const String kBaseUrl = 'http://localhost:8383/api';
+
+class OrderDetailScreen extends StatefulWidget {
+  final String orderId;
+  const OrderDetailScreen({super.key, required this.orderId});
+
+  @override
+  State<OrderDetailScreen> createState() => _OrderDetailScreenState();
+}
+
+class _OrderDetailScreenState extends State<OrderDetailScreen> {
+  Map<String, dynamic>? orderData;
+  bool isLoading = true;
+  String? errorMessage;
+  bool _isCancelling = false;
+  bool _isReordering = false;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchOrderDetail();
+  }
+
+  Future<void> fetchOrderDetail() async {
+    setState(() { isLoading = true; errorMessage = null; });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      final url = Uri.parse('$kBaseUrl/profile/orders/${widget.orderId}');
+      final response = await http.get(
+        url,
+        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            orderData = data['data'];
+            isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() { errorMessage = 'Không thể xem chi tiết đơn hàng'; isLoading = false; });
+      }
+    } catch (e) {
+      if (mounted) setState(() { errorMessage = 'Lỗi kết nối máy chủ'; isLoading = false; });
+    }
+  }
+
+  Future<void> _cancelOrder() async {
+    // Preset lý do huỷ
+    final presetReasons = [
+      'Tôi muốn thay đổi địa chỉ giao hàng',
+      'Tôi muốn thay đổi sản phẩm / size / màu',
+      'Tôi tìm được sản phẩm giá tốt hơn',
+      'Tôi đặt nhầm sản phẩm',
+      'Thời gian giao hàng quá lâu',
+      'Lý do khác...',
+    ];
+
+    String? selectedReason;
+    final customCtrl = TextEditingController();
+    bool showCustomInput = false;
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20, right: 20, top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Lý do huỷ đơn hàng', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(ctx, false),
+                          child: const Icon(Icons.close, color: Colors.grey),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text('Vui lòng chọn lý do để giúp chúng tôi cải thiện dịch vụ.', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                    const SizedBox(height: 16),
+
+                    // Preset reasons
+                    ...presetReasons.map((reason) {
+                      final isSelected = selectedReason == reason;
+                      return GestureDetector(
+                        onTap: () {
+                          setModalState(() {
+                            selectedReason = reason;
+                            showCustomInput = reason == 'Lý do khác...';
+                            if (!showCustomInput) customCtrl.clear();
+                          });
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFFFFF5F5) : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: isSelected ? Colors.red.shade300 : const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                                color: isSelected ? Colors.red : const Color(0xFF94A3B8),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(child: Text(reason, style: TextStyle(fontSize: 14, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal, color: isSelected ? Colors.red.shade700 : const Color(0xFF334155)))),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+
+                    // Custom input nếu chọn "Lý do khác"
+                    if (showCustomInput) ...[
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: customCtrl,
+                        maxLines: 3,
+                        maxLength: 500,
+                        decoration: InputDecoration(
+                          hintText: 'Nhập lý do của bạn...',
+                          hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF0EA5E9))),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+                    // Action buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF64748B),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('Bỏ qua', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (selectedReason == null) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Vui lòng chọn lý do huỷ!'), backgroundColor: Colors.orange));
+                                return;
+                              }
+                              if (showCustomInput && customCtrl.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Vui lòng nhập lý do cụ thể!'), backgroundColor: Colors.orange));
+                                return;
+                              }
+                              Navigator.pop(ctx, true);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('Xác nhận huỷ', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || selectedReason == null) return;
+
+    final finalReason = (selectedReason == 'Lý do khác...' && customCtrl.text.trim().isNotEmpty)
+        ? customCtrl.text.trim()
+        : selectedReason!;
+
+    setState(() => _isCancelling = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      final response = await http.put(
+        Uri.parse('$kBaseUrl/profile/orders/${widget.orderId}/cancel'),
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+        body: jsonEncode({'cancel_reason': finalReason}),
+      );
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Đơn hàng đã được huỷ thành công!'),
+            backgroundColor: Colors.orange,
+          ));
+          fetchOrderDetail();
+        }
+      } else {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(data['message'] ?? 'Không thể huỷ đơn hàng!'),
+            backgroundColor: Colors.red,
+          ));
+        }
+      }
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi kết nối!'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isCancelling = false);
+    }
+  }
+
+  Future<void> _reOrder() async {
+    setState(() => _isReordering = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      final response = await http.post(
+        Uri.parse('$kBaseUrl/cart/buy-again/${widget.orderId}'),
+        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Đã thêm sản phẩm vào giỏ hàng!'),
+            backgroundColor: Colors.green,
+          ));
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const MainWrapper(initialIndex: 2)),
+            (route) => false,
+          );
+        }
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể thêm vào giỏ hàng!'), backgroundColor: Colors.red));
+      }
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi kết nối!'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isReordering = false);
+    }
+  }
+
+  String _formatPrice(dynamic price) {
+    try {
+      final num p = num.parse(price.toString());
+      final formatted = p.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+      return '$formatted đ';
+    } catch (_) {
+      return price.toString();
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    if (status.contains('PENDING') || status.contains('PROCESSING')) return Colors.orange;
+    if (status.contains('SHIP') || status.contains('DELIVERING')) return Colors.blue;
+    if (status.contains('COMPLETED') || status.contains('DELIVERED') || status.contains('SUCCESS')) return Colors.green;
+    if (status.contains('CANCEL')) return Colors.red;
+    return const Color(0xFF64748B);
+  }
+
+  IconData _getStatusIcon(String status) {
+    if (status.contains('PENDING') || status.contains('PROCESSING')) return Icons.pending_outlined;
+    if (status.contains('SHIP') || status.contains('DELIVERING')) return Icons.local_shipping_outlined;
+    if (status.contains('COMPLETED') || status.contains('DELIVERED')) return Icons.check_circle_outline;
+    if (status.contains('CANCEL')) return Icons.cancel_outlined;
+    return Icons.receipt_long;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: const Text('Chi tiết Đơn Hàng', style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: Colors.white,
+        centerTitle: true,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF0EA5E9)),
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (isLoading) return const Center(child: CircularProgressIndicator(color: Color(0xFF0EA5E9)));
+    if (errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 60, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text(errorMessage!, style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            ElevatedButton(onPressed: fetchOrderDetail, child: const Text('Thử lại')),
+          ],
+        ),
+      );
+    }
+    if (orderData == null) return const Center(child: Text('Không có dữ liệu.'));
+
+    final orderCode = orderData!['order_code'] ?? '';
+    final grandTotal = orderData!['grand_total'] ?? 0;
+    final shippingFee = orderData!['shipping_fee'] ?? 0;
+    final discountAmount = orderData!['discount_amount'] ?? 0;
+    final subtotal = orderData!['subtotal'] ?? 0;
+    final items = orderData!['items'] as List? ?? [];
+    final histories = orderData!['status_histories'] as List? ?? [];
+    final address = orderData!['address'];
+    final paymentMethod = orderData!['payment_method'] ?? '';
+    String status = (orderData!['fulfillment_status'] ?? '').toString().toUpperCase();
+    final statusColor = _getStatusColor(status);
+    final canCancel = status.contains('PENDING') || status.contains('PROCESSING');
+    final isCompleted = status.contains('COMPLETED') || status.contains('DELIVERED');
+
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ===== STATUS HEADER =====
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: statusColor.withOpacity(0.1), shape: BoxShape.circle),
+                      child: Icon(_getStatusIcon(status), color: statusColor, size: 28),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Đơn #$orderCode', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A))),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                            child: Text(status, style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ===== TIMELINE =====
+              if (histories.isNotEmpty) ...[
+                _sectionTitle('Lịch sử đơn hàng'),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                  child: Column(
+                    children: histories.asMap().entries.map((entry) {
+                      final h = entry.value;
+                      final isLast = entry.key == histories.length - 1;
+                      final note = h['note'] ?? h['status'] ?? '';
+                      final date = h['created_at']?.toString().split('T')?[0] ?? '';
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Column(
+                            children: [
+                              Container(
+                                width: 20, height: 20,
+                                decoration: BoxDecoration(
+                                  color: isLast ? const Color(0xFF0EA5E9) : Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(isLast ? Icons.circle : Icons.check, size: 12, color: Colors.white),
+                              ),
+                              if (!isLast) Container(width: 2, height: 24, color: const Color(0xFFE2E8F0)),
+                            ],
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: Text(note, style: const TextStyle(fontSize: 13, color: Color(0xFF334155)))),
+                                  Text(date, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // ===== ADDRESS =====
+              if (address != null) ...[
+                _sectionTitle('Địa chỉ nhận hàng'),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.location_on_outlined, color: Color(0xFF0EA5E9), size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(address['recipient_name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            const SizedBox(height: 2),
+                            Text(address['phone'] ?? '', style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                            const SizedBox(height: 2),
+                            Text('${address['address_line'] ?? ''}, ${address['ward'] ?? ''}, ${address['district'] ?? ''}, ${address['province'] ?? ''}', style: const TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // ===== PRODUCTS =====
+              _sectionTitle('Sản phẩm đã mua'),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  children: items.asMap().entries.map((entry) {
+                    final item = entry.value;
+                    final isLast = entry.key == items.length - 1;
+                    final name = item['product_name'] ?? item['variant_name'] ?? '';
+                    final qty = item['quantity'] ?? 1;
+                    final price = item['unit_price'] ?? 0;
+                    final imageUrl = _resolveImageUrl(item['thumbnail_url'] ?? item['image_url'] ?? '');
+
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: imageUrl.isNotEmpty
+                                ? Image.network(imageUrl, width: 60, height: 60, fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _imgPlaceholder())
+                                : _imgPlaceholder(),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF0F172A)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Text('x$qty', style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                                      const Spacer(),
+                                      Text(_formatPrice(num.parse(price.toString()) * qty), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0EA5E9))),
+                                    ],
+                                  ),
+                                  if (isCompleted) ...[  
+                                    const SizedBox(height: 6),
+                                    GestureDetector(
+                                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewScreen(
+                                        orderItem: item,
+                                        productId: item['product_id'] ?? 0,
+                                        productName: name,
+                                        productImage: item['thumbnail_url'] ?? item['image_url'],
+                                      ))),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFFF9C4),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: Colors.amber.shade300),
+                                        ),
+                                        child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                                          Icon(Icons.star_outline, size: 12, color: Colors.amber),
+                                          SizedBox(width: 4),
+                                          Text('Đánh giá', style: TextStyle(fontSize: 11, color: Colors.amber, fontWeight: FontWeight.bold)),
+                                        ]),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (!isLast) const Divider(height: 20, color: Color(0xFFF1F5F9)),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ===== PAYMENT METHOD =====
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: const Color(0xFFF0F9FF), borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.payment_outlined, color: Color(0xFF0EA5E9), size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Phương thức thanh toán', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                          Text(paymentMethod.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ===== PRICE SUMMARY =====
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  children: [
+                    _priceRow('Tạm tính', _formatPrice(subtotal)),
+                    const SizedBox(height: 8),
+                    _priceRow('Phí giao hàng', _formatPrice(shippingFee)),
+                    if (num.tryParse(discountAmount.toString()) != null && num.parse(discountAmount.toString()) > 0) ...[
+                      const SizedBox(height: 8),
+                      _priceRow('Giảm giá', '- ${_formatPrice(discountAmount)}', valueColor: Colors.green),
+                    ],
+                    const Divider(height: 24, color: Color(0xFFE2E8F0)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Tổng thanh toán', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text(_formatPrice(grandTotal), style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0EA5E9), fontSize: 20)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ===== BOTTOM ACTION BUTTONS =====
+        Positioned(
+          bottom: 0, left: 0, right: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, -4))],
+            ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  // Nút huỷ đơn (chỉ hiện khi pending)
+                  if (canCancel) ...[
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _isCancelling ? null : _cancelOrder,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: _isCancelling
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.red))
+                          : const Text('Huỷ đơn hàng', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  // Nút mua lại (chỉ hiện khi completed)
+                  if (isCompleted) ...[
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isReordering ? null : _reOrder,
+                        icon: _isReordering
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.refresh, size: 18),
+                        label: const Text('Mua lại', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0EA5E9),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  // Nút liên hệ hỗ trợ (luôn hiện)
+                  if (!canCancel && !isCompleted)
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back, size: 18),
+                        label: const Text('Quay lại', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0EA5E9),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionTitle(String title) => Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)));
+
+  Widget _imgPlaceholder() => Container(
+    width: 60, height: 60,
+    decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
+    child: const Icon(Icons.image_outlined, color: Colors.grey, size: 24),
+  );
+
+  Widget _priceRow(String label, String value, {Color? valueColor}) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+      Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: valueColor ?? const Color(0xFF0F172A))),
+    ],
+  );
+
+  String _resolveImageUrl(String raw) {
+    if (raw.isEmpty) return '';
+    return raw.startsWith('http') ? raw : 'http://localhost:8383/api/image-proxy?path=$raw';
+  }
+}

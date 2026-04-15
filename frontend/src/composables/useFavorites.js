@@ -19,12 +19,15 @@ const Toast = Swal.mixin({
 const favoriteIds = ref([]);
 const isInitialized = ref(false);
 
+// Helper: kiểm tra user đã đăng nhập chưa (chỉ cần dùng sessionStorage)
+const isLoggedIn = () => !!sessionStorage.getItem('auth_token');
+
 export function useFavorites() {
     /**
      * Mặc định load ids yêu thích của user
      */
     const fetchFavoriteIds = async () => {
-        if (!(localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'))) return; // Chỉ load khi có đăng nhập
+        if (!isLoggedIn()) return; // Chỉ load khi có đăng nhập
         try {
             const response = await api.get('/profile/favorites/ids');
             if (response.data && response.data.status === 'success') {
@@ -40,7 +43,7 @@ export function useFavorites() {
      * Toggle trái tim (thêm/xoá)
      */
     const toggleFavorite = async (productId) => {
-        if (!(localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'))) {
+        if (!isLoggedIn()) {
             Toast.fire({
                 icon: 'warning',
                 title: 'Vui lòng đăng nhập để yêu thích sản phẩm'
@@ -51,7 +54,7 @@ export function useFavorites() {
         // Cập nhật Optimistic UI trước khi call API (cho nhanh nhạy)
         const index = favoriteIds.value.indexOf(productId);
         const originallyFavorited = index !== -1;
-        
+
         if (originallyFavorited) {
             favoriteIds.value.splice(index, 1);
         } else {
@@ -99,7 +102,7 @@ export function useFavorites() {
     };
 
     // Auto load khi dùng hook (nếu chưa init)
-    if (!isInitialized.value && (localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'))) {
+    if (!isInitialized.value && isLoggedIn()) {
         fetchFavoriteIds();
     }
 

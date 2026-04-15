@@ -84,7 +84,7 @@ import { ref, onMounted } from 'vue';
 const userName = ref('');
 
 onMounted(() => {
-  const userData = localStorage.getItem('user');
+  const userData = sessionStorage.getItem('user');
   if (userData) {
     try {
       const user = JSON.parse(userData);

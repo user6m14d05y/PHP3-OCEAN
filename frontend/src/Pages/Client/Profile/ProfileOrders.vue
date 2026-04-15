@@ -199,6 +199,12 @@ const buyAgain = async (orderId) => {
   try {
     const res = await api.post(`/cart/buy-again/${orderId}`);
     if (res.data.status === 'success') {
+      if (res.data.errors && res.data.errors.length > 0) {
+        showToast(res.data.message + " Lưu ý: " + res.data.errors.join('. '), 'warning');
+      } else {
+        showToast('Thêm vào giỏ hàng thành công!', 'success');
+      }
+      window.dispatchEvent(new Event('cart-updated'));
       router.push('/cart');
     }
   } catch (error) {

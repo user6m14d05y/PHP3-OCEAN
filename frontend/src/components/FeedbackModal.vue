@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, computed } from 'vue';
 import api from '@/axios';
 import { Toast } from 'bootstrap';
 
@@ -31,8 +31,8 @@ const submitting = ref(false);
 
 const initForms = () => {
     reviewForms.value = {};
-    if (props.order && props.order.items) {
-        props.order.items.forEach(item => {
+    if (unreviewedItems.value.length > 0) {
+        unreviewedItems.value.forEach(item => {
             reviewForms.value[item.order_item_id] = {
                 rating: 0,
                 content: ''
@@ -46,6 +46,20 @@ watch(() => props.modelValue, (newVal) => {
         initForms();
     }
 });
+
+const unreviewedItems = computed(() => {
+    if (!props.order || !props.order.items) return [];
+    return props.order.items.filter(item => !item.comment);
+});
+
+const getProductImage = (item) => {
+    let path = null;
+    if (item.variant && item.variant.image_url) path = item.variant.image_url;
+    else if (item.product && item.product.thumbnail_url) path = item.product.thumbnail_url;
+    else return '0';
+    return getImageUrl(path);
+};
+
 
 const setRating = (itemId, rating) => {
     if (reviewForms.value[itemId]) {
@@ -137,11 +151,10 @@ const getImageUrl = (path) => {
           <div class="modal-body">
             <p v-if="order" class="order-ref">Đơn hàng #{{ order.order_code }}</p>
 
-            <div v-if="order && order.items" class="review-items-list">
-              <div v-for="item in order.items" :key="item.order_item_id" class="review-item-card">
+            <div v-if="unreviewedItems.length > 0" class="review-items-list">
+              <div v-for="item in unreviewedItems" :key="item.order_item_id" class="review-item-card">
                 <div class="product-info-mini">
-                  <!-- Giả định order.items trả về product_image nếu API có, nếu không có thì placeholder -->
-                  <img :src="item.product_image ? getImageUrl(item.product_image) : 'https://placehold.co/100x100?text=SP'" class="mini-img" :alt="item.product_name"/>
+                  <img :src="getProductImage(item)" class="mini-img" :alt="item.product_name"/>
                   <div class="mini-details">
                     <p class="mini-name">{{ item.product_name }}</p>
                     <p class="mini-variant" v-if="item.variant_name">Phân loại: {{ item.variant_name }}</p>
