@@ -7,6 +7,7 @@ use App\Models\ProductVariant;
 use App\Models\ProductImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -131,22 +132,24 @@ class ProductController extends Controller
     }
     public function productFeatured(Request $request)
     {
-        $query = Product::with([
-            'mainImage' => function ($q) {
-                $q->select('image_id', 'image_url', 'product_id');
-            },
-            'lowestPriceVariant' => function ($q) {
-                $q->select('variant_id', 'price', 'stock', 'product_id');
-            },
-            'category:category_id,name',
-            'brand:brand_id,name',
-        ]);
-        $products = $query->orderBy('product_id', 'desc')
-            ->where('is_featured', true)
-            ->where('status', 'active')
-            ->limit(4)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $products = Cache::tags(['products'])->remember('products:productFeatured', 1800, function () {
+            $query = Product::with([
+                'mainImage' => function ($q) {
+                    $q->select('image_id', 'image_url', 'product_id');
+                },
+                'lowestPriceVariant' => function ($q) {
+                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                },
+                'category:category_id,name',
+                'brand:brand_id,name',
+            ]);
+            return $query->orderBy('product_id', 'desc')
+                ->where('is_featured', true)
+                ->where('status', 'active')
+                ->limit(4)
+                ->orderBy('created_at', 'desc')
+                ->get();
+        });
 
         return response()->json([
             'data' => $products
@@ -159,9 +162,11 @@ class ProductController extends Controller
      */
     public function show($slug)
     {
-        $product = Product::with(['category', 'brand', 'images', 'variants'])
-            ->where('slug', $slug)
-            ->first();
+        $product = Cache::tags(['products'])->remember("product:slug:{$slug}", 1800, function () use ($slug) {
+            return Product::with(['category', 'brand', 'images', 'variants'])
+                ->where('slug', $slug)
+                ->first();
+        });
 
         if (!$product) {
             return response()->json(['status' => 'error', 'message' => 'Product not found'], 404);
@@ -176,17 +181,20 @@ class ProductController extends Controller
      */
     public function featured()
     {
-        $products = Product::with([
-            'mainImage' => function ($q) {
-                $q->select('image_id', 'image_url', 'product_id');
-            },
-            'lowestPriceVariant' => function ($q) {
-                $q->select('variant_id', 'price', 'stock', 'product_id');
-            }
-        ])
-            ->where('status', 'active')
-            ->where('is_featured', true)
-            ->get();
+        $products = Cache::tags(['products'])->remember('products:featured', 1800, function () {
+            return Product::with([
+                'mainImage' => function ($q) {
+                    $q->select('image_id', 'image_url', 'product_id');
+                },
+                'lowestPriceVariant' => function ($q) {
+                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                }
+            ])
+                ->where('status', 'active')
+                ->where('is_featured', true)
+                ->get();
+        });
+        
         return response()->json([
             'status' => 'success',
             'data' => $products
@@ -202,18 +210,24 @@ class ProductController extends Controller
         $page = $request->query('page', 1);
         $limit = $request->query('limit', 12);
         $offset = ($page - 1) * $limit;
-        $products = Product::with([
-            'mainImage' => function ($q) {
-                $q->select('image_id', 'image_url', 'product_id');
-            },
-            'lowestPriceVariant' => function ($q) {
-                $q->select('variant_id', 'price', 'stock', 'product_id');
-            }
-        ])
-            ->where('status', 'active')
-            ->offset($offset)
-            ->limit($limit)
-            ->get();
+        
+        $cacheKey = "products:all:page:{$page}:limit:{$limit}";
+
+        $products = Cache::tags(['products'])->remember($cacheKey, 1800, function () use ($offset, $limit) {
+            return Product::with([
+                'mainImage' => function ($q) {
+                    $q->select('image_id', 'image_url', 'product_id');
+                },
+                'lowestPriceVariant' => function ($q) {
+                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                }
+            ])
+                ->where('status', 'active')
+                ->offset($offset)
+                ->limit($limit)
+                ->get();
+        });
+        
         return response()->json([
             'status' => 'success',
             'data' => $products
@@ -429,6 +443,7 @@ class ProductController extends Controller
             }
 
             DB::commit();
+            Cache::tags(['products'])->flush();
 
             return response()->json([
                 'success' => true,
@@ -437,10 +452,11 @@ class ProductController extends Controller
             ], 201);
 
         } catch (\Throwable $e) {
-            DB::rollBack();
+            $isDbError = $e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException;
+            $errorMsg = $isDbError ? 'Lỗi hệ thống.' : $e->getMessage();
             return response()->json([
                 'success' => false,
-                'message' => 'Thêm sản phẩm thất bại: ' . $e->getMessage(),
+                'message' => 'Thêm sản phẩm thất bại: ' . $errorMsg,
             ], 500);
         }
     }
@@ -614,7 +630,9 @@ class ProductController extends Controller
                 // 1. Xóa ảnh biến thể mà user đã ấn nút xóa thủ công
                 $deletedImageIds = $request->input('deleted_variant_image_ids', []);
                 if (!empty($deletedImageIds)) {
-                    $imagesToDelete = ProductImage::whereIn('image_id', $deletedImageIds)->get();
+                    $imagesToDelete = ProductImage::whereIn('image_id', $deletedImageIds)
+                        ->where('product_id', $product->product_id)
+                        ->get();
                     foreach ($imagesToDelete as $img) {
                         Storage::disk('public')->delete($img->image_url);
                         $img->delete();
@@ -733,6 +751,7 @@ class ProductController extends Controller
             }
 
             DB::commit();
+            Cache::tags(['products'])->flush();
 
             return response()->json([
                 'success' => true,
@@ -741,10 +760,11 @@ class ProductController extends Controller
             ]);
 
         } catch (\Throwable $e) {
-            DB::rollBack();
+            $isDbError = $e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException;
+            $errorMsg = $isDbError ? 'Lỗi hệ thống.' : $e->getMessage();
             return response()->json([
                 'success' => false,
-                'message' => 'Cập nhật thất bại: ' . $e->getMessage(),
+                'message' => 'Cập nhật thất bại: ' . $errorMsg,
             ], 500);
         }
     }
@@ -757,14 +777,17 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
             $product->delete();
+            Cache::tags(['products'])->flush();
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Product deleted successfully',
             ]);
         } catch (\Exception $e) {
+            $isDbError = $e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException;
+            $errorMsg = $isDbError ? 'Lỗi hệ thống.' : $e->getMessage();
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Failed to delete: ' . $e->getMessage(),
+                'message' => 'Xóa thất bại: ' . $errorMsg,
             ], 500);
         }
     }
@@ -794,6 +817,10 @@ class ProductController extends Controller
             $successCount = $import->getSuccessCount();
             $errors = $import->getErrors();
 
+            if ($successCount > 0) {
+                Cache::tags(['products'])->flush();
+            }
+
             return response()->json([
                 'success'       => true,
                 'message'       => "Import hoàn tất: {$successCount} sản phẩm thành công.",
@@ -804,9 +831,11 @@ class ProductController extends Controller
 
         } catch (\Throwable $e) {
             Log::error('[ProductImportExcel] ' . $e->getMessage());
+            $isDbError = $e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException;
+            $errorMsg = $isDbError ? 'Lỗi hệ thống.' : $e->getMessage();
             return response()->json([
-                'success' => false,
-                'message' => 'Lỗi khi import: ' . $e->getMessage(),
+                'status' => 'error',
+                'message' => 'Lỗi khi import: ' . $errorMsg,
             ], 500);
         }
     }

@@ -125,7 +125,7 @@ const submitNewsletter = async () => {
 .footer-logo-text {
   font-size: 1.35rem;
   font-weight: 800;
-  color: #1a56db;
+  color: var(--ocean-blue);
 }
 
 .footer-desc { font-size: 0.95rem; color: #6b7280; line-height: 1.6; margin-bottom: 24px; }
@@ -143,9 +143,9 @@ const submitNewsletter = async () => {
 
 .newsletter-input::placeholder { color: #9ca3af; }
 
-.newsletter-btn { padding: 10px 20px; background: #1a56db; border: none; color: #fff; font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: background 0.2s; }
+.newsletter-btn { padding: 10px 20px; background: var(--ocean-blue); border: none; color: #fff; font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.2s ease; }
 
-.newsletter-btn:hover { background: #1648b8; }
+.newsletter-btn:hover { background: rgba(2, 136, 209, 0.85); transform: scale(1.02); }
 
 .footer-heading { font-size: 1rem; font-weight: 700; color: #111; margin-bottom: 16px; font-style: italic; }
 
@@ -157,9 +157,9 @@ const submitNewsletter = async () => {
 
 .footer-links li { margin-bottom: 10px; }
 
-.footer-links a { font-size: 0.95rem; color: #6b7280; text-decoration: none; transition: color 0.2s; }
+.footer-links a { font-size: 0.95rem; color: #6b7280; text-decoration: none; transition: all 0.2s; }
 
-.footer-links a:hover { color: #1a56db; }
+.footer-links a:hover { color: var(--ocean-blue); text-decoration: underline; text-underline-offset: 4px; }
 
 .footer-contact {
   list-style: none;
@@ -195,9 +195,11 @@ const submitNewsletter = async () => {
 }
 
 .social-icon:hover {
-  background: #1a56db;
-  border-color: #1a56db;
+  background: var(--ocean-blue);
+  border-color: var(--ocean-blue);
   color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(2, 136, 209, 0.2);
 }
 
 .footer-bottom {

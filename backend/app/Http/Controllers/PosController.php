@@ -117,6 +117,20 @@ class PosController extends Controller
         $staff = auth('admin')->user() ?? auth('api')->user();
         $staffId = $staff ? ($staff->admin_id ?? $staff->user_id) : null;
 
+        // Khóa input tự do user_id: Không tin tưởng user_id từ client.
+        // Tự động tìm khách hàng dựa trên customer_phone để gắn user_id chính xác.
+        $customerId = null;
+        if (!empty($request->customer_phone)) {
+            $customer = \App\Models\User::where('phone', $request->customer_phone)->first();
+            if ($customer) {
+                $customerId = $customer->user_id;
+                // Có thể overwrite tên khách hàng bằng tên thật trong hệ thống nếu muốn
+                if (empty($request->customer_name)) {
+                    $request->merge(['customer_name' => $customer->full_name]);
+                }
+            }
+        }
+
         DB::beginTransaction();
         try {
             $subtotal = 0;
@@ -152,7 +166,7 @@ class PosController extends Controller
             $order = Order::create([
                 'order_code' => 'POS' . strtoupper(uniqid()) . rand(10, 99),
                 'order_type' => 'pos',
-                'user_id' => $request->user_id ?? $staffId,
+                'user_id' => $customerId ?? $staffId, // Ưu tiên customerId lấy được từ DB, nếu không thì dùng staffId (khách vãng lai)
                 'seller_id' => $staffId,
                 'recipient_name' => !empty($request->customer_name) ? $request->customer_name : 'Khách lẻ',
                 'recipient_phone' => !empty($request->customer_phone) ? $request->customer_phone : '',
@@ -211,9 +225,13 @@ class PosController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('POS Checkout failed: ' . $e->getMessage());
+            
+            $isDbError = $e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException;
+            $errorMsg = $isDbError ? 'Lỗi hệ thống, vui lòng thử lại sau.' : $e->getMessage();
+            
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
+                'message' => $errorMsg,
             ], 422);
         }
     }

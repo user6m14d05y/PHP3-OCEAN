@@ -13,6 +13,8 @@ const error = ref(null);
 /**
  * Khi VNPay redirect user về /payment/result?vnp_...,
  * ta gửi toàn bộ query params đến backend để verify và lấy kết quả.
+ * 
+ * Cache kết quả vào sessionStorage để tránh gọi API lại khi user refresh trang.
  */
 const verifyPayment = async () => {
     try {
@@ -21,6 +23,19 @@ const verifyPayment = async () => {
             error.value = 'Không tìm thấy thông tin thanh toán.';
             loading.value = false;
             return;
+        }
+
+        // Kiểm tra cache — tránh gọi API lại khi user refresh
+        const cacheKey = 'payment_result_' + btoa(queryString);
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+            try {
+                paymentResult.value = JSON.parse(cached);
+                loading.value = false;
+                return;
+            } catch (e) {
+                sessionStorage.removeItem(cacheKey);
+            }
         }
 
         let endpoint = '';
@@ -36,6 +51,9 @@ const verifyPayment = async () => {
 
         const res = await api.get(endpoint);
         paymentResult.value = res.data;
+
+        // Lưu kết quả vào sessionStorage
+        sessionStorage.setItem(cacheKey, JSON.stringify(res.data));
     } catch (err) {
         console.error('Payment verify error:', err);
         if (err.response?.data) {

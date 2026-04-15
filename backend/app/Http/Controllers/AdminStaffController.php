@@ -69,6 +69,10 @@ class AdminStaffController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Không tìm thấy tài khoản!'], 404);
         }
 
+        if ($admin->email === 'admin123@gmail.com') {
+            return response()->json(['status' => 'error', 'message' => 'Vui lòng không chỉnh sửa Admin Tổng!'], 403);
+        }
+
         $request->validate([
             'full_name' => 'required|string|max:255',
             'email' => 'required|email|unique:admins,email,' . $id . ',admin_id',
@@ -105,6 +109,10 @@ class AdminStaffController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Không tìm thấy tài khoản!'], 404);
         }
 
+        if ($admin->email === 'admin123@gmail.com') {
+            return response()->json(['status' => 'error', 'message' => 'Không thể hạ cấp bậc của Admin Tổng!'], 403);
+        }
+
         // Không cho phép tự đổi role chính mình
         $currentUser = auth('admin')->user();
         if ($currentUser && $currentUser->admin_id == $id) {
@@ -129,6 +137,10 @@ class AdminStaffController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Không tìm thấy tài khoản!'], 404);
         }
 
+        if ($admin->email === 'admin123@gmail.com') {
+            return response()->json(['status' => 'error', 'message' => 'Không thể xóa tài khoản Admin Tổng!'], 403);
+        }
+
         // Không cho phép tự xóa chính mình
         $currentUser = auth('admin')->user();
         if ($currentUser && $currentUser->admin_id == $id) {
@@ -143,6 +155,33 @@ class AdminStaffController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã xóa tài khoản nhân sự thành công!'
+        ]);
+    }
+
+    /**
+     * Cập nhật trạng thái nhân sự (active/inactive).
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $status = $request->input('status');
+        if (!in_array($status, ['active', 'inactive'])) {
+            return response()->json(['status' => 'error', 'message' => 'Trạng thái không hợp lệ!'], 422);
+        }
+
+        $admin = Admin::find($id);
+        if (!$admin) {
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy tài khoản!'], 404);
+        }
+
+        if ($admin->email === 'admin123@gmail.com') {
+            return response()->json(['status' => 'error', 'message' => 'Admin tổng không thể bị khóa!'], 403);
+        }
+
+        $admin->update(['status' => $status]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã cập nhật trạng thái nhân sự thành công!'
         ]);
     }
 }

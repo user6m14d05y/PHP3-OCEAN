@@ -10,7 +10,7 @@ export function useFavorites() {
      * Mặc định load ids yêu thích của user
      */
     const fetchFavoriteIds = async () => {
-        if (!localStorage.getItem('auth_token')) return; // Chỉ load khi có đăng nhập
+        if (!(localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'))) return; // Chỉ load khi có đăng nhập
         try {
             const response = await api.get('/profile/favorites/ids');
             if (response.data && response.data.status === 'success') {
@@ -26,7 +26,7 @@ export function useFavorites() {
      * Toggle trái tim (thêm/xoá)
      */
     const toggleFavorite = async (productId) => {
-        if (!localStorage.getItem('auth_token')) {
+        if (!(localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'))) {
             alert('Vui lòng đăng nhập để yêu thích sản phẩm');
             return false;
         }
@@ -68,7 +68,7 @@ export function useFavorites() {
     };
 
     // Auto load khi dùng hook (nếu chưa init)
-    if (!isInitialized.value && localStorage.getItem('auth_token')) {
+    if (!isInitialized.value && (localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'))) {
         fetchFavoriteIds();
     }
 

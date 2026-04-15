@@ -21,7 +21,15 @@ class ChangePasswordRequest extends FormRequest
     {
         return [
             'current_password' => 'required|string',
-            'new_password' => 'required|string|min:6|confirmed',
+            'new_password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[^A-Za-z0-9]/'
+            ],
         ];
     }
 
@@ -30,8 +38,9 @@ class ChangePasswordRequest extends FormRequest
         return [
             'current_password.required' => 'Vui lòng nhập mật khẩu hiện tại.',
             'new_password.required' => 'Vui lòng nhập mật khẩu mới.',
-            'new_password.min' => 'Mật khẩu mới phải có ít nhất 6 ký tự.',
+            'new_password.min' => 'Mật khẩu mới phải có ít nhất 8 ký tự.',
             'new_password.confirmed' => 'Xác nhận mật khẩu mới không khớp.',
+            'new_password.regex' => 'Mật khẩu mới phải chứa ít nhất 1 chữ hoa, 1 chữ số và 1 ký tự đặc biệt.',
         ];
     }
 }

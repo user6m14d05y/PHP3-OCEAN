@@ -70,27 +70,24 @@ class AttendanceController extends Controller
         }
 
         $userIp = $request->ip();
-
         // Validate Wifi Network
-        $storeWifiIps = env('STORE_WIFI_IP');
+        $storeWifiIps = config('services.store.wifi_ip');
         if ($storeWifiIps) {
             $allowedIps = array_map('trim', explode(',', $storeWifiIps));
-            // Default check, allow if the local address is ::1 and 127.0.0.1 is in the list
-            if ($userIp === '::1' && in_array('127.0.0.1', $allowedIps)) {
-                $userIp = '127.0.0.1';
-            }
-
-            if (!in_array($userIp, $allowedIps)) {
+            if (!in_array($request->ip(), $allowedIps)) {
                 return response()->json([
-                    'status' => 'error', 
-                    'message' => 'Bạn không dùng Wifi của cửa hàng. Vui lòng kết nối đúng mạng Wi-Fi tại cửa hàng để chấm công! (IP hiện tại: ' . $userIp . ')'
-                ], 400);
+                    'status' => 'error',
+                    'message' => 'Bạn phải kết nối vào Wi-Fi của cửa hàng để điểm danh!'
+                ], 403);
             }
         }
 
-        // Validate Location Distance
-        $storeLat = env('STORE_LAT');
-        $storeLng = env('STORE_LNG');
+        // ===================================
+        // 2. Kiểm tra GPS Location (Tùy chọn)
+        // Khoảng cách cho phép: < 500m
+        // ===================================
+        $storeLat = config('services.store.lat');
+        $storeLng = config('services.store.lng');
         $userLat = $request->lat;
         $userLng = $request->lng;
 

@@ -130,7 +130,7 @@ const isExactActive = (path) => {
 };
 
 onMounted(() => {
-  const userData = localStorage.getItem('user');
+  const userData = sessionStorage.getItem('user');
   if (userData) {
     try {
       const user = JSON.parse(userData);
@@ -147,7 +147,7 @@ const handleLogout = async () => {
   if (!confirm('Bạn có chắc chắn muốn đăng xuất?')) return;
   try { await api.post('/logout'); } catch (e) { /* ignore */ }
   localStorage.removeItem('auth_token');
-  localStorage.removeItem('user');
+  sessionStorage.removeItem('user');
   localStorage.removeItem('ocean_live_chat_token');
   sessionStorage.removeItem('ocean_chatbot_messages');
   sessionStorage.removeItem('ocean_chatbot_history');

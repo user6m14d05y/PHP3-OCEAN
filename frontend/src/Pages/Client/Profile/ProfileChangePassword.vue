@@ -96,12 +96,31 @@
       </form>
     </div>
   </div>
+
+  <!-- Bootstrap Toast -->
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+    <div class="toast align-items-center border-0 text-bg-success" id="pwToast" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">{{ toastMsg }}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import api from '@/axios';
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
+
+const toastMsg = ref('');
+const showToast = (message) => {
+  toastMsg.value = message;
+  nextTick(() => {
+    const el = document.getElementById('pwToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  });
+};
 
 const form = ref({
   current_password: '',
@@ -154,7 +173,7 @@ const submitChangePassword = async () => {
       new_password_confirmation: form.value.new_password_confirmation,
     });
 
-    Swal.fire({ icon: 'success', title: 'Thành công!', text: res.data.message, timer: 2500, showConfirmButton: false });
+    showToast(res.data.message || 'Đổi mật khẩu thành công!');
     form.value = { current_password: '', new_password: '', new_password_confirmation: '' };
   } catch (err) {
     if (err.response?.status === 422) {
