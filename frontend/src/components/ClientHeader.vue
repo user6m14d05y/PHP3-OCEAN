@@ -94,24 +94,29 @@
         </div>
       </div>
 
-      <!-- Search -->
-      <div class="search-box">
-        <input
-          id="headerSearchInput"
-          v-model="searchQuery"
-          type="text"
-          placeholder="Tìm kiếm sản phẩm, thương hiệu..."
-          class="search-input"
-          autocomplete="off"
-          @keyup.enter="handleSearch"
-        />
-        <button class="search-submit" @click="handleSearch" title="Tìm kiếm">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        </button>
-      </div>
+      <!-- Search Trigger — mở SearchModal (Vue InstantSearch + Meilisearch) -->
+      <button id="headerSearchTrigger" class="search-trigger-btn" @click="showSearch = true" title="Tìm kiếm (Ctrl+K)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="search-trigger-placeholder">Tìm kiếm sản phẩm...</span>
+        <kbd class="search-trigger-kbd">Ctrl K</kbd>
+      </button>
+
+      <!-- Search Modal -->
+      <SearchModal v-model="showSearch" />
 
       <!-- Right icons -->
       <div class="header-actions">
+        <!-- Flash Sale Link -->
+        <router-link
+          v-if="hasActiveFlashSale"
+          to="/flash-sale"
+          class="action-item flash-sale-link"
+          title="Flash Sale đang diễn ra!"
+        >
+          <span class="flash-sale-icon">⚡</span>
+          <span class="action-label flash-sale-label">FLASH SALE</span>
+        </router-link>
+
         <!-- Săn Voucher -->
         <div class="account-dropdown" @mouseenter="showVoucherDropdown = true" @mouseleave="showVoucherDropdown = false">
           <router-link to="/coupon" class="action-item voucher-item">
@@ -209,10 +214,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '../axios.js';
 import { broadcastLogout } from '../sessionSync.js';
+import SearchModal from './SearchModal.vue';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const route = useRoute();
@@ -230,22 +236,18 @@ const categories = ref([]);
 const publicCoupons = ref([]);
 const hoveredCategory = ref(null);
 const cartCount = ref(0);
+const hasActiveFlashSale = ref(false);
 
-// Tìm kiếm
-const searchQuery = ref('');
+// Search Modal state
+const showSearch = ref(false);
 
-const handleSearch = () => {
-  const q = searchQuery.value.trim();
-  if (!q) return;
-  router.push({ path: '/product', query: { q } });
-};
-
-// Đồng bộ ô tìm kiếm với URL khi đang ở trang sản phẩm
-watch(() => route.query.q, (newQ) => {
-  if (route.path === '/product') {
-    searchQuery.value = newQ || '';
+// Phím tắt Ctrl+K / Cmd+K để mở modal tìm kiếm
+const handleGlobalKeydown = (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    showSearch.value = true;
   }
-}, { immediate: true });
+};
 
 const fetchCategories = async () => {
   try {
@@ -330,13 +332,25 @@ const handleLogout = async () => {
   window.location.reload();
 };
 
+const fetchFlashSaleStatus = async () => {
+  try {
+    const { data } = await api.get('/flash-sale');
+    hasActiveFlashSale.value = (data.data ?? []).some(s => s.status === 'active');
+  } catch { hasActiveFlashSale.value = false; }
+};
+
 onMounted(() => {
   checkAuth();
   fetchCategories();
   fetchPublicCoupons();
   fetchCartCount();
+  fetchFlashSaleStatus();
   window.addEventListener('user-updated', checkAuth);
   window.addEventListener('cart-updated', fetchCartCount);
+  document.addEventListener('keydown', handleGlobalKeydown);
+});
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleGlobalKeydown);
 });
 watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 </script>
@@ -495,45 +509,47 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
   justify-content: center; height: 280px; gap: 16px; color: #b0b8c9; font-size: 0.95rem;
 }
 
-.search-box {
+/* ── Search Trigger Button ─────────────────────────────────── */
+.search-trigger-btn {
   flex: 1;
-  display: flex;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 8px;
-  overflow: hidden;
-  transition: border-color 0.2s;
-}
-
-.search-box:focus-within {
-  border-color: var(--ocean-blue);
-  box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.15);
-}
-
-.search-input {
-  flex: 1;
-  padding: 10px 16px;
-  border: none;
-  outline: none;
-  font-size: 0.95rem;
-  font-family: inherit;
-  color: var(--text-main);
-  background: transparent;
-}
-
-.search-input::placeholder { color: #9ca3af; }
-
-.search-submit {
-  padding: 8px 16px;
-  background: var(--ocean-blue);
-  border: none;
-  color: white;
-  cursor: pointer;
   display: flex;
   align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  cursor: pointer;
+  font-family: inherit;
   transition: all 0.2s ease;
+  color: #9ca3af;
+  text-align: left;
 }
-
-.search-submit:hover { background: rgba(2, 136, 209, 0.85); transform: scale(1.02); }
+.search-trigger-btn:hover {
+  border-color: var(--ocean-blue);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.1);
+  color: #627d98;
+}
+.search-trigger-btn svg { flex-shrink: 0; color: #9ca3af; }
+.search-trigger-btn:hover svg { color: var(--ocean-blue); }
+.search-trigger-placeholder {
+  flex: 1;
+  font-size: 0.93rem;
+  color: inherit;
+}
+.search-trigger-kbd {
+  background: #f1f5f9;
+  border: 1px solid #d1dce8;
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 
 .header-actions {
   display: flex;
@@ -690,7 +706,31 @@ watch(() => route.path, () => { checkAuth(); fetchCartCount(); });
 }
 
 @media (max-width: 768px) {
-  .search-box { display: none; }
+  .search-trigger-btn { display: none; }
   .category-btn { display: none; }
+}
+
+/* Flash Sale Header Link */
+.flash-sale-link {
+  position: relative;
+  text-decoration: none !important;
+}
+
+.flash-sale-icon {
+  font-size: 20px;
+  line-height: 1;
+  display: block;
+  /* Không dùng animation loop */
+}
+
+.flash-sale-label {
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.8px;
+  background: linear-gradient(90deg, #ff4500, #ff8c00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  white-space: nowrap;
 }
 </style>

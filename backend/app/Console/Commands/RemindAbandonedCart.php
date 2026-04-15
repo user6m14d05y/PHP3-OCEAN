@@ -51,7 +51,7 @@ class RemindAbandonedCart extends Command
         $this->info('🛒 [' . now()->format('Y-m-d H:i:s') . '] Kiểm tra giỏ hàng bỏ quên...');
 
         // ─── Bước 1: Tính mốc thời gian "bỏ quên" ───
-        $abandonedThreshold = Carbon::now()->subMinutes(self::ABANDONED_MINUTES);
+        $abandonedThreshold = Carbon::now()->subMinutes(self::COOLDOWN_MINUTES);
         $this->info("  Threshold: items updated trước {$abandonedThreshold->format('H:i:s')} → bỏ quên");
 
         // ─── Bước 2: Query giỏ hàng bỏ quên ───

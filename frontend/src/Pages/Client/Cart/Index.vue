@@ -2,6 +2,9 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '@/axios';
+import FreeshipBar from '@/components/FreeshipBar.vue';
+import QuickAddSlider from '@/components/QuickAddSlider.vue';
+import { useCartUpsell } from '@/composables/useCartUpsell';
 
 const router = useRouter();
 const cartItems = ref([]);
@@ -10,6 +13,9 @@ const loading = ref(true);
 const updating = ref({});
 const selectAll = ref(true);
 const toast = ref({ show: false, message: '', type: 'success' });
+
+// ====== UPSELL & GAMIFICATION ======
+const { setTotalPrice, fetchUpsellData } = useCartUpsell();
 
 // ====== VARIANT CHANGE MODAL ======
 const variantModal = ref({
@@ -291,8 +297,21 @@ const proceedToCheckout = () => {
     router.push('/checkout');
 };
 
-onMounted(() => {
-    fetchCart();
+// Đồng bộ totalPrice → shared composable (FreeshipBar phản ứng realtime)
+watch(totalPrice, (val) => {
+    setTotalPrice(val);
+}, { immediate: true });
+
+onMounted(async () => {
+    await fetchCart();
+    // Fetch gợi ý upsell sau khi giỏ hàng đã load
+    fetchUpsellData();
+
+    // Khi QuickAddSlider thêm sản phẩm → cập nhật lại giỏ + upsell
+    window.addEventListener('cart-updated', async () => {
+        await fetchCart(false);
+        fetchUpsellData();
+    });
 });
 </script>
 
@@ -335,8 +354,11 @@ onMounted(() => {
             </router-link>
         </div>
 
+        <!-- ── Freeship Progress Bar ── (hiện sau khi giỏ hàng có sản phẩm) -->
+        <FreeshipBar v-if="!loading && cartItems.length > 0" />
+
         <!-- Cart Content -->
-        <div v-else class="cart-layout animate-in" style="animation-delay: 0.1s">
+        <div v-if="!loading && cartItems.length > 0" class="cart-layout animate-in" style="animation-delay: 0.1s">
             <!-- Cột trái: Danh sách sản phẩm -->
             <div class="cart-items-section">
                 <!-- Action Bar -->
@@ -422,6 +444,9 @@ onMounted(() => {
                         </button>
                     </div>
                 </TransitionGroup>
+
+                <!-- ── Quick Add Slider ── -->
+                <QuickAddSlider />
             </div>
 
             <!-- Cột phải: Tóm tắt đơn hàng -->

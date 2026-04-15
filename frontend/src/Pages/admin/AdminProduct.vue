@@ -77,6 +77,7 @@ const getStatusLabel = (status) => {
         active: 'Đang bán',
         inactive: 'Tạm ẩn',
         out_of_stock: 'Hết hàng',
+        deleted: 'Đã xóa',
     };
     return map[status] || status;
 };
@@ -103,6 +104,10 @@ const handleSearch = () => {
 const handleFilterStatus = (status) => {
     statusFilter.value = statusFilter.value === status ? '' : status;
     currentPage.value = 1;
+
+    if (status === 'deleted') {
+        statusFilter.value = 'deleted';
+    }
     fetchProducts();
 };
 
@@ -313,6 +318,7 @@ const qvTotalStock = computed(() => {
                 <button class="filter-btn" :class="{ active: statusFilter === 'draft' }" @click="handleFilterStatus('draft')">Nháp</button>
                 <button class="filter-btn" :class="{ active: statusFilter === 'inactive' }" @click="handleFilterStatus('inactive')">Tạm ẩn</button>
                 <button class="filter-btn" :class="{ active: statusFilter === 'out_of_stock' }" @click="handleFilterStatus('out_of_stock')">Hết hàng</button>
+                <button class="filter-btn" :class="{ active: statusFilter === 'deleted' }" @click="handleFilterStatus('deleted')">Đã xóa</button>
             </div>
         </div>
 

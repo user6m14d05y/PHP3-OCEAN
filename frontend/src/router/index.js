@@ -13,6 +13,7 @@ import Home from "../Pages/Client/Home/Home.vue";
 const Product = () => import("../Pages/Client/Home/Product.vue");
 const ProductDetail = () => import("../Pages/Client/Home/productDetail.vue");
 const Coupon = () => import("../Pages/Client/Home/Coupon.vue")
+const FlashSale = () => import("../Pages/Client/Home/FlashSale.vue")
 const Cart = () => import("../Pages/Client/Cart/Index.vue")
 const Checkout = () => import("../Pages/Client/Cart/Checkout.vue")
 const OrderSuccess = () => import("../Pages/Client/Cart/OrderSuccess.vue")
@@ -77,6 +78,7 @@ const routes = [
             { path: "return-policy", name: "return-policy", component: ReturnPolicy, meta: { title: 'Chính sách đổi trả' } },
             { path: "shopping-guide", name: "shopping-guide", component: ShoppingGuide, meta: { title: 'Hướng dẫn mua hàng' } },
             { path: "coupon", name: "coupon", component: Coupon, meta: { title: 'Mã giảm giá' } },
+            { path: "flash-sale", name: "flash-sale", component: FlashSale, meta: { title: 'Flash Sale ⚡' } },
             { path: "cart", name: "cart", component: Cart, meta: { requiresAuth: true, title: 'Giỏ hàng' } },
             { path: "checkout", name: "checkout", component: Checkout, meta: { requiresAuth: true, title: 'Thanh toán' } },
             { path: "order-success/:order_code", name: "order-success", component: OrderSuccess, meta: { requiresAuth: true, title: 'Đặt hàng thành công' } },

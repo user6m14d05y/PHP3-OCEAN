@@ -27,6 +27,7 @@ use App\Http\Controllers\SellerController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\FlashSaleController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -120,6 +121,7 @@ Route::middleware('auth:api,admin')->prefix('profile')->group(function () {
 Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
     Route::get('/', [CartController::class, 'getCart']);
     Route::get('/count', [CartController::class, 'getCount']);
+    Route::get('/upsell-suggestions', [CartController::class, 'upsellSuggestions']);
     Route::post('/items', [CartController::class, 'addItem']);
     Route::put('/items/{id}', [CartController::class, 'updateItem']);
     Route::put('/items/{id}/variant', [CartController::class, 'changeVariant']);
@@ -127,6 +129,17 @@ Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
     Route::delete('/', [CartController::class, 'clearCart']);
     Route::post('/buy-again/{orderId}', [CartController::class, 'buyAgain']);
 });
+
+// ==========================================
+// FLASH SALE routes
+// ==========================================
+// Public — Danh sách Flash Sale đang active / upcoming
+Route::get('flash-sale', [FlashSaleController::class, 'index']);
+// Public — Tồn kho hiện tại (cho Progress Bar, poll mỗi 30s)
+// ⚠️ Đặt TRƯỚC flash-sale/buy để tránh conflict {id} với 'buy'
+Route::get('flash-sale/{id}/stock', [FlashSaleController::class, 'stock']);
+// Protected — Mua Flash Sale (throttle 10 request/phút/user)
+Route::middleware(['auth:api,admin', 'throttle:10,1'])->post('flash-sale/buy', [FlashSaleController::class, 'buy']);
 
 // ==========================================
 // NHÓM 1: QUAN TRỊ VIÊN CẤP CAO (admin)
@@ -156,6 +169,10 @@ Route::middleware(['auth:api,admin', 'role:admin'])->prefix('admin')->group(func
     Route::put('/coupons/{id}', [CouponController::class, 'update']);
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
     Route::get('/coupons/{id}/usages', [CouponController::class, 'getCouponUsages']);
+
+    // Flash Sale Management (Admin only)
+    Route::post('/flash-sale', [FlashSaleController::class, 'store']);
+    Route::post('/flash-sale/{id}/initialize', [FlashSaleController::class, 'initialize']);
 });
 
 // ==========================================
