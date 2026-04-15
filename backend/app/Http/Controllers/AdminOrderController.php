@@ -385,11 +385,11 @@ class AdminOrderController extends Controller
 
         try {
             $result = \App\Services\GHNService::createOrder($order);
-
+            
             // Optionally, save the GHN order code to your database here
             // if you add a 'shipping_code' column to the orders table.
             // $order->update(['shipping_code' => $result['data']['order_code']]);
-
+            
             return response()->json([
                 'status' => 'success',
                 'message' => 'Đã tạo đơn hàng trên GHN thành công!',

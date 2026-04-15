@@ -58,9 +58,9 @@ class OrderController extends Controller
 
         // Thêm flag is_reviewed cho mỗi order
         $orders->getCollection()->transform(function ($order) {
-            // Một đơn hàng được coi là đã đánh giá nếu CÓ ÍT NHẤT 1 sản phẩm được đánh giá
-            // Hoặc có thể yêu cầu TẤT CẢ sản phẩm được đánh giá tùy theo yêu cầu
-            $order->is_reviewed = $order->items->contains(fn($item) => $item->comment !== null);
+            // Mới: Một đơn hàng chỉ được coi là ĐÃ ĐÁNH GIÁ (is_reviewed=true) nếu TẤT CẢ sản phẩm đã được đánh giá
+            // Nếu có ít nhất 1 sản phẩm chưa được đánh giá thì vẫn hiện nút Đánh giá
+            $order->is_reviewed = $order->items->every(fn($item) => $item->comment !== null);
             return $order;
         });
 
@@ -202,57 +202,29 @@ class OrderController extends Controller
         // Tính phí vận chuyển động
         $shippingFee = 30000; // Mặc định nếu không tìm thấy
 
-        if (class_exists(\App\Models\ShippingZone::class)) {
-            $zones = \App\Models\ShippingZone::where('is_active', true)
-                ->orderByDesc('priority')
-                ->get();
+        // Tính phí vận chuyển động qua GHN API
+        $shippingFee = 30000; // Mặc định nếu API lỗi hoặc không gọi được
 
-            $matchedZone = null;
-            foreach ($zones as $zone) {
-                if (empty($zone->provinces)) {
-                    if (!$matchedZone) $matchedZone = $zone; // Fallback
-                    continue;
-                }
+        if (env('VITE_TOKEN_GHN') && $address->district_code && $address->ward_code) {
+            try {
+                $ghnResponse = \Illuminate\Support\Facades\Http::withHeaders([
+                    'Token' => env('VITE_TOKEN_GHN'),
+                    'ShopId' => env('VITE_SHOPID_GHN')
+                ])->get('https://online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee', [
+                    'service_type_id' => 2,
+                    'to_district_id' => (int) $address->district_code,
+                    'to_ward_code' => $address->ward_code,
+                    'weight' => 3000,
+                ]);
 
-                // Đảm bảo provinces là mảng (Xử lý trường hợp DB lưu là json string hoặc comma-separated)
-                $provincesArray = [];
-                if (is_array($zone->provinces)) {
-                    $provincesArray = $zone->provinces;
-                } elseif (is_string($zone->provinces)) {
-                    $decoded = json_decode($zone->provinces, true);
-                    if (is_array($decoded)) {
-                        $provincesArray = $decoded;
-                    } else {
-                        $provincesArray = array_map('trim', explode(',', $zone->provinces));
+                if ($ghnResponse->successful()) {
+                    $json = $ghnResponse->json();
+                    if (isset($json['data']['total'])) {
+                        $shippingFee = $json['data']['total'];
                     }
                 }
-
-                $inProvince = false;
-                foreach ($provincesArray as $p) {
-                    if (empty($p)) continue;
-                    $provName = mb_strtolower($p, 'UTF-8');
-                    $addrProv = mb_strtolower($address->province ?? '', 'UTF-8');
-                    $addrDist = $address->district ? mb_strtolower($address->district, 'UTF-8') : '';
-
-                    if (str_contains($addrProv, $provName) || str_contains($provName, $addrProv) ||
-                        ($addrDist && (str_contains($addrDist, $provName) || str_contains($provName, $addrDist)))) {
-                        $inProvince = true;
-                        break;
-                    }
-                }
-
-                if ($inProvince) {
-                    $matchedZone = $zone;
-                    break;
-                }
-            }
-
-            if ($matchedZone) {
-                if ($matchedZone->free_ship_threshold && $subtotal >= $matchedZone->free_ship_threshold) {
-                    $shippingFee = 0;
-                } else {
-                    $shippingFee = $matchedZone->shipping_fee;
-                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('GHN Fee API Error: ' . $e->getMessage());
             }
         }
 
