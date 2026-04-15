@@ -24,7 +24,7 @@ if (reverbKey) {
                         channel_name: channel.name
                     }, {
                         headers: {
-                            Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+                            Authorization: `Bearer ${sessionStorage.getItem('auth_token')}`,
                             Accept: 'application/json'
                         }
                     })

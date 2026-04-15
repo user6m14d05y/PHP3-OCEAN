@@ -261,6 +261,12 @@ const routes = [
                 meta: { roles: ['admin', 'seller', 'staff'], title: 'Chấm Công' },
             },
             {
+                path: "stats",
+                name: "admin-stats",
+                component: () => import("../Pages/admin/AdminStats.vue"),
+                meta: { roles: ['admin', 'staff'], title: 'Thống kê' },
+            },
+            {
                 path: "attendance-list",
                 name: "admin-attendance-list",
                 component: () => import("../Pages/admin/AdminAttendanceList.vue"),
@@ -284,8 +290,8 @@ const router = createRouter({
 // ==================== Navigation Guard ====================
 
 router.beforeEach((to, from) => {
-    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user') || sessionStorage.getItem('user');
+    const token = sessionStorage.getItem('auth_token');
+    const userData = sessionStorage.getItem('user');
     const user = userData ? JSON.parse(userData) : null;
 
     // Route yêu cầu đăng nhập

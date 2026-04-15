@@ -358,7 +358,7 @@ async function startLiveChat() {
   showQuickActions.value = false;
   
   try {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
     // Gọi API init session
@@ -440,7 +440,7 @@ async function sendMessage() {
 
   try {
     // Prepare headers — include JWT if logged in
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     const headers = {};
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;

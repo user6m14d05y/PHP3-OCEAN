@@ -147,8 +147,10 @@ const handleLogout = async () => {
   if (!confirm('Bạn có chắc chắn muốn đăng xuất?')) return;
   try { await api.post('/logout'); } catch (e) { /* ignore */ }
   localStorage.removeItem('auth_token');
-  sessionStorage.removeItem('user');
+  localStorage.removeItem('user');
   localStorage.removeItem('ocean_live_chat_token');
+  sessionStorage.removeItem('auth_token');
+  sessionStorage.removeItem('user');
   sessionStorage.removeItem('ocean_chatbot_messages');
   sessionStorage.removeItem('ocean_chatbot_history');
   router.push('/client/login');

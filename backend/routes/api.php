@@ -26,6 +26,7 @@ use App\Http\Controllers\ProductCommentController;
 use App\Http\Controllers\SellerController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\ChatController;
 
 // Add this line to run the route: http://localhost:8000/api
 Route::get('/', function () {
@@ -121,6 +122,7 @@ Route::middleware('auth:api,admin')->prefix('cart')->group(function () {
     Route::get('/count', [CartController::class, 'getCount']);
     Route::post('/items', [CartController::class, 'addItem']);
     Route::put('/items/{id}', [CartController::class, 'updateItem']);
+    Route::put('/items/{id}/variant', [CartController::class, 'changeVariant']);
     Route::delete('/items/{id}', [CartController::class, 'removeItem']);
     Route::delete('/', [CartController::class, 'clearCart']);
     Route::post('/buy-again/{orderId}', [CartController::class, 'buyAgain']);
@@ -154,9 +156,6 @@ Route::middleware(['auth:api,admin', 'role:admin'])->prefix('admin')->group(func
     Route::put('/coupons/{id}', [CouponController::class, 'update']);
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
     Route::get('/coupons/{id}/usages', [CouponController::class, 'getCouponUsages']);
-
-    // Dashboard Thống kê tổng quan
-    Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
 });
 
 // ==========================================
@@ -204,6 +203,17 @@ Route::middleware(['auth:api,admin', 'role:admin,seller,staff'])->prefix('admin'
     Route::get('/attendance', [\App\Http\Controllers\AttendanceController::class, 'index']);
     Route::post('/attendance/check-in', [\App\Http\Controllers\AttendanceController::class, 'checkIn']);
     Route::post('/attendance/check-out', [\App\Http\Controllers\AttendanceController::class, 'checkOut']);
+
+    // Tổng quan (Dashboard)
+    Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
+    
+    // Admin Statistics (Detailed dashboard)
+    Route::get('/statistics/overview', [\App\Http\Controllers\AdminStatisticsController::class, 'getOverview']);
+    Route::get('/statistics/revenue', [\App\Http\Controllers\AdminStatisticsController::class, 'getRevenueChart']);
+    Route::get('/statistics/orders-status', [\App\Http\Controllers\AdminStatisticsController::class, 'getOrderStatusChart']);
+    Route::get('/statistics/top-products', [\App\Http\Controllers\AdminStatisticsController::class, 'getTopProducts']);
+    Route::get('/statistics/top-customers', [\App\Http\Controllers\AdminStatisticsController::class, 'getTopCustomers']);
+    Route::get('/statistics/report', [\App\Http\Controllers\AdminStatisticsController::class, 'getRevenueReport']);
 });
 
 
@@ -213,6 +223,7 @@ Route::get('categories', [CategoryController::class, 'index']);
 Route::get('categories/{id}', [CategoryController::class, 'show']);
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{id}', [ProductController::class, 'show']);
+Route::get('products/{id}/variants', [ProductController::class, 'getVariants']);
 Route::get('products/slug/{slug}', [ProductController::class, 'show']);
 Route::get('products/{product_id}/comments', [ProductCommentController::class, 'getByProduct']);
 Route::get('productFeatured', [ProductController::class, 'productFeatured']);
@@ -266,4 +277,143 @@ Route::middleware('throttle:30,1')->post('/payment/vnpay-ipn', [\App\Http\Contro
 
 // MoMo Payment Gateway
 Route::middleware('throttle:30,1')->get('/payment/momo-return', [\App\Http\Controllers\MoMoController::class, 'momoReturn']);
+
+Route::post('/payment/momo-ipn', [\App\Http\Controllers\MoMoController::class, 'momoIpn']);
+// =====================================================================
+// ██ DEBUG ROUTES — Chạy thủ công scheduler commands (XÓA KHI PRODUCTION)
+// =====================================================================
+Route::prefix('debug')->group(function () {
+    // Test: Chạy abandoned cart command ngay lập tức
+    // GET /api/debug/run-abandoned-cart
+    Route::get('/run-abandoned-cart', function () {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('app:remind-abandoned-cart');
+            $output = \Illuminate\Support\Facades\Artisan::output();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Command executed!',
+                'output' => $output,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ], 500);
+        }
+    });
+
+    // Test: Chạy birthday command ngay lập tức
+    // GET /api/debug/run-birthday
+    Route::get('/run-birthday', function () {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('app:send-birthday-wishes');
+            $output = \Illuminate\Support\Facades\Artisan::output();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Command executed!',
+                'output' => $output,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ], 500);
+        }
+    });
+
+    // Test: Xem trạng thái cart + notification
+    // GET /api/debug/cart-status
+    Route::get('/cart-status', function () {
+        $carts = \App\Models\Cart::where('status', 'active')
+            ->whereHas('items')
+            ->with(['user:user_id,full_name,email,reward_points', 'items'])
+            ->get()
+            ->map(function ($cart) {
+                $latestItem = $cart->items->sortByDesc('updated_at')->first();
+                return [
+                    'cart_id' => $cart->cart_id,
+                    'user' => $cart->user ? [
+                        'user_id' => $cart->user->user_id,
+                        'name' => $cart->user->full_name,
+                        'email' => $cart->user->email,
+                        'reward_points' => $cart->user->reward_points,
+                    ] : null,
+                    'item_count' => $cart->items->count(),
+                    'latest_item_updated_at' => $latestItem ? $latestItem->updated_at->format('Y-m-d H:i:s') : null,
+                    'minutes_since_update' => $latestItem ? now()->diffInMinutes($latestItem->updated_at) : null,
+                    'is_abandoned' => $latestItem ? now()->diffInMinutes($latestItem->updated_at) >= 5 : false,
+                ];
+            });
+
+        $notifications = \Illuminate\Support\Facades\DB::table('notifications')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get(['id', 'type', 'notifiable_id', 'data', 'read_at', 'created_at']);
+
+        return response()->json([
+            'status' => 'success',
+            'current_time' => now()->format('Y-m-d H:i:s'),
+            'threshold_time' => now()->subMinutes(5)->format('Y-m-d H:i:s'),
+            'active_carts' => $carts,
+            'recent_notifications' => $notifications,
+        ]);
+    });
+
+    // Test: Chạy send-order-emails ngay lập tức
+    // GET /api/debug/run-order-emails
+    Route::get('/run-order-emails', function () {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('app:send-order-emails');
+            $output = \Illuminate\Support\Facades\Artisan::output();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Command executed!',
+                'output' => $output,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ], 500);
+        }
+    });
+
+    // Test: Xem đơn hàng chưa gửi email
+    // GET /api/debug/pending-emails
+    Route::get('/pending-emails', function () {
+        $orders = \App\Models\Order::where('email_sent', false)
+            ->with('user:user_id,full_name,email')
+            ->latest()
+            ->limit(20)
+            ->get(['order_id', 'order_code', 'user_id', 'grand_total', 'email_sent', 'fulfillment_status', 'created_at'])
+            ->map(function ($order) {
+                return [
+                    'order_code' => $order->order_code,
+                    'user' => $order->user ? $order->user->full_name . ' (' . $order->user->email . ')' : 'N/A',
+                    'grand_total' => number_format($order->grand_total, 0, ',', '.') . 'đ',
+                    'status' => $order->fulfillment_status,
+                    'created_at' => $order->created_at->format('H:i:s d/m'),
+                    'minutes_ago' => now()->diffInMinutes($order->created_at),
+                    'ready_to_send' => now()->diffInMinutes($order->created_at) >= 5,
+                ];
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'current_time' => now()->format('Y-m-d H:i:s'),
+            'pending_orders' => $orders,
+        ]);
+    });
+});
+
+Route::get('image-proxy', function (\Illuminate\Http\Request $request) {
+    $path = $request->query('path');
+    if (!$path) abort(404);
+    $absolutePath = storage_path('app/public/' . $path);
+    if (!file_exists($absolutePath)) abort(404);
+    return response()->file($absolutePath);
+});
 Route::middleware('throttle:30,1')->post('/payment/momo-ipn', [\App\Http\Controllers\MoMoController::class, 'momoIpn']);

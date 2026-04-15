@@ -39,8 +39,8 @@
 <body>
     <div class="header text-center">
         <h2>OCEAN STORE</h2>
-        <div>123 Đường Bơi, Đại Dương</div>
-        <div>SĐT: 0123 456 789</div>
+        <div>134 Nguyễn Thị Định, P.Buôn Ma Thuột, Tỉnh Đắk Lắk</div>
+        <div>SĐT: 1900-OCEAN (1900 6232)</div>
     </div>
     
     <div class="info">
