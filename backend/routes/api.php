@@ -157,6 +157,9 @@ Route::middleware(['auth:api,admin', 'role:admin'])->prefix('admin')->group(func
 
     // Dashboard Thống kê tổng quan
     Route::get('/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'getDashboardData']);
+
+    // Thống kê chi tiết
+    Route::get('/statistics', [\App\Http\Controllers\AdminStatisticsController::class, 'index']);
 });
 
 // ==========================================
