@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../productDetail.dart';
 
-const String kBaseUrl = 'http://localhost:8383/api';
+const String kBaseUrl = 'http://10.0.2.2:8383/api';
 
 class FavoriteScreen extends StatefulWidget {
   const FavoriteScreen({super.key});
@@ -124,12 +124,12 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
                 if (product['main_image'] != null) {
                   final rawImage = product['main_image']['image_url'] ?? '';
                   if (rawImage.isNotEmpty) {
-                    imageUrl = rawImage.startsWith('http') ? rawImage : 'http://localhost:8383/api/image-proxy?path=$rawImage';
+                    imageUrl = rawImage.startsWith('http') ? rawImage : 'http://10.0.2.2:8383/api/image-proxy?path=$rawImage';
                   }
                 } else {
                   final rawImage = product['thumbnail_url'] ?? '';
                   if (rawImage.toString().isNotEmpty) {
-                    imageUrl = rawImage.toString().startsWith('http') ? rawImage.toString() : 'http://localhost:8383/api/image-proxy?path=$rawImage';
+                    imageUrl = rawImage.toString().startsWith('http') ? rawImage.toString() : 'http://10.0.2.2:8383/api/image-proxy?path=$rawImage';
                   }
                 }
 

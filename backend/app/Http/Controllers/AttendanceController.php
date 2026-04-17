@@ -71,25 +71,33 @@ class AttendanceController extends Controller
 
         $userIp = $request->ip();
 
-        // Validate Location Distance
-        $storeLat = env('STORE_LAT');
-        $storeLng = env('STORE_LNG');
-        $userLat = $request->lat;
-        $userLng = $request->lng;
+        // Validating WiFi 
+        $wifiSsid = $request->wifi_ssid ? trim(str_replace('"', '', $request->wifi_ssid)) : null;
+        $wifiBssid = $request->wifi_bssid;
+        $allowedWifi = array_map('trim', explode(',', env('STORE_WIFI_SSIDS', 'CongTy_WiFi,Office_5G')));
+        $isWifiValid = $wifiSsid && in_array($wifiSsid, $allowedWifi);
 
-        if (!$userLat || !$userLng) {
-            return response()->json(['status' => 'error', 'message' => 'Không thể lấy tọa độ GPS từ thiết bị của bạn!'], 400);
-        }
+        if (!$isWifiValid) {
+            // Fallback to Location Distance
+            $storeLat = env('STORE_LAT');
+            $storeLng = env('STORE_LNG');
+            $userLat = $request->lat;
+            $userLng = $request->lng;
 
-        if ($storeLat && $storeLng) {
-            $distance = $this->calculateDistanceDistanceInMeters($storeLat, $storeLng, $userLat, $userLng);
+            if (!$userLat || !$userLng) {
+                return response()->json(['status' => 'error', 'message' => "Bạn chưa kết nối WiFi công ty ($wifiSsid không hợp lệ) và cũng không thể lấy tọa độ GPS từ thiết bị!"], 400);
+            }
 
-            // Allow 50 meters
-            if ($distance > 50) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Vị trí của bạn nằm ngoài phạm vi cửa hàng. Bạn phải ở cách cửa hàng dưới 50m thì camera mới kiểm soát được bạn.'
-                ], 400);
+            if ($storeLat && $storeLng) {
+                $distance = $this->calculateDistanceDistanceInMeters($storeLat, $storeLng, $userLat, $userLng);
+
+                // Allow 50 meters
+                if ($distance > 50) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Bạn không ở công ty (sai WiFi gốc) và vị trí GPS cách xa hơn 50m!'
+                    ], 400);
+                }
             }
         }
 
@@ -119,8 +127,10 @@ class AttendanceController extends Controller
             'user_id' => $userId,
             'check_in_at' => now(),
             'ip_address' => $userIp,
-            'latitude' => $userLat,
-            'longitude' => $userLng,
+            'latitude' => $request->lat,
+            'longitude' => $request->lng,
+            'wifi_ssid' => $wifiSsid,
+            'wifi_bssid' => $wifiBssid,
             'image_path' => $imagePath,
             'note' => $request->note,
         ]);
@@ -149,23 +159,31 @@ class AttendanceController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Bạn chưa check-in hoặc đã check-out rồi!'], 400);
         }
 
-        // Validate Location Distance
-        $storeLat = env('STORE_LAT');
-        $storeLng = env('STORE_LNG');
-        $userLat = $request->lat;
-        $userLng = $request->lng;
+        // Validate WiFi
+        $wifiSsid = $request->wifi_ssid ? trim(str_replace('"', '', $request->wifi_ssid)) : null;
+        $wifiBssid = $request->wifi_bssid;
+        $allowedWifi = array_map('trim', explode(',', env('STORE_WIFI_SSIDS', 'CongTy_WiFi,Office_5G')));
+        $isWifiValid = $wifiSsid && in_array($wifiSsid, $allowedWifi);
 
-        if (!$userLat || !$userLng) {
-            return response()->json(['status' => 'error', 'message' => 'Không thể lấy tọa độ GPS từ thiết bị của bạn!'], 400);
-        }
+        if (!$isWifiValid) {
+            // Validate Location Distance
+            $storeLat = env('STORE_LAT');
+            $storeLng = env('STORE_LNG');
+            $userLat = $request->lat;
+            $userLng = $request->lng;
 
-        if ($storeLat && $storeLng) {
-            $distance = $this->calculateDistanceDistanceInMeters($storeLat, $storeLng, $userLat, $userLng);
-            if ($distance > 50) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Vị trí của bạn nằm ngoài phạm vi cửa hàng. Bạn phải ở cách cửa hàng dưới 50m thì camera mới kiểm soát được bạn.'
-                ], 400);
+            if (!$userLat || !$userLng) {
+                return response()->json(['status' => 'error', 'message' => "Bạn chưa kết nối WiFi công ty và không thể lấy tọa độ GPS từ thiết bị!"], 400);
+            }
+
+            if ($storeLat && $storeLng) {
+                $distance = $this->calculateDistanceDistanceInMeters($storeLat, $storeLng, $userLat, $userLng);
+                if ($distance > 50) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Vị trí của bạn cách xa hơn 50m (GPS) và chưa kết nối WiFi công ty.'
+                    ], 400);
+                }
             }
         }
 

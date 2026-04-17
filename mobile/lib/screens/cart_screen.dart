@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
+import '../services/api_client.dart';
 import 'checkout_screen.dart';
-
-const String kBaseUrl = 'http://localhost:8383/api';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -27,24 +26,10 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> fetchCart() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      
-      if (token == null) {
-        setState(() { errorMessage = 'Không tìm thấy thông tin đăng nhập.'; isLoading = false; });
-        return;
-      }
-
-      final response = await http.get(
-        Uri.parse('$kBaseUrl/cart'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 15));
+      final response = await ApiClient().dio.get('/cart');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = response.data;
         if (mounted) {
           setState(() {
             cartData = data['data'];
@@ -72,15 +57,9 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> fetchCartSilently() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      if (token == null) return;
-      final response = await http.get(
-        Uri.parse('$kBaseUrl/cart'),
-        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
-      );
+      final response = await ApiClient().dio.get('/cart');
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = response.data;
         if (mounted) {
           setState(() {
             cartData = data['data'];
@@ -99,12 +78,9 @@ class _CartScreenState extends State<CartScreen> {
     setState(() { cartItems[itemIndex]['quantity'] = quantity; }); // Optimistic UI
     
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      final response = await http.put(
-        Uri.parse('$kBaseUrl/cart/items/$cartItemId'),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-        body: jsonEncode({'quantity': quantity})
+      final response = await ApiClient().dio.put(
+        '/cart/items/$cartItemId',
+        data: {'quantity': quantity},
       );
       
       if (response.statusCode == 200) {
@@ -127,12 +103,7 @@ class _CartScreenState extends State<CartScreen> {
     setState(() { cartItems.removeAt(itemIndex); }); // Optimistic UI
     
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      final response = await http.delete(
-        Uri.parse('$kBaseUrl/cart/items/$cartItemId'),
-        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
-      );
+      final response = await ApiClient().dio.delete('/cart/items/$cartItemId');
       
       if (response.statusCode == 200) {
         await fetchCartSilently();
@@ -237,7 +208,7 @@ class _CartScreenState extends State<CartScreen> {
               String name = product != null ? product['name'] : 'Sản phẩm';
               String image = product != null ? product['thumbnail_url'] : '';
               if (!image.startsWith('http') && image.isNotEmpty) {
-                image = 'http://localhost:8383/api/image-proxy?path=$image';
+                image = 'http://10.0.2.2:8383/api/image-proxy?path=$image';
               }
               int qty = int.tryParse(item['quantity'].toString()) ?? 1;
               String variantStr = '';
@@ -261,7 +232,16 @@ class _CartScreenState extends State<CartScreen> {
                     // Hình
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
-                      child: image.isNotEmpty ? Image.network(image, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (_,__,___) => Container(width: 80, height: 80, color: const Color(0xFFF1F5F9), child: const Icon(Icons.image, color: Colors.grey))) : Container(width: 80, height: 80, color: const Color(0xFFF1F5F9)),
+                      child: image.isNotEmpty 
+                        ? CachedNetworkImage(
+                            imageUrl: image, 
+                            width: 80, 
+                            height: 80, 
+                            fit: BoxFit.cover, 
+                            placeholder: (_,__) => Container(width: 80, height: 80, color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                            errorWidget: (_,__,___) => Container(width: 80, height: 80, color: const Color(0xFFF1F5F9), child: const Icon(Icons.image, color: Colors.grey))
+                          ) 
+                        : Container(width: 80, height: 80, color: const Color(0xFFF1F5F9)),
                     ),
                     const SizedBox(width: 16),
                     // Thông tin

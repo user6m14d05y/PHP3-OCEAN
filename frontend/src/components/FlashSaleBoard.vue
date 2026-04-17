@@ -238,7 +238,7 @@ async function fetchSale() {
 async function fetchStock() {
   if (!sale.value) return;
   try {
-    const { data } = await api.get(`flash-sale/${sale.value.id}/stock`);
+    const { data } = await api.get(`flash-sale/${sale.value.id}/stock?product_id=${sale.value.product_id}`);
     stockData.value = data;
   } catch {}
 }
@@ -255,6 +255,7 @@ async function handleBuy() {
   try {
     const { data } = await api.post('flash-sale/buy', {
       flash_sale_id:    sale.value.id,
+      product_id:       sale.value.product_id,
       quantity:         1,
       recipient_name:   user?.full_name  || 'Khách hàng',
       recipient_phone:  user?.phone      || '0900000000',

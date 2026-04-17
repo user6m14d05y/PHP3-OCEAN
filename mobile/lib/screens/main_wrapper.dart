@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
+import '../services/api_client.dart';
 import '../home_screen.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
@@ -10,7 +10,6 @@ import 'cart_screen.dart';
 import 'order_screen.dart';
 import 'profile_screen.dart';
 
-const String kBaseUrl = 'http://localhost:8383/api';
 
 class MainWrapper extends StatefulWidget {
   final int initialIndex;
@@ -36,18 +35,13 @@ class _MainWrapperState extends State<MainWrapper> {
     final loggedIn = await AuthService.isLoggedIn();
     if (!loggedIn) return;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      final res = await http.get(
-        Uri.parse('$kBaseUrl/cart'),
-        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
-      );
+      final res = await ApiClient().dio.get('/cart');
       if (res.statusCode == 200) {
-        final data = jsonDecode(res.body)['data'];
+        final data = res.data['data'];
         if (data != null && data['items'] != null) {
           int count = 0;
           for (var item in data['items']) {
-            count += (item['quantity'] as int? ?? 1);
+            count += (int.tryParse(item['quantity'].toString()) ?? 1);
           }
           if (mounted) setState(() => _cartBadgeCount = count);
         }

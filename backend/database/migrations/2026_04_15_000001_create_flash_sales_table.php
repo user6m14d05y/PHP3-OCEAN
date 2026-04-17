@@ -10,26 +10,29 @@ return new class extends Migration
     {
         Schema::create('flash_sales', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_id')->constrained('products', 'product_id')->cascadeOnDelete();
-            $table->unsignedBigInteger('variant_id')->nullable(); // Nếu null = áp dụng cho tất cả variant
-            $table->string('title')->default('Flash Sale');
-            $table->text('description')->nullable();
-            $table->unsignedInteger('total_stock');        // Tổng số lượng được bán
-            $table->unsignedInteger('sold_count')->default(0); // Đã bán (sync từ Queue)
-            $table->decimal('sale_price', 15, 2);          // Giá bán flash sale
-            $table->decimal('original_price', 15, 2);      // Giá gốc (để hiện % giảm)
-            $table->unsignedInteger('max_per_user')->default(1); // Giới hạn mỗi user mua tối đa
-            $table->timestamp('starts_at');
-            $table->timestamp('ends_at');
+            $table->string('name')->default('Flash Sale');
+            $table->timestamp('start_time');
+            $table->timestamp('end_time');
             $table->enum('status', ['draft', 'active', 'ended', 'cancelled'])->default('draft');
             $table->timestamps();
 
-            $table->index(['status', 'starts_at', 'ends_at']);
+            $table->index(['status', 'start_time', 'end_time']);
+        });
+
+        Schema::create('flash_sale_items', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('flash_sale_id')->constrained('flash_sales')->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained('products', 'product_id')->cascadeOnDelete();
+            $table->decimal('campaign_price', 15, 2);
+            $table->unsignedInteger('campaign_stock');
+            $table->unsignedInteger('sold')->default(0);
+            $table->timestamps();
         });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('flash_sale_items');
         Schema::dropIfExists('flash_sales');
     }
 };

@@ -221,6 +221,12 @@ const routes = [
                 meta: { roles: ['admin'], title: 'Quản lý mã giảm giá' },
             },
             {
+                path: "flash-sale",
+                name: "admin-flash-sale",
+                component: () => import("../Pages/admin/AdminFlashSale.vue"),
+                meta: { roles: ['admin'], title: 'Quản lý Flash Sale' },
+            },
+            {
                 path: "post",
                 name: "admin-post",
                 component: () => import("../Pages/admin/AdminPost.vue"),

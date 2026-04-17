@@ -97,8 +97,12 @@ class ProductController extends Controller
             }
         }
 
-        if ($status && in_array($status, ['draft', 'active', 'inactive', 'out_of_stock'])) {
-            $query->where('status', $status)->where('deleted_at', null);
+        if ($status) {
+            if ($status === 'deleted') {
+                $query->onlyTrashed();
+            } elseif (in_array($status, ['draft', 'active', 'inactive', 'out_of_stock'])) {
+                $query->where('status', $status)->whereNull('deleted_at');
+            }
         }
 
         // Lọc theo danh mục (bao gồm cả danh mục con)
@@ -891,21 +895,48 @@ class ProductController extends Controller
     public function destroy($id)
     {
         try {
-            $product = Product::findOrFail($id);
-            $product->update([
-                'deleted_at' => now(),
-            ]);
+            $product = Product::withTrashed()->findOrFail($id);
+            
+            if ($product->trashed()) {
+                $product->forceDelete();
+                $msg = 'Xóa vĩnh viễn sản phẩm thành công.';
+            } else {
+                $product->delete();
+                $msg = 'Xóa sản phẩm thành công.';
+            }
+
             Cache::flush();
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Xóa sản phẩm thành công',
+                'message' => $msg,
             ]);
         } catch (\Exception $e) {
             $isDbError = $e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException;
             $errorMsg = $isDbError ? 'Lỗi hệ thống.' : $e->getMessage();
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Xóa thất bại: ' . $errorMsg,
+                'message' => 'Lỗi khi xóa: ' . $errorMsg,
+            ], 500);
+        }
+    }
+
+    /**
+     * Khôi phục sản phẩm (restore)
+     */
+    public function restore($id)
+    {
+        try {
+            $product = Product::withTrashed()->findOrFail($id);
+            $product->restore();
+            Cache::flush();
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Khôi phục sản phẩm thành công.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không thể khôi phục sản phẩm.',
             ], 500);
         }
     }

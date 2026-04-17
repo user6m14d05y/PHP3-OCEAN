@@ -111,14 +111,31 @@ const handleFilterStatus = (status) => {
     fetchProducts();
 };
 
-const handleDelete = async (productId) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return;
+const handleDelete = async (productId, isDeleted) => {
+    const confirmMsg = isDeleted 
+        ? 'Bạn có chắc chắn muốn xóa vĩnh viễn sản phẩm này? Thao tác này không thể hoàn tác!' 
+        : 'Bạn có chắc chắn muốn xóa tạm sản phẩm này?';
+    if (!confirm(confirmMsg)) return;
+
     try {
         await api.delete(`/products/${productId}`);
+        showToastMsg(isDeleted ? 'Xóa vĩnh viễn thành công.' : 'Xóa sản phẩm thành công.', 'success');
         fetchProducts();
     } catch (error) {
         console.error('Error deleting product:', error);
-        alert('Không thể xóa sản phẩm.');
+        showToastMsg('Không thể xóa sản phẩm.', 'danger');
+    }
+};
+
+const handleRestore = async (productId) => {
+    if (!confirm('Bạn có chắc chắn muốn khôi phục sản phẩm này?')) return;
+    try {
+        await api.put(`/products/${productId}/restore`);
+        showToastMsg('Khôi phục sản phẩm thành công.', 'success');
+        fetchProducts();
+    } catch (error) {
+        console.error('Error restoring product:', error);
+        showToastMsg('Không thể khôi phục sản phẩm.', 'danger');
     }
 };
 
@@ -261,6 +278,11 @@ const qvTotalStock = computed(() => {
     if (!quickViewProduct.value?.variants) return 0;
     return quickViewProduct.value.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
 });
+
+const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('vi-VN');
+};
 </script>
 
 <template>
@@ -318,7 +340,7 @@ const qvTotalStock = computed(() => {
                 <button class="filter-btn" :class="{ active: statusFilter === 'draft' }" @click="handleFilterStatus('draft')">Nháp</button>
                 <button class="filter-btn" :class="{ active: statusFilter === 'inactive' }" @click="handleFilterStatus('inactive')">Tạm ẩn</button>
                 <button class="filter-btn" :class="{ active: statusFilter === 'out_of_stock' }" @click="handleFilterStatus('out_of_stock')">Hết hàng</button>
-                <button class="filter-btn" :class="{ active: statusFilter === 'deleted' }" @click="handleFilterStatus('deleted')">Đã xóa</button>
+                <button class="filter-btn btn-danger" :class="{ active: statusFilter === 'deleted' }" @click="handleFilterStatus('deleted')">Đã xóa</button>
             </div>
         </div>
 
@@ -365,8 +387,10 @@ const qvTotalStock = computed(() => {
                             <td>
                                 <div class="prod-cell">
                                     <div>
-                                        <span class="prod-name">{{ p.name }}</span>
-                                        <span class="prod-slug">/{{ p.slug }}</span>
+                                        <span class="prod-name">{{ p.name }}</span> <br class="m-0">
+                                        <span class="prod-slug">{{ p.slug }}</span> <br class="m-0">
+                                        <span class="prod-slug">Ngày tạo: {{ formatDate(p.created_at) }}</span>
+
                                     </div>
                                 </div>
                             </td>
@@ -393,8 +417,19 @@ const qvTotalStock = computed(() => {
                                     <router-link :to="`/admin/product/edit/${p.product_id}`" class="btn-icon edit" title="Sửa">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                     </router-link>
-                                    <button class="btn-icon del" title="Xóa" @click="handleDelete(p.product_id)">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                    <button v-if="p.deleted_at" class="btn-icon restore" title="Khôi phục" @click="handleRestore(p.product_id)">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                            <path d="M3 3v5h5"/>
+                                        </svg>
+                                    </button>
+                                    <button class="btn-icon del" :title="p.deleted_at ? 'Xóa vĩnh viễn' : 'Xóa'" @click="handleDelete(p.product_id, p.deleted_at)">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3 6h18"/>
+                                            <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                            <path d="M10 11v6"/>
+                                            <path d="M14 11v6"/>
+                                        </svg>
                                     </button>
                                 </div>
                             </td>
@@ -717,6 +752,10 @@ const qvTotalStock = computed(() => {
 <style scoped>
 .products-page { font-family: var(--font-inter); }
 
+/* Restore Button */
+.btn-icon.restore { color: #16a34a; }
+.btn-icon.restore:hover { background: rgba(22, 163, 74, 0.15); color: #15803d; border-color: rgba(22, 163, 74, 0.3); }
+
 /* Header buttons group */
 .header-btns { display: flex; gap: 10px; align-items: center; }
 
@@ -822,7 +861,7 @@ const qvTotalStock = computed(() => {
 }
 .prod-cell { display: flex; flex-direction: column; gap: 2px; }
 .prod-thumb {
-    width: 48px; height: 48px; border-radius: 8px;
+    width: 48px; height: 100%; border-radius: 8px;
     background: var(--ocean-deepest); border: 1px solid var(--border-color);
     display: flex; align-items: center; justify-content: center;
     overflow: hidden; color: var(--text-light);
@@ -853,6 +892,7 @@ const qvTotalStock = computed(() => {
 .badge-status.draft { background: rgba(158, 158, 158, 0.15); color: #616161; }
 .badge-status.inactive { background: rgba(255, 167, 38, 0.15); color: #e65100; }
 .badge-status.out_of_stock { background: rgba(239, 83, 80, 0.15); color: #c62828; }
+.badge-status.deleted { background: rgba(239, 83, 80, 0.15); color: #c62828; }
 
 /* Actions */
 .actions-cell { display: flex; gap: 6px; }

@@ -1,12 +1,12 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'services/auth_service.dart';
 import 'productDetail.dart';
 import 'screens/product_list_screen.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/notification_screen.dart';
-
-const String kBaseUrl = 'http://localhost:8383/api';
+import 'package:dio/dio.dart';
+import 'services/api_client.dart';
+import 'widgets/shimmer_loading.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,7 +15,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   // ===== STATE =====
   List<dynamic> products = [];
   bool isLoading = true;
@@ -28,53 +31,61 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ===== GỌI API =====
   Future<void> fetchProducts() async {
+    if (!mounted) return;
     setState(() {
       isLoading = true;
       errorMessage = null;
     });
 
     try {
-      final url = '$kBaseUrl/products?page=$currentPage&search=$search';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
+      final response = await ApiClient().dio.get(
+        '/products',
+        queryParameters: {
+          'page': currentPage,
+          'search': search,
         },
-      ).timeout(const Duration(seconds: 10));
+      );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = response.data;
         List<dynamic> fetched = [];
 
         if (data is List) {
           fetched = data;
-          setState(() {
-            products = fetched;
-            totalPages = 1;
-            totalProducts = fetched.length;
-            isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              products = fetched;
+              totalPages = 1;
+              totalProducts = fetched.length;
+              isLoading = false;
+            });
+          }
         } else if (data['data'] is List) {
           fetched = data['data'];
+          if (mounted) {
+            setState(() {
+              products = fetched;
+              totalPages = data['total_pages'] ?? 1;
+              totalProducts = data['total'] ?? fetched.length;
+              isLoading = false;
+            });
+          }
+        }
+      } else {
+        if (mounted) {
           setState(() {
-            products = fetched;
-            totalPages = data['total_pages'] ?? 1;
-            totalProducts = data['total'] ?? fetched.length;
+            errorMessage = 'Lỗi server: ${response.statusCode}';
             isLoading = false;
           });
         }
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          errorMessage = 'Lỗi server: ${response.statusCode}';
+          errorMessage = 'Không kết nối được API!\nLỗi: $e';
           isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        errorMessage = 'Không kết nối được API!\nLỗi: $e';
-        isLoading = false;
-      });
     }
   }
 
@@ -92,6 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
@@ -100,19 +112,16 @@ class _HomeScreenState extends State<HomeScreen> {
             currentPage = 1;
             await fetchProducts();
           },
-          child: SingleChildScrollView(
+          child: CustomScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                _buildSearchBar(),
-                _buildHeroBanner(),
-                _buildCategories(),
-                _buildProductsSection(),
-              ],
-            ),
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeader()),
+              SliverToBoxAdapter(child: _buildSearchBar()),
+              SliverToBoxAdapter(child: _buildHeroBanner()),
+              SliverToBoxAdapter(child: _buildCategories()),
+              _buildProductsSection(),
+            ],
           ),
         ),
       ),
@@ -298,39 +307,45 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProductsSection() {
-    return Padding(
+    return SliverPadding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-               const Text('Dành cho bạn', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
-               const Icon(Icons.more_horiz, color: Color(0xFF94A3B8))
-            ],
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                     const Text('Dành cho bạn', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                     const Icon(Icons.more_horiz, color: Color(0xFF94A3B8))
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (errorMessage != null && !isLoading)
+                  Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(errorMessage!, style: const TextStyle(color: Colors.red))))
+                else if (products.isEmpty && !isLoading)
+                  const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Không có sản phẩm nào phù hợp'))),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
           if (isLoading && products.isEmpty)
-            const Center(child: CircularProgressIndicator(color: Color(0xFF0EA5E9)))
-          else if (errorMessage != null)
-            Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red)))
-          else if (products.isEmpty)
-            const Center(child: Text('Không có sản phẩm nào phù hợp'))
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+            const SliverShimmerLoading()
+          else if (!isLoading && errorMessage == null && products.isNotEmpty)
+            SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 childAspectRatio: 0.65,
               ),
-              itemCount: products.length,
-              itemBuilder: (context, index) {
-                return _buildProductCard(products[index]);
-              },
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  return _buildProductCard(products[index]);
+                },
+                childCount: products.length,
+              ),
             ),
         ],
       ),
@@ -347,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (rawImage.toString().startsWith('http')) {
         imageUrl = rawImage.toString();
       } else {
-        imageUrl = 'http://localhost:8383/api/image-proxy?path=$rawImage';
+        imageUrl = 'http://10.0.2.2:8383/api/image-proxy?path=$rawImage';
       }
     }
 
@@ -376,7 +391,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ClipRRect(
                   borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
                   child: imageUrl.isNotEmpty
-                      ? Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imagePlaceholder())
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl, 
+                          height: 160, 
+                          width: double.infinity, 
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(height: 160, color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                          errorWidget: (context, url, error) => _imagePlaceholder(),
+                        )
                       : _imagePlaceholder(),
                 ),
                 Positioned(
@@ -385,18 +407,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: GestureDetector(
                     onTap: () async {
                       try {
-                        final prefs = await SharedPreferences.getInstance();
-                        final token = prefs.getString('access_token');
-                        if (token == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng đăng nhập để lưu!')));
+                        final loggedIn = await AuthService.isLoggedIn();
+                        if (!loggedIn) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng đăng nhập để lưu!')));
+                          }
                           return;
                         }
-                        await http.post(
-                          Uri.parse('$kBaseUrl/profile/favorites/toggle'),
-                          headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-                          body: jsonEncode({'product_id': product['product_id'] ?? product['id']})
+                        await ApiClient().dio.post(
+                          '/profile/favorites/toggle',
+                          data: {'product_id': product['product_id'] ?? product['id']}
                         );
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã cập nhật danh sách yêu thích!'), duration: Duration(seconds: 1)));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã cập nhật danh sách yêu thích!'), duration: Duration(seconds: 1)));
+                        }
                       } catch (_) {}
                     },
                     child: Container(

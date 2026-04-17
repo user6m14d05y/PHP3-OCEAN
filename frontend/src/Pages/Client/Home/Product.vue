@@ -778,4 +778,10 @@ onMounted(async () => {
         gap: 16px;
     }
 }
+
+@media (max-width: 480px) {
+    .products-grid {
+        gap: 8px;
+    }
+}
 </style>

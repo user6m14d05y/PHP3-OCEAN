@@ -38,8 +38,8 @@ Route::get('/', function () {
 });
 
 // Auth routes (Public) — có Rate Limiting + Turnstile
-Route::middleware('throttle:5,1')->post('/login', [AuthController::class, 'login']);
-Route::middleware('throttle:3,1')->post('/register', [AuthController::class, 'register']);
+Route::middleware('throttle:20,1')->post('/login', [AuthController::class, 'login']);
+Route::middleware('throttle:10,1')->post('/register', [AuthController::class, 'register']);
 Route::post('/SubmitContact', [ContactController::class, 'SubmitContact']);
 Route::post('/SubmitContactEmail', [ContactController::class, 'SubmitContactEmail']);
 
@@ -203,6 +203,7 @@ Route::middleware(['auth:api,admin', 'role:admin,seller'])->prefix('admin')->gro
     // POS - Bán hàng trực tiếp
     Route::get('/pos/products/search', [PosController::class, 'searchProducts']);
     Route::get('/pos/products/scan', [PosController::class, 'scanProduct']);
+    Route::post('/pos/mobile-scan', [PosController::class, 'mobileScan']);
     Route::post('/pos/checkout', [PosController::class, 'checkout']);
     Route::get('/pos/orders/{id}/receipt-pdf', [PosController::class, 'exportReceiptPdf']);
 
@@ -242,6 +243,7 @@ Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{id}', [ProductController::class, 'show']);
 Route::get('products/{id}/variants', [ProductController::class, 'getVariants']);
 Route::get('products/slug/{slug}', [ProductController::class, 'show']);
+Route::get('products/{slug}/related', [ProductController::class, 'related']);
 Route::get('products/{product_id}/comments', [ProductCommentController::class, 'getByProduct']);
 Route::get('productFeatured', [ProductController::class, 'productFeatured']);
 
@@ -260,6 +262,7 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->group(function () {
     Route::post('products', [ProductController::class, 'store']);
     Route::post('products/{id}', [ProductController::class, 'update']); // Use POST for multipart/form-data with _method=PUT
     Route::delete('products/{id}', [ProductController::class, 'destroy']);
+    Route::put('products/{id}/restore', [ProductController::class, 'restore']);
 });
 
 Route::get('productsAll', [ProductController::class, 'all']);

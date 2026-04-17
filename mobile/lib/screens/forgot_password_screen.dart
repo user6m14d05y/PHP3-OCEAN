@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-const String kBaseUrl = 'http://localhost:8383/api';
+const String kBaseUrl = 'http://10.0.2.2:8383/api';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
