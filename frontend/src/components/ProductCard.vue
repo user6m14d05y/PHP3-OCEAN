@@ -46,6 +46,9 @@ const handleToggleFav = async () => {
                     >
                         {{ props.product.badge }}
                     </span>
+                    <span class="product-badge badge-sale" v-if="props.product.discount_percent > 0">
+                        -{{ props.product.discount_percent }}%
+                    </span>
                 </div>
 
                 <!-- Main Image -->
@@ -72,8 +75,9 @@ const handleToggleFav = async () => {
             
             <div class="product-info">
                 <h3 class="product-name text-truncate" :title="props.product.name">{{ props.product.name }}</h3>
-                <div class="d-flex align-items-center justify-content-between mt-2">
-                    <span class="product-price">{{ props.product.price }}</span>
+                <div class="d-flex align-items-center mt-2" style="gap: 8px;">
+                    <span class="product-price" :class="{'sale-price': props.product.originalPrice}">{{ props.product.price }}</span>
+                    <span class="original-price" v-if="props.product.originalPrice">{{ props.product.originalPrice }}</span>
                 </div>
             </div>
         </router-link>
@@ -134,6 +138,7 @@ const handleToggleFav = async () => {
 
 .badge-hot { background: #0F172A; }
 .badge-new { background: #64748b; }
+.badge-sale { background: var(--coral, #ff4757); }
 
 .product-img {
     width: 100%;
@@ -234,6 +239,17 @@ const handleToggleFav = async () => {
     font-weight: 800;
     color: var(--ocean-blue);
     font-size: 1.05rem;
+}
+
+.product-price.sale-price {
+    color: var(--coral, #ff4757);
+}
+
+.original-price {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    text-decoration: line-through;
+    font-weight: 500;
 }
 
 .swatch-dot {

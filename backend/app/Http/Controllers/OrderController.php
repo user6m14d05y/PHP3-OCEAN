@@ -228,6 +228,13 @@ class OrderController extends Controller
             }
         }
 
+        // Miễn phí vận chuyển nếu đơn hàng đạt ngưỡng freeship
+        $freeshipThreshold = (int) config('shop.freeship_threshold', 500000);
+        if ($subtotal >= $freeshipThreshold) {
+            $shippingFee = 0; // Đơn hàng đạt mốc freeship
+        }
+
+        // Coupon free_ship cũng miễn phí ship (ưu tiên nếu chưa được miễn)
         if (isset($coupon) && $coupon->type === 'free_ship') {
             $shippingFee = 0; // Áp dụng coupon freeship
         }

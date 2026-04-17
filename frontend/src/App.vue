@@ -11,3 +11,11 @@ onMounted(() => {
   localStorage.removeItem('user');
 });
 </script>
+
+<style>
+/* Ngăn chặn thanh cuộn ngang gây ra bởi các thẻ full width (100vw) trên Windows/Linux */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+</style>

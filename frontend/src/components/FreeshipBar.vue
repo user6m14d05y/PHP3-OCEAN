@@ -30,7 +30,8 @@ const barStyle = computed(() => ({
                 </span>
                 <Transition name="fade-msg" mode="out-in">
                     <span v-if="hasFreeship" key="done" class="freeship-msg freeship-done">
-                        🎉 Chúc mừng! Bạn đã được <strong>Freeship</strong>!
+                        <svg class="freeship-celebrate-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.8 11.3L2 22l10.7-3.8"/><path d="M4 3h.01"/><path d="M22 8h.01"/><path d="M15 2h.01"/><path d="M22 20h.01"/><path d="M22 2l-2.24.75a2.9 2.9 0 00-1.96 3.12v0c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10"/><path d="M22 13l-1.34-.75a2.9 2.9 0 00-3.12-1.96v0c-.86.1-1.63-.57-1.63-1.45V8.46c0-.86-.6-1.6-1.44-1.76L13 6.5"/></svg>
+                        Chúc mừng! Bạn đã được <strong>Freeship</strong>!
                     </span>
                     <span v-else key="progress" class="freeship-msg">
                         Mua thêm
@@ -109,6 +110,13 @@ const barStyle = computed(() => ({
 .freeship-msg.freeship-done {
     color: #16a34a;
     font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.freeship-celebrate-icon {
+    flex-shrink: 0;
 }
 
 .freeship-amount {

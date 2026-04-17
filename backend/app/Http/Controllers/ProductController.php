@@ -67,7 +67,10 @@ class ProductController extends Controller
                 $q->select('image_id', 'image_url', 'product_id');
             },
             'lowestPriceVariant' => function ($q) {
-                $q->select('variant_id', 'price', 'stock', 'product_id');
+                $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'product_id');
+            },
+            'variants' => function ($q) {
+                $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'product_id');
             },
             'category:category_id,name',
             'brand:brand_id,name',
@@ -151,7 +154,10 @@ class ProductController extends Controller
                     $q->select('image_id', 'image_url', 'product_id');
                 },
                 'lowestPriceVariant' => function ($q) {
-                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'product_id');
+                },
+                'variants' => function ($q) {
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'product_id');
                 },
                 'category:category_id,name',
                 'brand:brand_id,name',
@@ -229,7 +235,10 @@ class ProductController extends Controller
                     $q->select('image_id', 'image_url', 'product_id');
                 },
                 'lowestPriceVariant' => function ($q) {
-                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'product_id');
+                },
+                'variants' => function ($q) {
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'product_id');
                 },
                 'category:category_id,name',
             ])
@@ -269,7 +278,7 @@ class ProductController extends Controller
                     $q->select('image_id', 'image_url', 'product_id');
                 },
                 'lowestPriceVariant' => function ($q) {
-                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'product_id');
                 }
             ])
                 ->where('status', 'active')
@@ -335,7 +344,7 @@ class ProductController extends Controller
                     $q->select('image_id', 'image_url', 'product_id');
                 },
                 'lowestPriceVariant' => function ($q) {
-                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'product_id');
                 }
             ])
                 ->where('status', 'active')
@@ -378,9 +387,12 @@ class ProductController extends Controller
             'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
             'gallery'           => 'nullable|array',
             'gallery.*'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-            'price'             => 'nullable|numeric|min:0',
-            'compare_at_price'  => 'nullable|numeric|min:0',
+            'price'             => 'nullable|numeric|min:100000',
+            'compare_at_price'  => 'nullable|numeric|min:100000',
             'stock'             => 'nullable|integer|min:0',
+            'sale_price'        => 'nullable|numeric|min:1',
+            'sale_starts_at'    => 'nullable|date',
+            'sale_ends_at'      => 'nullable|date|after_or_equal:sale_starts_at',
             'variants'          => 'nullable|string',
         ]);
 
@@ -401,6 +413,17 @@ class ProductController extends Controller
                 $variantsData = json_decode($request->variants, true);
                 if (!is_array($variantsData)) {
                     return response()->json(['message' => 'Dữ liệu variants không hợp lệ.'], 422);
+                }
+                // Validate giá biến thể >= 100.000đ
+                foreach ($variantsData as $vIdx => $vItem) {
+                    foreach (($vItem['sizes'] ?? []) as $sIdx => $sItem) {
+                        $sPrice = $sItem['price'] ?? 0;
+                        if ($sPrice < 100000) {
+                            return response()->json([
+                                'message' => "Giá biến thể #{$vIdx}-size #{$sIdx} phải tối thiểu 100.000đ.",
+                            ], 422);
+                        }
+                    }
                 }
             }
 
@@ -485,6 +508,9 @@ class ProductController extends Controller
                     'price'            => $price,
                     'compare_at_price' => $request->compare_at_price,
                     'stock'            => $request->stock ?? 0,
+                    'sale_price'       => $request->sale_price ?: null,
+                    'sale_starts_at'   => $request->sale_starts_at ?: null,
+                    'sale_ends_at'     => $request->sale_ends_at ?: null,
                     'status'           => 'active',
                 ]);
                 $this->generateQrCodeImage($barcode);
@@ -524,15 +550,18 @@ class ProductController extends Controller
 
                         $barcode = $this->generateUniqueBarcode();
                         $variant = ProductVariant::create([
-                            'product_id' => $product->product_id,
-                            'sku'        => $slug . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
-                            'barcode'    => $barcode,
-                            'color'      => $color,
-                            'size'       => $size,
-                            'price'      => $vPrice,
-                            'stock'      => $sData['stock'] ?? 0,
-                            'image_url'  => $variantImagePaths[0] ?? null,
-                            'status'     => 'active',
+                            'product_id'     => $product->product_id,
+                            'sku'            => $slug . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
+                            'barcode'        => $barcode,
+                            'color'          => $color,
+                            'size'           => $size,
+                            'price'          => $vPrice,
+                            'stock'          => $sData['stock'] ?? 0,
+                            'sale_price'     => !empty($sData['sale_price']) ? $sData['sale_price'] : null,
+                            'sale_starts_at' => !empty($sData['sale_starts_at']) ? $sData['sale_starts_at'] : null,
+                            'sale_ends_at'   => !empty($sData['sale_ends_at']) ? $sData['sale_ends_at'] : null,
+                            'image_url'      => $variantImagePaths[0] ?? null,
+                            'status'         => 'active',
                         ]);
                         $this->generateQrCodeImage($barcode);
 
@@ -595,9 +624,12 @@ class ProductController extends Controller
             'status'            => 'required|in:draft,active,inactive,out_of_stock',
             'is_featured'       => 'boolean',
             'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-            'price'             => 'nullable|numeric|min:0',
-            'compare_at_price'  => 'nullable|numeric|min:0',
+            'price'             => 'nullable|numeric|min:100000',
+            'compare_at_price'  => 'nullable|numeric|min:100000',
             'stock'             => 'nullable|integer|min:0',
+            'sale_price'        => 'nullable|numeric|min:1',
+            'sale_starts_at'    => 'nullable|date',
+            'sale_ends_at'      => 'nullable|date|after_or_equal:sale_starts_at',
             'gallery'           => 'nullable|array',
             'gallery.*'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
             'deleted_gallery_ids'   => 'nullable|array',
@@ -623,7 +655,19 @@ class ProductController extends Controller
                 if (!is_array($variantsData)) {
                     return response()->json(['message' => 'Dữ liệu variants không hợp lệ.'], 422);
                 }
+                // Validate giá biến thể >= 100.000đ
+                foreach ($variantsData as $vIdx => $vItem) {
+                    foreach (($vItem['sizes'] ?? []) as $sIdx => $sItem) {
+                        $sPrice = $sItem['price'] ?? 0;
+                        if ($sPrice < 100000) {
+                            return response()->json([
+                                'message' => "Giá biến thể #{$vIdx}-size #{$sIdx} phải tối thiểu 100.000đ.",
+                            ], 422);
+                        }
+                    }
+                }
             }
+
 
             // 2. Thumbnail
             $thumbnailPath = $product->thumbnail_url;
@@ -713,6 +757,9 @@ class ProductController extends Controller
                         'price'            => $price,
                         'compare_at_price' => $request->compare_at_price,
                         'stock'            => $stock,
+                        'sale_price'       => $request->sale_price ?: null,
+                        'sale_starts_at'   => $request->sale_starts_at ?: null,
+                        'sale_ends_at'     => $request->sale_ends_at ?: null,
                     ];
                     // Nếu chưa có barcode thì tạo mới
                     if (empty($defaultVariant->barcode)) {
@@ -724,13 +771,16 @@ class ProductController extends Controller
                 } else {
                     $barcode = $this->generateUniqueBarcode();
                     ProductVariant::create([
-                        'product_id' => $product->product_id,
-                        'sku'        => Str::slug($product->name) . '-default',
-                        'barcode'    => $barcode,
+                        'product_id'       => $product->product_id,
+                        'sku'              => Str::slug($product->name) . '-default',
+                        'barcode'          => $barcode,
                         'price'            => $price,
                         'compare_at_price' => $request->compare_at_price,
                         'stock'            => $stock,
-                        'status'     => 'active',
+                        'sale_price'       => $request->sale_price ?: null,
+                        'sale_starts_at'   => $request->sale_starts_at ?: null,
+                        'sale_ends_at'     => $request->sale_ends_at ?: null,
+                        'status'           => 'active',
                     ]);
                     $this->generateQrCodeImage($barcode);
                 }
@@ -821,15 +871,18 @@ class ProductController extends Controller
 
                         $barcode = $this->generateUniqueBarcode();
                         $variant = ProductVariant::create([
-                            'product_id' => $product->product_id,
-                            'sku'        => Str::slug($product->name) . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
-                            'barcode'    => $barcode,
-                            'color'      => $color,
-                            'size'       => $size,
-                            'price'      => $vPrice,
-                            'stock'      => $sData['stock'] ?? 0,
-                            'image_url'  => $mainImageUrl,
-                            'status'     => 'active',
+                            'product_id'     => $product->product_id,
+                            'sku'            => Str::slug($product->name) . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
+                            'barcode'        => $barcode,
+                            'color'          => $color,
+                            'size'           => $size,
+                            'price'          => $vPrice,
+                            'stock'          => $sData['stock'] ?? 0,
+                            'sale_price'     => !empty($sData['sale_price']) ? $sData['sale_price'] : null,
+                            'sale_starts_at' => !empty($sData['sale_starts_at']) ? $sData['sale_starts_at'] : null,
+                            'sale_ends_at'   => !empty($sData['sale_ends_at']) ? $sData['sale_ends_at'] : null,
+                            'image_url'      => $mainImageUrl,
+                            'status'         => 'active',
                         ]);
                         $this->generateQrCodeImage($barcode);
 

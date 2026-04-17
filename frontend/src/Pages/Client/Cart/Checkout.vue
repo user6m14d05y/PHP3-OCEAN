@@ -3,10 +3,14 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '@/axios';
 import axios from 'axios';
+import { useCartUpsell } from '@/composables/useCartUpsell';
 
 const router = useRouter();
 const cartItems = ref([]);
 const loading = ref(true);
+
+const { state: upsellState, fetchUpsellData } = useCartUpsell();
+
 const TOKEN_GHN = import.meta.env.VITE_TOKEN_GHN;
 const SHOPID_GHN = import.meta.env.VITE_SHOPID_GHN;
 
@@ -152,6 +156,14 @@ const subtotal = computed(() => {
 });
 
 const shippingFee = ref(0);
+
+const finalShippingFee = computed(() => {
+    // Miễn phí vận chuyển nếu đơn đạt mốc freeship
+    if (subtotal.value >= upsellState.freeshipThreshold) {
+        return 0;
+    }
+    return shippingFee.value;
+});
 
 // GHN API Methods
 const getGHNProvinces = async () => {
@@ -302,7 +314,7 @@ const discount = computed(() => {
     } else if (type === 'free_ship') {
         disc = value;
         // With free_ship, it applies to shipping fee
-        return Math.min(disc, shippingFee.value); 
+        return Math.min(disc, finalShippingFee.value); 
     } else {
         // fixed
         disc = value;
@@ -311,7 +323,7 @@ const discount = computed(() => {
 });
 
 const total = computed(() => {
-    return subtotal.value + shippingFee.value - discount.value;
+    return subtotal.value + finalShippingFee.value - discount.value;
 });
 
 // Appy coupon (Mã cứng mockup cho UI: OCEAN10)
@@ -449,7 +461,7 @@ const showToast = (message, type = 'success') => {
 };
 
 onMounted(async () => {
-    await Promise.all([fetchCart(), fetchAddresses(), fetchCoupons(), getGHNProvinces()]);
+    await Promise.all([fetchCart(), fetchAddresses(), fetchCoupons(), getGHNProvinces(), fetchUpsellData()]);
     loading.value = false;
 });
 </script>
@@ -786,8 +798,8 @@ onMounted(async () => {
                                         <span>Phí vận chuyển</span>
                                         <span class="fw-600">
                                             <span v-if="isCalculatingFee" class="calculating-text">Đang tính...</span>
-                                            <span v-else-if="shippingFee === 0" class="free-badge">Miễn phí</span>
-                                            <span v-else>{{ formatPrice(shippingFee) }}</span>
+                                            <span v-else-if="finalShippingFee === 0" class="free-badge">Miễn phí</span>
+                                            <span v-else>{{ formatPrice(finalShippingFee) }}</span>
                                         </span>
                                     </div>
                                     <div class="total-row" v-if="discount > 0">
