@@ -27,7 +27,6 @@ const dateTo = ref('');
 const selectedOrders = ref([]);
 const bulkActionLoading = ref(false);
 const bulkFulfillmentStatus = ref('');
-const bulkPaymentStatus = ref('');
 
 const pagination = ref({
     current_page: 1,
@@ -63,32 +62,14 @@ const getAllowedFulfillmentOptions = (currentStatus) => {
   return fulfillmentOptions.filter(s => allowed.includes(s.value));
 };
 
-// ===== Payment Status =====
-const paymentOptions = [
-  { value: 'unpaid', label: 'Chưa TT' },
-  { value: 'paid', label: 'Đã TT' },
-  { value: 'failed', label: 'Thất bại' },
-  { value: 'refunded', label: 'Hoàn tiền' },
-  { value: 'partially_refunded', label: 'Hoàn 1 phần' },
-];
-
-// Luồng chuyển đổi payment status hợp lệ
-const paymentTransitions = {
-  'unpaid':             ['unpaid', 'paid', 'failed'],
-  'paid':               ['paid', 'refunded', 'partially_refunded'],
-  'failed':             ['failed', 'unpaid', 'paid'],
-  'refunded':           ['refunded'],            // terminal
-  'partially_refunded': ['partially_refunded', 'refunded'],
-};
-
-const getAllowedPaymentOptions = (currentStatus) => {
-  const allowed = paymentTransitions[currentStatus] || [currentStatus];
-  return paymentOptions.filter(s => allowed.includes(s.value));
-};
-
-const isPaymentDisabled = (order) => {
-  // Đơn hủy hoặc payment đã terminal => disable
-  return order.fulfillment_status === 'cancelled' || order.payment_status === 'refunded';
+// ===== Payment Status (Chỉ hiển thị, không cho admin sửa) =====
+const paymentLabels = {
+  'unpaid': 'Chưa TT',
+  'paid': 'Đã TT',
+  'pending': 'Đang xử lý',
+  'failed': 'Thất bại',
+  'refunded': 'Hoàn tiền',
+  'partially_refunded': 'Hoàn 1 phần',
 };
 
 const fetchOrders = async (page = 1) => {
@@ -195,6 +176,12 @@ const dismissCancelModal = () => {
 
 const updateOrderFulfillment = async (order) => {
   const oldStatus = order._prevFulfillmentStatus || 'pending';
+
+  // Nếu chọn lại đúng trạng thái hiện tại → báo lỗi
+  if (order.fulfillment_status === oldStatus) {
+    toast.error(`Đơn hàng đang ở trạng thái "${getStatusLabel(oldStatus)}" rồi. Vui lòng chọn trạng thái tiếp theo!`);
+    return;
+  }
   
   if (order.fulfillment_status === 'cancelled') {
     const cancelReason = await showCancelReasonModal();
@@ -233,23 +220,6 @@ const updateOrderFulfillment = async (order) => {
   }
 };
 
-const updateOrderPayment = async (order) => {
-  const oldPaymentStatus = order._prevPaymentStatus || 'unpaid';
-  try {
-    const res = await api.put(`/admin/orders/${order.order_id}/status`, {
-      payment_status: order.payment_status
-    });
-
-    if (res.data.status === 'success') {
-      order._prevPaymentStatus = order.payment_status;
-      toast.success('Cập nhật thanh toán thành công!');
-    }
-  } catch (error) {
-    // Rollback về trạng thái cũ khi API lỗi
-    order.payment_status = oldPaymentStatus;
-    toast.error(error.response?.data?.message || 'Lỗi cập nhật thanh toán');
-  }
-};
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
@@ -280,8 +250,17 @@ const isAllSelected = computed({
 
 const applyBulkStatus = async () => {
     if (selectedOrders.value.length === 0) return;
-    if (!bulkFulfillmentStatus.value && !bulkPaymentStatus.value) {
+    if (!bulkFulfillmentStatus.value) {
         toast.error('Vui lòng chọn trạng thái muốn cập nhật hàng loạt');
+        return;
+    }
+
+    // Kiểm tra tất cả đơn đã chọn có đang ở trạng thái được chọn chưa
+    const selectedOrdersList = orders.value.filter(o => selectedOrders.value.includes(o.order_id));
+    const allSameStatus = selectedOrdersList.every(o => o.fulfillment_status === bulkFulfillmentStatus.value);
+    if (allSameStatus) {
+        const label = statuses.find(s => s.value === bulkFulfillmentStatus.value)?.label || bulkFulfillmentStatus.value;
+        toast.error(`Tất cả ${selectedOrdersList.length} đơn đã ở trạng thái "${label}" rồi. Vui lòng chọn trạng thái tiếp theo!`);
         return;
     }
 
@@ -298,7 +277,6 @@ const applyBulkStatus = async () => {
             order_ids: selectedOrders.value,
         };
         if (bulkFulfillmentStatus.value) payload.fulfillment_status = bulkFulfillmentStatus.value;
-        if (bulkPaymentStatus.value) payload.payment_status = bulkPaymentStatus.value;
         if (note) payload.note = note;
 
         const res = await api.put('/admin/orders/bulk-status', payload);
@@ -307,7 +285,6 @@ const applyBulkStatus = async () => {
             toast.success(res.data.message);
             selectedOrders.value = [];
             bulkFulfillmentStatus.value = '';
-            bulkPaymentStatus.value = '';
             fetchOrders(pagination.value.current_page);
         }
     } catch (error) {
@@ -420,10 +397,6 @@ onUnmounted(() => {
                     <option value="">-- Trạng thái Giao hàng --</option>
                     <option v-for="s in fulfillmentOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
                 </select>
-                <select v-model="bulkPaymentStatus" class="bulk-select">
-                    <option value="">-- Trạng thái Thanh toán --</option>
-                    <option v-for="s in paymentOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
-                </select>
                 <button class="btn-bulk-apply" @click="applyBulkStatus" :disabled="bulkActionLoading">
                     {{ bulkActionLoading ? 'Đang xử lý...' : 'Áp dụng' }}
                 </button>
@@ -485,11 +458,9 @@ onUnmounted(() => {
                             </div>
                         </td>
                         <td>
-                            <div class="status-select-wrap" :class="'p-'+order.payment_status">
-                                <select class="status-select" v-model="order.payment_status" @change="updateOrderPayment(order)" :disabled="isPaymentDisabled(order)">
-                                    <option v-for="s in getAllowedPaymentOptions(order._prevPaymentStatus || order.payment_status)" :key="s.value" :value="s.value">{{ s.label }}</option>
-                                </select>
-                            </div>
+                            <span class="payment-badge" :class="'p-'+order.payment_status">
+                                {{ paymentLabels[order.payment_status] || order.payment_status }}
+                            </span>
                         </td>
                         <td>
                             <div class="actions-cell">
@@ -688,11 +659,19 @@ onUnmounted(() => {
 .f-cancelled { background: rgba(239, 83, 80, 0.15); color: #c62828; }
 .status-select-wrap select { color: inherit; }
 
-/* Colors for Payment */
+/* Payment Badge (read-only) */
+.payment-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 6px; padding: 6px 12px;
+    font-family: var(--font-inter); font-size: 0.8rem; font-weight: 700;
+    letter-spacing: 0.2px; white-space: nowrap;
+}
 .p-unpaid { background: rgba(255, 167, 38, 0.15); color: #e65100; }
+.p-pending { background: rgba(255, 193, 7, 0.15); color: #f57f17; }
 .p-paid { background: rgba(38, 166, 154, 0.15); color: #167a70; }
 .p-failed { background: rgba(239, 83, 80, 0.15); color: #c62828; }
 .p-refunded { background: rgba(158, 158, 158, 0.15); color: #616161; }
+.p-partially_refunded { background: rgba(158, 158, 158, 0.15); color: #616161; }
 
 .actions-cell { display: flex; gap: 6px; }
 .btn-icon {

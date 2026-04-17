@@ -62,7 +62,13 @@ const handleQuickAdd = async (item) => {
         <!-- Header -->
         <div class="qs-header">
             <div class="qs-header-left">
-                <span class="qs-icon">✨</span>
+                <span class="qs-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"/>
+                        <path d="M5 3v4"/><path d="M3 5h4"/>
+                        <path d="M19 17v4"/><path d="M17 19h4"/>
+                    </svg>
+                </span>
                 <div>
                     <h3 class="qs-title">Gợi Ý Mua Kèm</h3>
                     <p class="qs-subtitle">Tiết kiệm thêm <strong>10%</strong> khi mua ngay hôm nay</p>
@@ -188,8 +194,11 @@ const handleQuickAdd = async (item) => {
     gap: 10px;
 }
 .qs-icon {
-    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
+    flex-shrink: 0;
 }
 .qs-title {
     margin: 0;

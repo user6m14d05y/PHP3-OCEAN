@@ -43,30 +43,42 @@ const allImages = computed(() => {
     const variants = product.value.variants || [];
     const hasVariants = variants.length > 0;
 
+    const getUniqueImages = (imageArray) => {
+        const seen = new Set();
+        return imageArray.filter(img => {
+            if (!img.image_url) return false;
+            const isDuplicate = seen.has(img.image_url);
+            seen.add(img.image_url);
+            return !isDuplicate;
+        });
+    };
+
     // Sản phẩm biến thể + đã chọn màu → hiện ảnh của variant màu đó
     if (hasVariants && selectedColor.value) {
         const colorVariants = variants.filter(v => v.color === selectedColor.value);
         const variantIds = colorVariants.map(v => v.variant_id);
 
         const variantImgs = imgs.filter(img => img.variant_id && variantIds.includes(img.variant_id));
-        if (variantImgs.length > 0) return variantImgs;
+        if (variantImgs.length > 0) return getUniqueImages(variantImgs);
 
         const directImgs = colorVariants
             .filter(v => v.image_url)
             .map(v => ({ image_url: v.image_url, variant_id: v.variant_id }));
-        if (directImgs.length > 0) return directImgs;
-    }
+        if (directImgs.length > 0) return getUniqueImages(directImgs);
 
-    // Sản phẩm biến thể + chưa chọn màu → chỉ hiện thumbnail
-    if (hasVariants && !selectedColor.value) {
+        // Fallback: NẾU BIẾN THỂ KHÔNG CÓ ẢNH -> Trả về Ảnh chung của sản phẩm (ảnh không thuộc biến thể nào)
+        const generalImgs = imgs.filter(img => !img.variant_id);
+        if (generalImgs.length > 0) return getUniqueImages(generalImgs);
+
         if (product.value.thumbnail_url && product.value.thumbnail_url !== '0') {
             return [{ image_url: product.value.thumbnail_url }];
         }
         return [{ image_url: null }];
     }
 
-    // Sản phẩm đơn giản → hiện tất cả ảnh
-    if (imgs.length > 0) return imgs;
+    // Tất cả các trường hợp khác: hiển thị tất cả các ảnh nhưng lọc trùng
+    if (imgs.length > 0) return getUniqueImages(imgs);
+
     if (product.value.thumbnail_url && product.value.thumbnail_url !== '0') {
         return [{ image_url: product.value.thumbnail_url }];
     }
@@ -217,6 +229,38 @@ const mainImageUrl = computed(() => {
 const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 };
+
+const displayPriceInfo = computed(() => {
+    if (!product.value) return { current: 0, original: null, discount: 0 };
+    
+    if (selectedVariant.value) {
+        let orig = null;
+        if (selectedVariant.value.is_on_sale) orig = selectedVariant.value.price;
+        else if (selectedVariant.value.compare_at_price > selectedVariant.value.price) orig = selectedVariant.value.compare_at_price;
+        
+        return {
+            current: selectedVariant.value.effective_price,
+            original: orig,
+            discount: selectedVariant.value.discount_percent || 0
+        };
+    }
+    
+    // Nếu chưa chọn variant, tìm variant có effective_price thấp nhất
+    const variants = product.value.variants || [];
+    if (variants.length === 0) return { current: product.value.min_price || 0, original: null, discount: 0 };
+    
+    const lowest = variants.reduce((min, v) => ((v.effective_price || v.price) < (min.effective_price || min.price) ? v : min), variants[0]);
+    
+    let orig = null;
+    if (lowest.is_on_sale) orig = lowest.price;
+    else if (lowest.compare_at_price > lowest.price) orig = lowest.compare_at_price;
+    
+    return {
+        current: lowest.effective_price || lowest.price,
+        original: orig,
+        discount: lowest.discount_percent || 0
+    };
+});
 
 const increaseQuantity = () => quantity.value++;
 const decreaseQuantity = () => { if (quantity.value > 1) quantity.value-- };
@@ -370,10 +414,10 @@ onMounted(() => {
 
         <!-- Giá tiền -->
         <div class="product-pricing">
-          <span class="current-price">{{ formatPrice(selectedVariant ? selectedVariant.price : product.min_price) }}</span>
-          <span class="original-price" v-if="product.originalPrice">{{ formatPrice(product.originalPrice) }}</span>
-          <span class="discount-badge" v-if="product.originalPrice">
-            -{{ Math.round((1 - product.price / product.originalPrice) * 100) }}%
+          <span class="current-price">{{ formatPrice(displayPriceInfo.current) }}</span>
+          <span class="original-price" v-if="displayPriceInfo.original">{{ formatPrice(displayPriceInfo.original) }}</span>
+          <span class="discount-badge" v-if="displayPriceInfo.discount > 0">
+            -{{ displayPriceInfo.discount }}%
           </span>
         </div>
 
@@ -436,7 +480,6 @@ onMounted(() => {
           </button>
         </div>
         <div class="action-buttons-row">
-          <button class="btn-primary btn-buyNow" @click="buyNow" :disabled="addingToCart">Mua ngay</button>
           <button class="btn-outline btn-hero-fav" 
                   :class="{'is-active': product && isFavorited(product.product_id)}" 
                   @click="handleToggleFav" 
@@ -444,6 +487,7 @@ onMounted(() => {
             <i class="fas fa-heart" v-if="product && isFavorited(product.product_id)"></i>
             <i class="far fa-heart" v-else></i>
           </button>
+          <button class="btn-primary btn-buyNow" @click="buyNow" :disabled="addingToCart">Mua ngay</button>
         </div>
 
         <!-- ✦ Premium Variant Upsell Box ✦ -->
@@ -649,6 +693,10 @@ onMounted(() => {
   grid-template-columns: 5fr 7fr;
   gap: 40px;
   margin-bottom: 40px;
+}
+
+.product-main-grid > div {
+  min-width: 0;
 }
 
 /* Thư viện ảnh */

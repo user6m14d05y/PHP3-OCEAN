@@ -720,6 +720,7 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin-bottom: 24px;
 }
 .cart-item-card {
     display: flex;

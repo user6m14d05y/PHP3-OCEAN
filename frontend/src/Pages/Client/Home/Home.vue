@@ -69,17 +69,37 @@ const getImageUrl = (path) => {
     return `${BASE_URL}/storage/${path}`;
 };
 
-const mapProduct = (item) => ({
-    id: item.product_id,
-    name: item.name,
-    price: new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: "VND",
-    }).format(item.min_price),
-    image: getImageUrl(item.thumbnail_url),
-    badge: item.is_featured ? "Hot" : null,
-    slug: item.slug,
-});
+const mapProduct = (item) => {
+    const lowest = item.lowest_price_variant || item.lowestPriceVariant || null;
+    const currentPrice = lowest && lowest.effective_price ? lowest.effective_price : (item.min_price || 0);
+    
+    let originalPrice = null;
+    if (lowest && lowest.is_on_sale) {
+        originalPrice = lowest.price;
+    } else if (lowest && lowest.compare_at_price > lowest.price) {
+        originalPrice = lowest.compare_at_price;
+    }
+
+    let maxDiscount = lowest ? lowest.discount_percent || 0 : 0;
+    if (item.variants && Array.isArray(item.variants)) {
+        const variantsDiscounts = item.variants.map(v => v.discount_percent || 0);
+        if (variantsDiscounts.length > 0) {
+            maxDiscount = Math.max(...variantsDiscounts, maxDiscount);
+        }
+    }
+
+    return {
+        id: item.product_id,
+        name: item.name,
+        price: new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(currentPrice),
+        originalPrice: originalPrice ? new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(originalPrice) : null,
+        discount_percent: maxDiscount,
+        is_on_sale: lowest ? lowest.is_on_sale : false,
+        image: getImageUrl(item.thumbnail_url || item.mainImage?.image_url || null),
+        badge: item.is_featured ? "Hot" : null,
+        slug: item.slug,
+    };
+};
 
 const fetchProducts = async () => {
     isLoadingFeatured.value = true;

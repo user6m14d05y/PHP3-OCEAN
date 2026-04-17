@@ -76,7 +76,6 @@ class AdminOrderController extends Controller
     {
         $request->validate([
             'fulfillment_status' => 'nullable|in:pending,confirmed,packing,shipping,delivered,completed,cancelled,returned',
-            'payment_status' => 'nullable|in:unpaid,paid,failed,refunded,partially_refunded',
             'note' => 'nullable|string'
         ]);
 
@@ -103,7 +102,14 @@ class AdminOrderController extends Controller
 
             $updates = [];
 
-            if ($request->has('fulfillment_status') && $request->fulfillment_status !== $order->fulfillment_status) {
+            if ($request->has('fulfillment_status')) {
+                // Nếu chọn đúng trạng thái hiện tại → báo lỗi
+                if ($request->fulfillment_status === $order->fulfillment_status) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Đơn hàng đang ở trạng thái '{$order->fulfillment_status}' rồi. Vui lòng chọn trạng thái tiếp theo!"
+                    ], 422);
+                }
                 // Kiểm tra luồng trạng thái hợp lệ
                 $allowed = $allowedTransitions[$order->fulfillment_status] ?? [];
                 if (!in_array($request->fulfillment_status, $allowed)) {
@@ -128,8 +134,20 @@ class AdminOrderController extends Controller
                     $updates[$statusFieldMap[$request->fulfillment_status]] = now();
                 }
 
+                // ===== TỰ ĐỘNG CẬP NHẬT PAYMENT STATUS =====
+                // Khi đơn hoàn thành + COD + chưa thanh toán → tự động chuyển "paid"
+                if ($request->fulfillment_status === 'completed' && $order->payment_method === 'cod' && $order->payment_status === 'unpaid') {
+                    $updates['payment_status'] = 'paid';
+                }
+
                 if ($request->fulfillment_status === 'cancelled') {
                     $updates['cancel_reason'] = $request->note ?? 'Hủy bởi Admin';
+
+                    // Nếu đơn đã thanh toán online (vnpay/momo) → tự động hoàn tiền
+                    if (in_array($order->payment_method, ['vnpay', 'momo', 'bank_transfer']) && $order->payment_status === 'paid') {
+                        $updates['payment_status'] = 'refunded';
+                    }
+
                     // Hoàn lại tồn kho bằng 1 query duy nhất để tránh N+1 update
                     $cases = [];
                     $bindings = [];
@@ -152,36 +170,6 @@ class AdminOrderController extends Controller
                 }
             }
 
-            if ($request->has('payment_status') && $request->payment_status !== $order->payment_status) {
-                // Đơn đã hủy không cho thay đổi payment status
-                $currentFulfillment = $updates['fulfillment_status'] ?? $order->fulfillment_status;
-                if ($currentFulfillment === 'cancelled') {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Không thể thay đổi thanh toán cho đơn hàng đã hủy!'
-                    ], 422);
-                }
-
-                // Luồng chuyển đổi payment status hợp lệ
-                $allowedPaymentTransitions = [
-                    'unpaid'              => ['paid', 'failed'],
-                    'paid'                => ['refunded', 'partially_refunded'],
-                    'failed'              => ['unpaid', 'paid'],
-                    'refunded'            => [],           // terminal
-                    'partially_refunded'  => ['refunded'],
-                ];
-
-                $allowedPayment = $allowedPaymentTransitions[$order->payment_status] ?? [];
-                if (!in_array($request->payment_status, $allowedPayment)) {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => "Không thể chuyển thanh toán từ '{$order->payment_status}' sang '{$request->payment_status}'!"
-                    ], 422);
-                }
-
-                $updates['payment_status'] = $request->payment_status;
-            }
-
             if (!empty($updates)) {
                 $order->update($updates);
 
@@ -195,12 +183,13 @@ class AdminOrderController extends Controller
                     ]);
                 }
 
-                if (isset($updates['payment_status'])) {
+                // Lưu lịch sử nếu payment status tự động thay đổi
+                if (isset($updates['payment_status']) && $updates['payment_status'] !== $oldPaymentStatus) {
                     OrderStatusHistory::create([
                         'order_id' => $order->order_id,
                         'old_status' => $oldPaymentStatus,
                         'new_status' => $updates['payment_status'],
-                        'note' => $request->note ?? "[Thanh toán] Cập nhật bởi Admin",
+                        'note' => '[Thanh toán] Tự động cập nhật theo trạng thái đơn hàng',
                     ]);
                 }
             }
@@ -223,7 +212,6 @@ class AdminOrderController extends Controller
             'order_ids' => 'required|array|min:1',
             'order_ids.*' => 'exists:orders,order_id',
             'fulfillment_status' => 'nullable|in:pending,confirmed,packing,shipping,delivered,completed,cancelled,returned',
-            'payment_status' => 'nullable|in:unpaid,paid,failed,refunded,partially_refunded',
             'note' => 'nullable|string'
         ]);
 
@@ -244,14 +232,6 @@ class AdminOrderController extends Controller
             'cancelled' => [],
         ];
 
-        $allowedPaymentTransitions = [
-            'unpaid'              => ['paid', 'failed'],
-            'paid'                => ['refunded', 'partially_refunded'],
-            'failed'              => ['unpaid', 'paid'],
-            'refunded'            => [],           // terminal
-            'partially_refunded'  => ['refunded'],
-        ];
-
         // Mảng chứa các đơn hàng vi phạm
         $invalidOrders = [];
 
@@ -261,19 +241,6 @@ class AdminOrderController extends Controller
                 $allowed = $allowedTransitions[$order->fulfillment_status] ?? [];
                 if (!in_array($request->fulfillment_status, $allowed)) {
                     $invalidOrders[] = "#{$order->order_code} (Chuyển Giao hàng không hợp lệ)";
-                    continue;
-                }
-            }
-
-            if ($request->filled('payment_status') && $request->payment_status !== $order->payment_status) {
-                $currentFulfillment = $request->fulfillment_status ?? $order->fulfillment_status;
-                if ($currentFulfillment === 'cancelled') {
-                    $invalidOrders[] = "#{$order->order_code} (Đã hủy, không thể đổi Thanh toán)";
-                    continue;
-                }
-                $allowedPayment = $allowedPaymentTransitions[$order->payment_status] ?? [];
-                if (!in_array($request->payment_status, $allowedPayment)) {
-                    $invalidOrders[] = "#{$order->order_code} (Chuyển Thanh toán không hợp lệ)";
                     continue;
                 }
             }
@@ -291,6 +258,8 @@ class AdminOrderController extends Controller
         // 2. Thực thi cập nhật thực tế
         DB::beginTransaction();
         try {
+            $updatedCount = 0;
+
             foreach ($orders as $order) {
                 $oldFulfillmentStatus = $order->fulfillment_status;
                 $oldPaymentStatus = $order->payment_status;
@@ -311,8 +280,19 @@ class AdminOrderController extends Controller
                         $updates[$statusFieldMap[$request->fulfillment_status]] = now();
                     }
 
+                    // ===== TỰ ĐỘNG CẬP NHẬT PAYMENT STATUS =====
+                    // Khi đơn hoàn thành + COD + chưa thanh toán → tự động chuyển "paid"
+                    if ($request->fulfillment_status === 'completed' && $order->payment_method === 'cod' && $order->payment_status === 'unpaid') {
+                        $updates['payment_status'] = 'paid';
+                    }
+
                     if ($request->fulfillment_status === 'cancelled') {
                         $updates['cancel_reason'] = $request->note ?? 'Hủy hàng loạt bởi Admin';
+
+                        // Nếu đơn đã thanh toán online (vnpay/momo) → tự động hoàn tiền
+                        if (in_array($order->payment_method, ['vnpay', 'momo', 'bank_transfer']) && $order->payment_status === 'paid') {
+                            $updates['payment_status'] = 'refunded';
+                        }
 
                         // Hoàn tồn kho
                         $cases = [];
@@ -338,12 +318,9 @@ class AdminOrderController extends Controller
                     }
                 }
 
-                if ($request->filled('payment_status') && $request->payment_status !== $order->payment_status) {
-                    $updates['payment_status'] = $request->payment_status;
-                }
-
                 if (!empty($updates)) {
                     $order->update($updates);
+                    $updatedCount++;
 
                     if (isset($updates['fulfillment_status'])) {
                         OrderStatusHistory::create([
@@ -354,21 +331,30 @@ class AdminOrderController extends Controller
                         ]);
                     }
 
-                    if (isset($updates['payment_status'])) {
+                    // Lưu lịch sử nếu payment status tự động thay đổi
+                    if (isset($updates['payment_status']) && $updates['payment_status'] !== $oldPaymentStatus) {
                         OrderStatusHistory::create([
                             'order_id' => $order->order_id,
                             'old_status' => $oldPaymentStatus,
                             'new_status' => $updates['payment_status'],
-                            'note' => $request->note ?? "[Thanh toán] Cập nhật hàng loạt bởi Admin",
+                            'note' => '[Thanh toán] Tự động cập nhật theo trạng thái đơn hàng',
                         ]);
                     }
                 }
             }
 
             DB::commit();
+
+            if ($updatedCount === 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tất cả đơn hàng đã ở trạng thái được chọn rồi. Không có gì thay đổi!'
+                ], 422);
+            }
+
             return response()->json([
                 'status' => 'success',
-                'message' => 'Cập nhật trạng thái hàng loạt đổi thành công cho ' . count($orders) . ' đơn hàng!'
+                'message' => 'Cập nhật trạng thái hàng loạt thành công cho ' . $updatedCount . ' đơn hàng!'
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
