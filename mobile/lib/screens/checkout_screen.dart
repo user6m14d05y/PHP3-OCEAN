@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'main_wrapper.dart';
 import 'address_screen.dart';
-const String kBaseUrl = 'http://localhost:8383/api';
+const String kBaseUrl = 'http://10.0.2.2:8383/api';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -428,7 +428,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             String imageUrl = '';
             final rawImage = item['product']['main_image'] ?? item['product']['thumbnail_url'] ?? '';
             if (rawImage.toString().isNotEmpty) {
-              imageUrl = rawImage.toString().startsWith('http') ? rawImage : 'http://localhost:8383/api/image-proxy?path=$rawImage';
+              imageUrl = rawImage.toString().startsWith('http') ? rawImage : 'http://10.0.2.2:8383/api/image-proxy?path=$rawImage';
             }
 
             return Padding(

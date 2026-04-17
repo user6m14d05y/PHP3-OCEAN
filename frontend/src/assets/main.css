@@ -22,7 +22,10 @@
   --card-bg: #ffffff;
   --hover-bg: #f2f7f9;
   --radius-micro: 6px;
-  --radius-sm: 10px;
+  --radius-sm: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
 
   /* Font */
   --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
@@ -54,6 +57,8 @@ html.dark {
   --border-color: #092e38;
   --card-bg: #03151a;
   --hover-bg: #092e38;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* =======================================================

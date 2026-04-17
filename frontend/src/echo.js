@@ -15,11 +15,11 @@ if (reverbKey) {
         wssPort: import.meta.env.VITE_REVERB_PORT ?? 8383,
         forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https',
         enabledTransports: ['ws', 'wss'],
-        authEndpoint: 'http://localhost:8383/api/broadcasting/auth',
+        authEndpoint: `${import.meta.env.VITE_REVERB_SCHEME ?? 'http'}://${window.location.hostname}:8383/api/broadcasting/auth`,
         authorizer: (channel, options) => {
             return {
                 authorize: (socketId, callback) => {
-                    axios.post('http://localhost:8383/api/broadcasting/auth', {
+                    axios.post(`${import.meta.env.VITE_REVERB_SCHEME ?? 'http'}://${window.location.hostname}:8383/api/broadcasting/auth`, {
                         socket_id: socketId,
                         channel_name: channel.name
                     }, {

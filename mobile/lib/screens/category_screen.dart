@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../services/api_client.dart';
 import 'product_list_screen.dart';
-
-const String kBaseUrl = 'http://localhost:8383/api';
 
 class CategoryScreen extends StatefulWidget {
   const CategoryScreen({super.key});
@@ -12,7 +11,10 @@ class CategoryScreen extends StatefulWidget {
   State<CategoryScreen> createState() => _CategoryScreenState();
 }
 
-class _CategoryScreenState extends State<CategoryScreen> {
+class _CategoryScreenState extends State<CategoryScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   List<dynamic> categories = [];
   bool isLoading = true;
   String? errorMessage;
@@ -25,13 +27,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   Future<void> fetchCategories() async {
     try {
-      final response = await http.get(
-        Uri.parse('$kBaseUrl/categories'),
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 15));
+      final response = await ApiClient().dio.get('/categories');
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = response.data;
         if (mounted) {
           setState(() {
             categories = data['data'] ?? data;
@@ -58,6 +57,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -112,20 +112,22 @@ class _CategoryScreenState extends State<CategoryScreen> {
       itemBuilder: (context, index) {
         final cat = categories[index];
         final name = cat['name'] ?? 'Undefined';
-        // Mock image if thumbnail is not available
+        final routeId = cat['category_id'] ?? cat['id']; // Dùng đúng key category_id theo Backend Laravel
         final image = cat['thumbnail'] ?? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80';
         
         return GestureDetector(
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ProductListScreen(
-                  categoryId: cat['id'],
-                  categoryName: name,
+            if (routeId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProductListScreen(
+                    categoryId: int.tryParse(routeId.toString()),
+                    categoryName: name,
+                  ),
                 ),
-              ),
-            );
+              );
+            }
           },
           child: Container(
             decoration: BoxDecoration(
@@ -141,10 +143,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 Expanded(
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                    child: Image.network(
-                      image.toString().startsWith('http') ? image : 'http://localhost:8383/api/image-proxy?path=$image',
+                    child: CachedNetworkImage(
+                      imageUrl: image.toString().startsWith('http') ? image : 'http://10.0.2.2:8383/api/image-proxy?path=$image',
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(color: const Color(0xFFE2E8F0), child: const Icon(Icons.category, color: Colors.grey)),
+                      placeholder: (_,__) => Container(color: const Color(0xFFE2E8F0), child: const Center(child: CircularProgressIndicator())),
+                      errorWidget: (_, __, ___) => Container(color: const Color(0xFFE2E8F0), child: const Icon(Icons.category, color: Colors.grey)),
                     ),
                   ),
                 ),

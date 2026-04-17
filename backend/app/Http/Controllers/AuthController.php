@@ -17,6 +17,15 @@ class AuthController extends Controller
      */
     private function verifyTurnstile(?string $token): bool
     {
+        // Bypass CAPTCHA for Mobile App (Flutter) — check Dart User-Agent OR is_mobile flag
+        $userAgent = request()->userAgent() ?? '';
+        $isMobileApp = request()->input('is_mobile') == true;
+        $hasDartAgent = str_contains(strtolower($userAgent), 'dart');
+
+        if ($hasDartAgent || ($isMobileApp && empty($token))) {
+            return true;
+        }
+
         if (!$token) {
             return false;
         }

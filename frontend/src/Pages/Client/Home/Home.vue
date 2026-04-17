@@ -40,8 +40,31 @@ const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').r
 
 const defaultSvg = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="100%" height="100%" opacity="0.6"><rect width="400" height="500" fill="#f4f9f9" /><g transform="translate(130, 230)"><path d="M150,50 C150,50 170,-20 100,-40 C30,-60 -20,20 -40,30 C-60,40 -80,20 -90,40 C-100,60 -70,90 -50,90 C-30,90 80,100 150,50 Z" fill="#1b8a9e" /><path d="M-80,40 C-100,10 -110,-10 -90,0 C-70,10 -60,20 -80,40 Z" fill="#0f4c5c" /><path d="M-30,80 C20,90 80,80 110,60" fill="none" stroke="#f4f9f9" stroke-width="4" /><path d="M-20,70 C30,80 70,70 100,50" fill="none" stroke="#f4f9f9" stroke-width="4" /><circle cx="100" cy="-10" r="4" fill="#062f3a" /><path d="M80,-40 C80,-60 60,-80 50,-70" fill="none" stroke="#48b8c9" stroke-width="4" stroke-linecap="round"/><path d="M90,-40 C95,-60 110,-70 120,-60" fill="none" stroke="#48b8c9" stroke-width="4" stroke-linecap="round"/><path d="M85,-40 C85,-70 90,-90 90,-90" fill="none" stroke="#48b8c9" stroke-width="4" stroke-linecap="round"/></g><path d="M0,320 Q50,290 100,320 T200,320 T300,320 T400,320 L400,500 L0,500 Z" fill="#8de1ed" opacity="0.6"/><path d="M0,350 Q50,330 100,350 T200,350 T300,350 T400,350 L400,500 L0,500 Z" fill="#48b8c9" opacity="0.4"/></svg>`);
 
+const NEW_IMAGES = [
+    'products/luxury_watch_1776303372051.png',
+    'products/leather_wallet_1776303390698.png',
+    'products/sunglasses_1776303412493.png',
+    'products/silver_necklace_1776303426962.png',
+    'products/leather_loafer_1776303445224.png',
+    'products/white_sneaker_1776303469345.png',
+    'products/womens_clutch_1776303489059.png',
+    'products/card_holder_1776303513454.png',
+    'products/zippered_wallet_1776303528282.png',
+    'products/button_down_shirt_1776303542708.png',
+    'products/summer_dress_1776303557050.png',
+    'products/denim_jeans_1776303576632.png',
+    'products/light_jacket_1776303589362.png',
+    'products/leather_belt_1776303603972.png'
+];
+
+let globalImageIdx = 0;
+
 const getImageUrl = (path) => {
-    if (!path || path === '0') return defaultSvg;
+    if (!path || path === '0') {
+        const url = `${BASE_URL}/storage/${NEW_IMAGES[globalImageIdx % NEW_IMAGES.length]}`;
+        globalImageIdx++;
+        return url;
+    }
     if (path.startsWith('http')) return path;
     return `${BASE_URL}/storage/${path}`;
 };
@@ -152,13 +175,27 @@ setInterval(() => {
                     <img :src="slide.image" alt="banner" class="slider-bg-img" />
                     <div class="hero-dark-overlay"></div>
                     <!-- Lớp Glassmorphism overlay cho text readability -->
-                    <div class="banner-content glass-card">
+                    <div class="banner-content glass-card p-5">
                         <span class="banner-subtitle">{{ slide.subtitle }}</span>
-                        <h1 class="banner-title" v-html="slide.title"></h1>
-                        <p class="banner-desc fs-6" v-html="slide.desc"></p>
-                        <button class="btn-primary btn-hero-slider mt-4" @click="router.push('/product')">
-                            {{ slide.btn }} <i class="fas fa-arrow-right ms-2"></i>
-                        </button>
+                        <h1 class="banner-title layered-text" v-html="slide.title"></h1>
+                        <p class="banner-desc fs-5 lh-lg" v-html="slide.desc"></p>
+                        
+                        <div class="d-flex align-items-center gap-4 mt-4 flex-wrap">
+                            <button class="btn-primary btn-hero-slider" @click="router.push('/product')">
+                                {{ slide.btn }} <i class="fas fa-arrow-right ms-2"></i>
+                            </button>
+
+                            <div class="hero-countdown-glass" v-if="i === 1 && countdown.days >= 0">
+                                <div class="cd-label text-white fw-bold mb-1" style="font-size: 0.8rem; letter-spacing: 1px;">⚡ FLASH SALE KẾT THÚC SAU</div>
+                                <div class="d-flex gap-2">
+                                    <div class="glass-cd-box"><span class="num">{{ countdown.hours + (countdown.days * 24) }}</span></div>
+                                    <span class="text-white fw-bold ds-colon">:</span>
+                                    <div class="glass-cd-box"><span class="num">{{ countdown.mins }}</span></div>
+                                    <span class="text-white fw-bold ds-colon">:</span>
+                                    <div class="glass-cd-box"><span class="num">{{ countdown.secs }}</span></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -212,7 +249,7 @@ setInterval(() => {
                     </div>
                     
                     <div class="promo-right-countdown text-white text-center">
-                        <h5 class="mb-3 text-uppercase fw-semibold tracking-wider">Thời gian còn lại</h5>
+                        <h5 class="mb-4 text-uppercase fw-semibold tracking-wider" style="color: #cbd5e1;">Thời gian còn lại</h5>
                         <div class="d-flex gap-3 justify-content-center">
                             <div class="cd-box"><span class="cd-num">{{ countdown.days }}</span><span class="cd-lbl">Ngày</span></div>
                             <div class="cd-box"><span class="cd-num">{{ countdown.hours }}</span><span class="cd-lbl">Giờ</span></div>
@@ -259,11 +296,23 @@ setInterval(() => {
         </template>
         
         <!-- Ext: Social Proof (Hiệu ứng) -->
-        <section class="trust-section text-center py-5 d-flex flex-wrap justify-content-center gap-5 mt-4 border-top">
-            <div class="trust-item"><i class="fas fa-truck fa-2x text-ocean-blue mb-3"></i><h5 class="fw-bold">Giao hàng cực nhanh</h5><p class="text-muted fs-6">Trong vòng 24h đối với nội thành</p></div>
-            <div class="trust-item"><i class="fas fa-sync fa-2x text-ocean-blue mb-3"></i><h5 class="fw-bold">Hoàn trả linh hoạt</h5><p class="text-muted fs-6">Đổi trả trong 30 ngày dễ dàng</p></div>
-            <div class="trust-item"><i class="fas fa-shield-alt fa-2x text-ocean-blue mb-3"></i><h5 class="fw-bold">Thanh toán an toàn</h5><p class="text-muted fs-6">Bảo mật tuyệt đối thông tin</p></div>
-            <div class="trust-item"><i class="fas fa-headset fa-2x text-ocean-blue mb-3"></i><h5 class="fw-bold">Hỗ trợ 24/7</h5><p class="text-muted fs-6">Chăm sóc khách hàng tận tâm</p></div>
+        <section class="trust-section text-center py-5 d-flex flex-wrap justify-content-center gap-5 border-top">
+            <div class="trust-item">
+                <div class="trust-icon-wrap"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 18H3c-.6 0-1-.4-1-1V7c0-.6.4-1 1-1h10c.6 0 1 .4 1 1v11"/><path d="M14 9h4l4 4v5c0 .6-.4 1-1 1h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></div>
+                <h5 class="fw-bold mt-3">Giao hàng cực nhanh</h5><p class="text-muted fs-6 mb-0">Trong vòng 24h đối với nội thành</p>
+            </div>
+            <div class="trust-item">
+                <div class="trust-icon-wrap"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></div>
+                <h5 class="fw-bold mt-3">Hoàn trả linh hoạt</h5><p class="text-muted fs-6 mb-0">Đổi trả trong 30 ngày dễ dàng</p>
+            </div>
+            <div class="trust-item">
+                <div class="trust-icon-wrap"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+                <h5 class="fw-bold mt-3">Thanh toán an toàn</h5><p class="text-muted fs-6 mb-0">Bảo mật tuyệt đối thông tin</p>
+            </div>
+            <div class="trust-item">
+                <div class="trust-icon-wrap"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>
+                <h5 class="fw-bold mt-3">Hỗ trợ 24/7</h5><p class="text-muted fs-6 mb-0">Chăm sóc khách hàng tận tâm</p>
+            </div>
         </section>
 
     </main>
@@ -295,6 +344,10 @@ setInterval(() => {
     transition: all 0.3s ease;
     text-transform: uppercase;
     letter-spacing: 1px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-primary:hover {
@@ -331,8 +384,16 @@ setInterval(() => {
 }
 
 .home-main {
-    padding: 24px 0;
+    padding: 0;
     width: 100%;
+}
+
+.home-main section {
+    padding: 64px 0;
+}
+
+.banner-section {
+    padding-top: 0 !important;
 }
 
 /* Titles */
@@ -360,10 +421,10 @@ setInterval(() => {
     position: relative;
     width: 100vw;
     margin-left: calc(-50vw + 50%);
-    height: 700px;
+    height: 640px;
     border-radius: 0;
     overflow: hidden;
-    margin-bottom: 60px;
+    margin-bottom: 0;
     box-shadow: none;
 }
 
@@ -390,7 +451,7 @@ setInterval(() => {
 .hero-dark-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, rgba(10, 40, 70, 0.8) 0%, rgba(10, 40, 70, 0.1) 60%, transparent 100%);
+    background: linear-gradient(to top, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.2) 60%, transparent 100%);
     z-index: 1;
 }
 
@@ -420,12 +481,20 @@ setInterval(() => {
 
 .banner-title {
     font-size: 3.5rem;
-    font-weight: 800;
+    font-weight: 900;
     line-height: 1.1;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
     color: #ffffff;
     text-transform: uppercase;
     letter-spacing: 1px;
+}
+
+.layered-text {
+    text-shadow: 0px 4px 10px rgba(0, 0, 0, 0.4), 
+                 -2px -2px 0px rgba(255, 255, 255, 0.1),
+                 4px 4px 0px rgba(0, 0, 0, 0.2);
+    position: relative;
+    z-index: 5;
 }
 
 .banner-desc {
@@ -433,21 +502,50 @@ setInterval(() => {
 }
 
 .btn-hero-slider {
-    background: var(--coral);
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
     color: #ffffff;
     border: none;
-    padding: 16px 40px;
-    border-radius: var(--radius-sm);
-    font-size: 0.95rem;
-    box-shadow: 0 4px 14px rgba(242, 100, 87, 0.4);
+    padding: 16px 44px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
     transition: all 0.3s ease;
 }
 
 .btn-hero-slider:hover {
-    background: #e35a4d;
+    background: linear-gradient(135deg, #0284c7, #0ea5e9);
     color: #ffffff;
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(242, 100, 87, 0.5);
+    box-shadow: 0 8px 24px rgba(2, 132, 199, 0.6);
+}
+
+.hero-countdown-glass {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 12px 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.glass-cd-box {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 1.25rem;
+    line-height: 1;
+    min-width: 44px;
+    text-align: center;
+}
+.ds-colon {
+    font-size: 1.25rem;
+    line-height: 1.8;
 }
 
 .slider-indicators {
@@ -476,7 +574,7 @@ setInterval(() => {
 
 /* Category Circles */
 .shop-by-category {
-    margin-bottom: 60px;
+    padding-top: 40px !important;
 }
 .category-cards-wrapper {
     scrollbar-width: none;
@@ -493,18 +591,19 @@ setInterval(() => {
 }
 
 .cat-icon-container {
-    width: 72px;
-    height: 72px;
-    min-height: 72px;  /* Prevent shrinking */
-    background: #f1f5f9;
+    width: 80px;
+    height: 80px;
+    min-height: 80px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.6rem;
-    color: var(--ocean-blue, #0288d1);
-    margin-bottom: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    font-size: 1.8rem;
+    color: #334155;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     flex-shrink: 0;
 }
@@ -517,9 +616,9 @@ setInterval(() => {
 }
 
 .cat-name { 
-    font-weight: 600; 
-    font-size: 0.95rem; 
-    color: #475569; 
+    font-weight: 700; 
+    font-size: 1rem; 
+    color: #1e293b; 
     transition: color 0.3s;
 }
 .cat-circle-item:hover .cat-name {
@@ -533,8 +632,8 @@ setInterval(() => {
 
 .products-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 30px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
 }
 
 /* Promo Parallax Banner */
@@ -554,7 +653,7 @@ setInterval(() => {
 .promo-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, rgba(15,76,92,0.9) 0%, rgba(15,76,92,0.6) 100%);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 132, 199, 0.8) 100%);
     z-index: 1;
 }
 
@@ -565,20 +664,20 @@ setInterval(() => {
 }
 
 .cd-box {
-    background: var(--ocean-blue);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 16px;
-    min-width: 80px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 20px 16px;
+    min-width: 90px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
 
-.cd-num { font-size: 2rem; font-weight: 800; line-height: 1; margin-bottom: 4px; }
-.cd-lbl { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; }
+.cd-num { font-size: 2.5rem; font-weight: 900; line-height: 1; margin-bottom: 8px; font-family: 'Inter', sans-serif; }
+.cd-lbl { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; font-weight: 600; }
 
 /* Tabs Design */
 .btn-tab-pill {
@@ -612,17 +711,50 @@ setInterval(() => {
 
 /* Trust block */
 .trust-item {
-    max-width: 200px;
+    max-width: 220px;
+}
+.trust-icon-wrap {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto;
+    background: #e0f2fe;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ocean-blue);
+    transition: all 0.3s ease;
+}
+.trust-item:hover .trust-icon-wrap {
+    background: var(--ocean-blue);
+    color: #ffffff;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(2, 132, 199, 0.2);
+}
+/* Web responsiveness */
+@media (max-width: 1280px) {
+    .products-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+    }
 }
 
-/* Web responsiveness */
-@media (max-width: 991px) {
+@media (max-width: 1024px) {
     .promo-text-wrap {
         flex-direction: column;
         text-align: center;
-        padding: 50px 30px;
+        padding: 40px 24px;
     }
     .promo-left p { margin: 0 auto; }
+    
+    .products-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+    
+    .home-main section {
+        padding: 48px 0;
+    }
 }
 
 @media (max-width: 768px) {
@@ -634,11 +766,55 @@ setInterval(() => {
         text-align: center;
     }
     
-    .hero-slider { height: 500px; }
+    .banner-title { font-size: 2.5rem; }
+    .hero-slider { height: 480px; }
     
     .products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        grid-template-columns: repeat(2, 1fr);
         gap: 16px;
+    }
+    
+    .home-main section {
+        padding: 40px 0;
+    }
+    
+    .cd-box {
+        min-width: 70px;
+        padding: 16px 12px;
+    }
+    .cd-num {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .products-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    .hero-slider { height: 400px; }
+    .banner-title { font-size: 2rem; }
+    .btn-hero-slider { padding: 12px 32px; font-size: 0.9rem; }
+    
+    .home-main section {
+        padding: 32px 0;
+    }
+    
+    .promo-text-wrap {
+        padding: 32px 16px;
+    }
+    .promo-right-countdown .gap-3 {
+        gap: 8px !important;
+    }
+    .cd-box {
+        min-width: 60px;
+        padding: 12px 8px;
+    }
+    .cd-num {
+        font-size: 1.6rem;
+    }
+    .cd-lbl {
+        font-size: 0.7rem;
     }
 }
 </style>

@@ -30,19 +30,26 @@ import ChatbotWidget from '../components/ChatbotWidget.vue';
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   color: #1a1a2e;
   background: #fff;
+  overflow-x: hidden;
 }
 
 .site-main {
   flex: 1;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 24px; /* Default desktop padding */
+  padding: 0 32px; /* 32px for desktop */
   width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .site-main {
+    padding: 0 24px; /* 24px on tablet */
+  }
 }
 
 @media (max-width: 768px) {
   .site-main {
-    padding: 0 16px; /* Smaller padding on mobile */
+    padding: 0 16px; /* 16px on mobile */
   }
 }
 </style>

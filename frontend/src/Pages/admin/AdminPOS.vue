@@ -365,6 +365,20 @@ const showScanResult = (type, message) => {
   }, 3000);
 };
 
+// ================== MOBILE SCANNER SESSION ==================
+const sessionId = ref(crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15));
+
+const connectMobileScanner = () => {
+    if (window.Echo) {
+        window.Echo.private('pos-scanner.' + sessionId.value)
+            .listen('PosBarcodeScanned', (e) => {
+                const barcode = e.barcode;
+                toast.success(`Đã nhận mã từ Mobile: ${barcode}`);
+                searchByBarcode(barcode);
+            });
+    }
+};
+
 const searchByBarcode = async (barcode) => {
   if (!barcode || isScanning.value) return;
   
@@ -457,12 +471,16 @@ onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown);
   focusBarcodeInput();
   fetchCoupons();
+  setTimeout(connectMobileScanner, 1000);
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown);
   clearTimeout(scanResultTimeout);
   clearTimeout(barcodeTimeout);
+  if (window.Echo) {
+      window.Echo.leave('pos-scanner.' + sessionId.value);
+  }
 });
 </script>
 
@@ -523,6 +541,12 @@ onUnmounted(() => {
               <span>{{ scanResult.message }}</span>
             </div>
           </transition>
+          <!-- Mobile Session QR -->
+          <div class="mt-3 text-center border-top pt-3">
+              <h6 class="text-muted fw-bold mb-2">QUÉT BẰNG APP ĐIỆN THOẠI</h6>
+              <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent('pos_session:' + sessionId)}`" />
+              <p class="small text-muted mt-2 mb-0">Dùng App nhân viên quét mã này để liên kết làm máy quét</p>
+          </div>
         </div>
         
         <!-- Thanh tìm kiếm -->
@@ -779,6 +803,8 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+
+
 
   <!-- Bootstrap Toast -->
   <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">

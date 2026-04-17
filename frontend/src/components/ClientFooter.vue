@@ -45,15 +45,15 @@
           <h4 class="footer-heading">Kết Nối Với Chúng Tôi</h4>
           <ul class="footer-contact">
             <li>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
               134 Nguyễn Thị Định, P.Buôn Ma Thuột, Tỉnh Đắk Lắk
             </li>
             <li>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
               1900-OCEAN (1900 6232)
             </li>
             <li>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
               contact@oceanstore.vn
             </li>
           </ul>
@@ -98,9 +98,9 @@ const submitNewsletter = async () => {
 
 <style scoped>
 .site-footer {
-  background: #f4f9f9;
+  background: #f8fafc;
   border-top: 1px solid #e5e7eb;
-  padding: 48px 0 0;
+  padding: 64px 0 0;
 }
 
 .footer-inner {
@@ -128,7 +128,7 @@ const submitNewsletter = async () => {
   color: var(--ocean-blue);
 }
 
-.footer-desc { font-size: 0.95rem; color: #6b7280; line-height: 1.6; margin-bottom: 24px; }
+.footer-desc { font-size: 0.95rem; color: #64748b; line-height: 1.6; margin-bottom: 24px; }
 
 .newsletter-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 10px; }
 
@@ -147,7 +147,7 @@ const submitNewsletter = async () => {
 
 .newsletter-btn:hover { background: rgba(2, 136, 209, 0.85); transform: scale(1.02); }
 
-.footer-heading { font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 16px; font-style: italic; }
+.footer-heading { font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-bottom: 20px; font-style: normal; }
 
 .footer-links {
   list-style: none;
@@ -157,7 +157,7 @@ const submitNewsletter = async () => {
 
 .footer-links li { margin-bottom: 10px; }
 
-.footer-links a { font-size: 0.95rem; color: #6b7280; text-decoration: none; transition: all 0.2s; }
+.footer-links a { font-size: 0.95rem; color: #64748b; text-decoration: none; transition: all 0.2s; }
 
 .footer-links a:hover { color: var(--ocean-blue); text-decoration: underline; text-underline-offset: 4px; }
 
@@ -167,7 +167,7 @@ const submitNewsletter = async () => {
   margin: 0;
 }
 
-.footer-contact li { display: flex; align-items: flex-start; gap: 8px; font-size: 0.95rem; color: #6b7280; margin-bottom: 12px; line-height: 1.4; }
+.footer-contact li { display: flex; align-items: flex-start; gap: 8px; font-size: 0.95rem; color: #64748b; margin-bottom: 12px; line-height: 1.5; }
 
 .footer-contact li svg {
   flex-shrink: 0;
@@ -189,7 +189,7 @@ const submitNewsletter = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6b7280;
+  color: #64748b;
   text-decoration: none;
   transition: all 0.2s;
 }

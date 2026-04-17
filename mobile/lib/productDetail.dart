@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
 
@@ -33,7 +34,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> fetchProductDetails() async {
     try {
       final slug = _product['slug'];
-      final url = Uri.parse('http://localhost:8383/api/products/slug/$slug');
+      final url = Uri.parse('http://10.0.2.2:8383/api/products/slug/$slug');
       final res = await http.get(url, headers: {'Accept': 'application/json'});
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -66,7 +67,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> fetchComments() async {
     try {
       final id = _product['product_id'] ?? _product['id'];
-      final url = Uri.parse('http://localhost:8383/api/products/$id/comments');
+      final url = Uri.parse('http://10.0.2.2:8383/api/products/$id/comments');
       final res = await http.get(url, headers: {'Accept': 'application/json'});
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -130,7 +131,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final token = prefs.getString('access_token');
       
       final response = await http.post(
-        Uri.parse('http://localhost:8383/api/cart/items'),
+        Uri.parse('http://10.0.2.2:8383/api/cart/items'),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -226,7 +227,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     String imageUrl = '';
     if (rawImage.isNotEmpty) {
       if (rawImage.startsWith('http')) imageUrl = rawImage;
-      else imageUrl = 'http://localhost:8383/api/image-proxy?path=$rawImage';
+      else imageUrl = 'http://10.0.2.2:8383/api/image-proxy?path=$rawImage';
     }
 
     String description = _product['description'] ?? 'Khám phá đại dương sâu thẳm cùng Ocean Pro. Được chế tác với độ chính xác tuyệt đối, đây không chỉ là một chiếc đồng hồ, mà là người đồng hành đáng tin cậy...';
@@ -264,8 +265,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   color: Colors.white,
                   child: Stack(
                     children: [
-                      imageUrl.isNotEmpty 
-                        ? Image.network(imageUrl, width: double.infinity, height: 350, fit: BoxFit.cover, errorBuilder: (_,__,___) => _imagePlaceholder())
+                      imageUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: imageUrl, 
+                            width: double.infinity, 
+                            height: 350, 
+                            fit: BoxFit.cover, 
+                            placeholder: (_,__) => Container(height: 350, color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator())),
+                            errorWidget: (_,__,___) => _imagePlaceholder()
+                          )
                         : _imagePlaceholder(),
                       Positioned(
                         bottom: 16,

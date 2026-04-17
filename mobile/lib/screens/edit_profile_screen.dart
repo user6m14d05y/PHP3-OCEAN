@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 
-const String kBaseUrl = 'http://localhost:8383/api';
+const String kBaseUrl = 'http://10.0.2.2:8383/api';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -96,7 +96,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final avatar = widget.userData['avatar_url'];
     final avatarUrl = avatar != null
-      ? (avatar.startsWith('http') ? avatar : 'http://localhost:8383/api/image-proxy?path=$avatar')
+      ? (avatar.startsWith('http') ? avatar : 'http://10.0.2.2:8383/api/image-proxy?path=$avatar')
       : null;
 
     return Scaffold(

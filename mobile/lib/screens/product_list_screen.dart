@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:cached_network_image/cached_network_image.dart';
+import '../services/api_client.dart';
 import '../productDetail.dart';
-
-const String kBaseUrl = 'http://localhost:8383/api';
+import '../widgets/shimmer_loading.dart';
 
 class ProductListScreen extends StatefulWidget {
   final int? categoryId;
@@ -25,17 +25,23 @@ class ProductListScreen extends StatefulWidget {
 class _ProductListScreenState extends State<ProductListScreen> {
   List<dynamic> products = [];
   bool isLoading = true;
+  bool isFetchingMore = false;
+  bool hasMore = true;
   String? errorMessage;
   int currentPage = 1;
   String currentSearch = '';
+  
   late TextEditingController _searchCtrl;
   Timer? _debounce;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     currentSearch = widget.searchQuery ?? '';
     _searchCtrl = TextEditingController(text: currentSearch);
+    
+    _scrollController.addListener(_onScroll);
     fetchProducts();
   }
 
@@ -43,56 +49,87 @@ class _ProductListScreenState extends State<ProductListScreen> {
   void dispose() {
     _searchCtrl.dispose();
     _debounce?.cancel();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!isLoading && !isFetchingMore && hasMore) {
+        setState(() {
+          currentPage++;
+        });
+        fetchProducts(loadMore: true);
+      }
+    }
   }
 
   void _onSearchChanged(String text) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       if (mounted) {
-        setState(() { currentSearch = text.trim(); currentPage = 1; });
+        setState(() { 
+          currentSearch = text.trim(); 
+          currentPage = 1; 
+          hasMore = true;
+        });
         fetchProducts();
       }
     });
   }
 
-  Future<void> fetchProducts() async {
+  Future<void> fetchProducts({bool loadMore = false}) async {
+    if (!mounted) return;
+    
     setState(() {
-      isLoading = true;
-      errorMessage = null;
+      if (loadMore) {
+        isFetchingMore = true;
+      } else {
+        isLoading = true;
+        errorMessage = null;
+        products.clear();
+      }
     });
 
     try {
-      String url = '$kBaseUrl/products?page=$currentPage';
+      final Map<String, dynamic> params = {'page': currentPage};
       if (widget.categoryId != null) {
-        url += '&category_id=${widget.categoryId}';
+        params['category_id'] = widget.categoryId;
       }
       if (currentSearch.isNotEmpty) {
-        url += '&search=$currentSearch';
+        params['search'] = currentSearch;
       }
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 15));
+      final response = await ApiClient().dio.get(
+        '/products',
+        queryParameters: params,
+      );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = response.data;
         List<dynamic> fetched = [];
 
         if (data is List) {
           fetched = data;
+          hasMore = false; // Usually not paginated if it returns a flat array
         } else if (data['data'] is List) {
           fetched = data['data'];
+          if (data['page'] != null && data['total_pages'] != null) {
+            hasMore = (int.parse(data['page'].toString()) < int.parse(data['total_pages'].toString()));
+          } else {
+            hasMore = fetched.isNotEmpty;
+          }
         }
 
         if (mounted) {
           setState(() {
-            products = fetched;
+            if (loadMore) {
+              products.addAll(fetched);
+            } else {
+              products = fetched;
+            }
             isLoading = false;
+            isFetchingMore = false;
           });
         }
       } else {
@@ -100,6 +137,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           setState(() {
             errorMessage = 'Lỗi truy xuất (${response.statusCode})';
             isLoading = false;
+            isFetchingMore = false;
           });
         }
       }
@@ -108,6 +146,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
         setState(() {
           errorMessage = 'Không thể kết nối đến máy chủ';
           isLoading = false;
+          isFetchingMore = false;
+          if (loadMore) currentPage--; // Revert page on failure
         });
       }
     }
@@ -133,27 +173,31 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF1F5F9), // Màu nền nhẹ kiểu dáng Figma
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-        title: Text(title, style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(title, style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w800, fontSize: 18)),
         centerTitle: true,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
+          preferredSize: const Size.fromHeight(70),
           child: Padding(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+            padding: const EdgeInsets.only(left: 20, right: 20, bottom: 16),
             child: Container(
+              height: 48,
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                color: const Color(0xFFF1F5F9), // Màu nền search box figma
+                borderRadius: BorderRadius.circular(24),
               ),
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: _onSearchChanged,
-                onSubmitted: (t) { _debounce?.cancel(); setState(() { currentSearch = t.trim(); currentPage = 1; }); fetchProducts(); },
+                onSubmitted: (t) { 
+                  _debounce?.cancel(); 
+                  setState(() { currentSearch = t.trim(); currentPage = 1; hasMore = true; }); 
+                  fetchProducts(); 
+                },
                 decoration: InputDecoration(
                   hintText: 'Tìm kiếm sản phẩm...',
                   hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
@@ -174,53 +218,89 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   Widget _buildBody() {
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF0EA5E9)));
-    }
-    
-    if (errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 60, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(errorMessage!, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: fetchProducts,
-              child: const Text('Thử lại'),
-            )
-          ],
-        ),
-      );
-    }
-    
-    if (products.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inventory_2_outlined, size: 80, color: Color(0xFFE2E8F0)),
-            SizedBox(height: 16),
-            Text('Không có sản phẩm nào.', style: TextStyle(color: Color(0xFF64748B), fontSize: 16)),
-          ],
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.65,
-      ),
-      itemCount: products.length,
-      itemBuilder: (context, index) {
-        return _buildProductCard(products[index]);
+    return RefreshIndicator(
+      color: const Color(0xFF0EA5E9),
+      onRefresh: () async {
+        setState(() { currentPage = 1; hasMore = true; });
+        await fetchProducts();
       },
+      child: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          if (isLoading && products.isEmpty)
+            const SliverShimmerLoading()
+          else if (errorMessage != null && products.isEmpty)
+            SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text(errorMessage!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+                      const SizedBox(height: 16),
+                      ElevatedButton(onPressed: () => fetchProducts(), child: const Text('Thử lại')),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else if (products.isEmpty)
+            SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 100),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.inventory_2_outlined, size: 100, color: const Color(0xFFCBD5E1).withOpacity(0.5)),
+                      const SizedBox(height: 20),
+                      const Text('Không có sản phẩm nào.', style: TextStyle(color: Color(0xFF64748B), fontSize: 16, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.all(20),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 20,
+                  childAspectRatio: 0.62,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    return _buildProductCard(products[index]);
+                  },
+                  childCount: products.length,
+                ),
+              ),
+            ),
+          if (isFetchingMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 30),
+                child: Center(
+                  child: CircularProgressIndicator(color: Color(0xFF0EA5E9)),
+                ),
+              ),
+            ),
+          if (!hasMore && products.length > 5)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 30),
+                child: Center(
+                  child: Text('Bạn đã xem hết sản phẩm', style: TextStyle(color: Color(0xFF94A3B8))),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -234,7 +314,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       if (rawImage.toString().startsWith('http')) {
         imageUrl = rawImage.toString();
       } else {
-        imageUrl = 'http://localhost:8383/api/image-proxy?path=$rawImage';
+        imageUrl = 'http://10.0.2.2:8383/api/image-proxy?path=$rawImage';
       }
     }
 
@@ -251,34 +331,52 @@ class _ProductListScreenState extends State<ProductListScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
+          // Thiết kế đổ bóng nhẹ nâng lên từ figma
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
-                  child: imageUrl.isNotEmpty
-                      ? Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imagePlaceholder())
-                      : _imagePlaceholder(),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                    child: const Icon(Icons.favorite_border, size: 16, color: Color(0xFF94A3B8)),
+            Expanded(
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                    child: imageUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: imageUrl, 
+                            width: double.infinity, 
+                            height: double.infinity, 
+                            fit: BoxFit.cover,
+                            placeholder: (_,__) => Container(color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                            errorWidget: (_,__,___) => _imagePlaceholder()
+                          )
+                        : _imagePlaceholder(),
                   ),
-                )
-              ],
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9), 
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+                      ),
+                      child: const Icon(Icons.favorite_border, size: 16, color: Color(0xFF64748B)),
+                    ),
+                  )
+                ],
+              ),
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -286,20 +384,21 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     name.toString(),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B), height: 1.3),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF0F172A), height: 1.3),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
                         _formatPrice(rawPrice),
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0284C7)),
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0EA5E9)),
                       ),
                       Container(
                         padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: const Color(0xFF0284C7), borderRadius: BorderRadius.circular(8)),
-                        child: const Icon(Icons.shopping_cart_outlined, size: 14, color: Colors.white),
+                        decoration: BoxDecoration(color: const Color(0xFF0EA5E9).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                        child: const Icon(Icons.add_shopping_cart, size: 16, color: Color(0xFF0EA5E9)),
                       )
                     ],
                   )
@@ -313,6 +412,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   Widget _imagePlaceholder() {
-    return Container(height: 160, color: const Color(0xFFF1F5F9), child: const Center(child: Icon(Icons.image_not_supported, size: 30, color: Colors.grey)));
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: const Color(0xFFF8FAFC), 
+      child: const Center(child: Icon(Icons.inventory_2, size: 40, color: Color(0xFFE2E8F0)))
+    );
   }
 }

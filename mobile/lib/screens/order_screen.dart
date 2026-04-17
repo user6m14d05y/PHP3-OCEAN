@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'order_detail_screen.dart';
 
-const String kBaseUrl = 'http://localhost:8383/api';
+const String kBaseUrl = 'http://10.0.2.2:8383/api';
 
 class OrderScreen extends StatefulWidget {
   const OrderScreen({super.key});

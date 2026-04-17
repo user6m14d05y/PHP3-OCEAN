@@ -374,6 +374,10 @@ class AdminOrderController extends Controller
             DB::rollBack();
             Log::error('Cập nhật trạng thái hàng loạt lỗi: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'Có lỗi hệ thống xảy ra!'], 500);
+        }
+    }
+
+    /**
      * Đồng bộ đơn hàng lên GHN
      */
     public function syncGHN($id)
