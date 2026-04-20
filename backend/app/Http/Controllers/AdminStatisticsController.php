@@ -9,6 +9,8 @@ use App\Models\User;
 use App\Models\OrderItem;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\LastMonthRevenueExport;
 
 class AdminStatisticsController extends Controller
 {
@@ -382,6 +384,15 @@ class AdminStatisticsController extends Controller
             'status' => 'success',
             'data' => $formattedReport
         ]);
+    }
+
+    /**
+     * Xuất file Excel doanh thu của tháng vừa rồi
+     */
+    public function exportLastMonthRevenue()
+    {
+        $fileName = 'Doanh_Thu_Thang_Truoc_' . Carbon::now()->format('Y_m') . '.xlsx';
+        return Excel::download(new LastMonthRevenueExport, $fileName);
     }
 
     private function calculateChange($prev, $current)

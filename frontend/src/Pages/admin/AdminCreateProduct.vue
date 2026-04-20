@@ -2,6 +2,7 @@
 import { ref, reactive, computed, onMounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import api from "@/axios";
+import Swal from 'sweetalert2';
 import AdminCategoryFormTree from "@/components/AdminCategoryFormTree.vue";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
@@ -375,16 +376,14 @@ const handleSubmit = async () => {
 
     try {
         const response = await api.post("/products", formData);
-        alert("Thêm sản phẩm thành công!");
+        Swal.fire('Thành công', 'Thêm sản phẩm thành công!', 'success');
         router.push("/admin/product");
     } catch (error) {
         console.error("Error creating product:", error);
         if (error.response?.data?.errors) {
             errors.value = error.response.data.errors;
         }
-        alert(
-            error.response?.data?.message || "Lỗi khi thêm sản phẩm",
-        );
+        Swal.fire('Lỗi', error.response?.data?.message || "Lỗi khi thêm sản phẩm", 'error');
     }
 };
 

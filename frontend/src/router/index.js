@@ -99,6 +99,7 @@ const routes = [
                     { path: "wishlist", name: "profile-wishlist", component: ProfileWishlist },
                     { path: "change-password", name: "profile-change-password", component: ProfileChangePassword },
                     { path: "coupon", name: "profile-coupon", component: ProfileCoupon },
+                    { path: "notifications", name: "profile-notifications", component: () => import("../Pages/Client/Profile/ProfileNotifications.vue") },
                 ],
             },
         ],

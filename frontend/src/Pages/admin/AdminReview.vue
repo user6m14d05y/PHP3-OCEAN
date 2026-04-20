@@ -2,6 +2,7 @@
 import { ref, nextTick, onMounted } from 'vue';
 import api from '@/axios';
 import { Toast } from 'bootstrap';
+import Swal from 'sweetalert2';
 
 const toastData = ref({ message: '', type: 'success' });
 const showToast = (message, type = 'success') => {
@@ -83,7 +84,16 @@ const applyFilter = () => fetchReviews(1);
 const toggleApprove = async (review) => {
   const endpoint = review.is_approved ? 'reject' : 'approve';
   const label    = review.is_approved ? 'Ẩn'    : 'Duyệt';
-  if (!confirm(`${label} đánh giá này?`)) return;
+  
+  const result = await Swal.fire({
+      title: 'Xác nhận',
+      text: `${label} đánh giá này?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Đồng ý',
+      cancelButtonText: 'Hủy'
+  });
+  if (!result.isConfirmed) return;
 
   try {
     await api.put(`/admin/reviews/${review.comment_id}/${endpoint}`);
@@ -95,7 +105,16 @@ const toggleApprove = async (review) => {
 };
 
 const deleteReview = async (review) => {
-  if (!confirm('Xóa đánh giá này? Hành động này không thể hoàn tác!')) return;
+  const result = await Swal.fire({
+      title: 'Khuyên cáo',
+      text: 'Xóa đánh giá này? Hành động này không thể hoàn tác!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Xóa',
+      cancelButtonText: 'Hủy'
+  });
+  if (!result.isConfirmed) return;
 
   try {
     await api.delete(`/admin/reviews/${review.comment_id}`);

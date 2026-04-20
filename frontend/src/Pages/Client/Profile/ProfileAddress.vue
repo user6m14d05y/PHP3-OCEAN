@@ -197,6 +197,7 @@
 import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 import api from '@/axios';
+import Swal from 'sweetalert2';
 
 const TOKEN_GHN = import.meta.env.VITE_TOKEN_GHN;
 const SHOPID_GHN = import.meta.env.VITE_SHOPID_GHN;
@@ -494,12 +495,24 @@ async function handleSubmit() {
 
 // Delete address
 async function deleteAddress(id) {
-  if (!confirm('Bạn có chắc chắn muốn xóa địa chỉ này?')) return;
+  const result = await Swal.fire({
+    title: 'Xác nhận xóa',
+    text: 'Bạn có chắc chắn muốn xóa địa chỉ này?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Xóa',
+    cancelButtonText: 'Hủy'
+  });
+  if (!result.isConfirmed) return;
+  
   try {
     await api.delete(`/profile/addresses/${id}`);
     await fetchAddresses();
+    Swal.fire('Thành công', 'Đã xóa địa chỉ!', 'success');
   } catch (e) {
-    alert('Xóa địa chỉ thất bại!');
+    Swal.fire('Thất bại', 'Xóa địa chỉ thất bại!', 'error');
   }
 }
 
@@ -509,7 +522,7 @@ async function setDefault(id) {
     await api.put(`/profile/addresses/${id}/default`);
     await fetchAddresses();
   } catch (e) {
-    alert('Đặt mặc định thất bại!');
+    Swal.fire('Thất bại', 'Đặt mặc định thất bại!', 'error');
   }
 }
 

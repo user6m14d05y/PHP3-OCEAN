@@ -18,6 +18,7 @@
 <script setup>
 import { ref } from 'vue';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 
 const isCheckedIn = ref(false);
 const checkInTime = ref('');
@@ -37,12 +38,12 @@ const handleCheckIn = () => {
         isCheckedIn.value = true;
         checkInTime.value = response.data.data.check_in_at;
       } catch (error) {
-        alert(error.response.data.message);
+        Swal.fire('Lỗi', error.response.data.message, 'error');
       } finally {
         loading.value = false;
       }
     }, (error) => {
-      alert("Bạn cần cấp quyền truy cập vị trí để check-in!");
+      Swal.fire('Lưu ý', "Bạn cần cấp quyền truy cập vị trí để check-in!", 'warning');
       loading.value = false;
     });
   }

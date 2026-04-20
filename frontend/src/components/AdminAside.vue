@@ -163,6 +163,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import Swal from 'sweetalert2';
 
 const router = useRouter();
 const userName = ref('Admin');
@@ -196,8 +197,16 @@ onMounted(() => {
   }
 });
 
-const handleLogout = () => {
-  if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
+const handleLogout = async () => {
+  const result = await Swal.fire({
+      title: 'Xác nhận',
+      text: 'Bạn có chắc chắn muốn đăng xuất?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Đăng xuất',
+      cancelButtonText: 'Hủy'
+  });
+  if (result.isConfirmed) {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     sessionStorage.removeItem('auth_token');

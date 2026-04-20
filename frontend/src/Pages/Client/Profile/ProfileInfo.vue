@@ -80,6 +80,18 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label">Ngày sinh</label>
+            <input
+              type="date"
+              v-model="form.date_of_birth"
+              class="form-input"
+              :class="{ 'form-input--error': errors.date_of_birth, 'form-input--disabled': !isEditing }"
+              :disabled="!isEditing"
+            />
+            <span v-if="errors.date_of_birth" class="error-text">{{ errors.date_of_birth[0] }}</span>
+          </div>
+
+          <div class="form-group">
             <label class="form-label">Ngày tham gia</label>
             <input type="text" :value="formatDate(user.created_at)" class="form-input form-input--disabled" disabled />
           </div>
@@ -149,7 +161,7 @@ const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').r
 
 const user = ref({});
 const addressCount = ref(0);
-const form = ref({ full_name: '', phone: '' });
+const form = ref({ full_name: '', phone: '', date_of_birth: '' });
 const avatarFile = ref(null);
 const previewAvatar = ref(null);
 const errors = ref({});
@@ -157,7 +169,7 @@ const globalError = ref('');
 const globalSuccess = ref('');
 const loading = ref(false);
 const isEditing = ref(false);
-const originalData = ref({ full_name: '', phone: '' });
+const originalData = ref({ full_name: '', phone: '', date_of_birth: '' });
 
 // Tính toán avatar URL đúng (xử lý Google URL, local URL, và fallback)
 const avatarUrl = computed(() => {
@@ -173,9 +185,12 @@ const avatarUrl = computed(() => {
 const isChanged = computed(() => {
   if (avatarFile.value) return true;
   if (form.value.full_name !== originalData.value.full_name) return true;
-  const cur = form.value.phone || '';
-  const old = originalData.value.phone || '';
-  return cur !== old;
+  const curPhone = form.value.phone || '';
+  const oldPhone = originalData.value.phone || '';
+  if (curPhone !== oldPhone) return true;
+  const curDob = form.value.date_of_birth || '';
+  const oldDob = originalData.value.date_of_birth || '';
+  return curDob !== oldDob;
 });
 
 const formatDate = (dateStr) => {
@@ -192,6 +207,7 @@ const cancelEdit = () => {
   isEditing.value = false;
   form.value.full_name = originalData.value.full_name;
   form.value.phone = originalData.value.phone;
+  form.value.date_of_birth = originalData.value.date_of_birth;
   avatarFile.value = null;
   previewAvatar.value = null;
   errors.value = {};
@@ -219,7 +235,18 @@ const syncUser = (data) => {
   user.value = data;
   form.value.full_name = data.full_name || '';
   form.value.phone     = data.phone     || '';
-  originalData.value   = { full_name: data.full_name || '', phone: data.phone || '' };
+  
+  // Convert UTC timestamp back to Local Date properly
+  let dob = data.date_of_birth || '';
+  if (dob) {
+    if (dob.includes('T')) {
+      const d = new Date(dob);
+      dob = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+  }
+  form.value.date_of_birth = dob;
+  
+  originalData.value   = { full_name: data.full_name || '', phone: data.phone || '', date_of_birth: dob };
 };
 
 const updateProfile = async () => {
@@ -232,6 +259,7 @@ const updateProfile = async () => {
   formData.append('full_name', form.value.full_name);
   // Luôn gửi phone (kể cả chuỗi rỗng để xóa) — backend sẽ set null khi rỗng
   formData.append('phone', form.value.phone || '');
+  formData.append('date_of_birth', form.value.date_of_birth || '');
   if (avatarFile.value) {
     formData.append('avatar', avatarFile.value);
   }

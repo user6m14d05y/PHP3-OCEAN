@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, watch, computed, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../axios.js";
 import { broadcastLogout } from "../sessionSync.js";
+import Swal from "sweetalert2";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const route = useRoute();
@@ -16,6 +17,7 @@ const isAdmin = ref(false);
 const showDropdown = ref(false);
 const categories = ref([]);
 const cartCount = ref(0);
+const unreadNotificationCount = ref(0);
 
 // Lấy 3 danh mục bán chạy nhất (ở đây giả sử là 3 root category đầu tiên trả về từ API)
 const topCategories = computed(() => {
@@ -166,6 +168,53 @@ const fetchCartCount = async () => {
         cartCount.value = 0;
     }
 };
+
+const fetchUnreadNotificationCount = async () => {
+    const token = sessionStorage.getItem("auth_token");
+    if (!token) {
+        unreadNotificationCount.value = 0;
+        return;
+    }
+    try {
+        const response = await api.get("/profile/notifications");
+        unreadNotificationCount.value = response.data.unread_count || 0;
+    } catch (e) {
+        unreadNotificationCount.value = 0;
+    }
+};
+
+watch(isLoggedIn, (val) => {
+    if (val) {
+        fetchUnreadNotificationCount();
+        const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
+        if (window.Echo && userData && userData.user_id) {
+            window.Echo.private('user.' + userData.user_id)
+                .listen('.UserNotificationEvent', (e) => { // . means it ignores Broadcast namespace
+                    unreadNotificationCount.value++;
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'info',
+                        title: e.notification?.title || 'Thông báo mới',
+                        text: e.notification?.message || 'Bạn có thông báo mới',
+                        showConfirmButton: false,
+                        timer: 5000,
+                        timerProgressBar: true,
+                        didOpen: (toast) => {
+                            toast.addEventListener('mouseenter', Swal.stopTimer)
+                            toast.addEventListener('mouseleave', Swal.resumeTimer)
+                        }
+                    });
+                });
+        }
+    } else {
+        unreadNotificationCount.value = 0;
+        const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
+        if (window.Echo && userData && userData.user_id) {
+            window.Echo.leave('user.' + userData.user_id);
+        }
+    }
+}, { immediate: true });
 
 const handleLogout = async () => {
     try {
@@ -363,6 +412,28 @@ watch(
                         </div>
                     </div>
                 </div>
+
+                <!-- Thông báo -->
+                <router-link to="/profile/notifications" class="icon-btn notif-icon-btn" v-if="isLoggedIn">
+                    <div class="cart-icon-wrapper">
+                        <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span v-if="unreadNotificationCount > 0" class="cart-badge">{{
+                            unreadNotificationCount > 99 ? "99+" : unreadNotificationCount
+                        }}</span>
+                    </div>
+                </router-link>
 
                 <!-- Giỏ hàng -->
                 <router-link to="/cart" class="icon-btn cart-icon-btn">

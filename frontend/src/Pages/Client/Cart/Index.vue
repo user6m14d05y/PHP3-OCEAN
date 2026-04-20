@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, watch } from 'vue';import { useRouter } from 'vue-router';
 import api from '@/axios';
+import Swal from 'sweetalert2';
 import FreeshipBar from '@/components/FreeshipBar.vue';
 import QuickAddSlider from '@/components/QuickAddSlider.vue';
 import { useCartUpsell } from '@/composables/useCartUpsell';
@@ -238,7 +238,15 @@ const updateQuantity = async (item, newQuantity) => {
 
 // Xóa 1 item
 const removeItem = async (item) => {
-    if (!confirm('Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?')) return;
+    const result = await Swal.fire({
+      title: 'Xác nhận xóa',
+      text: 'Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Xóa',
+      cancelButtonText: 'Hủy'
+    });
+    if (!result.isConfirmed) return;
 
     try {
         await api.delete(`/cart/items/${item.cart_item_id}`);
@@ -253,7 +261,15 @@ const removeItem = async (item) => {
 
 // Xóa toàn bộ
 const clearCart = async () => {
-    if (!confirm('Bạn có chắc muốn xóa toàn bộ giỏ hàng?')) return;
+    const result = await Swal.fire({
+      title: 'Xác nhận xóa',
+      text: 'Bạn có chắc muốn xóa toàn bộ giỏ hàng?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Xóa',
+      cancelButtonText: 'Hủy'
+    });
+    if (!result.isConfirmed) return;
 
     try {
         await api.delete('/cart');

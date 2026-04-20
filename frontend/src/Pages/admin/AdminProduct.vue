@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, nextTick } from 'vue';
 import api from '../../axios.js';
 import { Toast } from 'bootstrap';
+import Swal from 'sweetalert2';
 
 const toastData = ref({ message: '', type: 'success' });
 const showToastMsg = (message, type = 'success') => {
@@ -115,7 +116,17 @@ const handleDelete = async (productId, isDeleted) => {
     const confirmMsg = isDeleted 
         ? 'Bạn có chắc chắn muốn xóa vĩnh viễn sản phẩm này? Thao tác này không thể hoàn tác!' 
         : 'Bạn có chắc chắn muốn xóa tạm sản phẩm này?';
-    if (!confirm(confirmMsg)) return;
+    
+    const result = await Swal.fire({
+        title: 'Xác nhận xóa',
+        text: confirmMsg,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Xóa',
+        cancelButtonText: 'Hủy'
+    });
+    if (!result.isConfirmed) return;
 
     try {
         await api.delete(`/products/${productId}`);
@@ -128,7 +139,15 @@ const handleDelete = async (productId, isDeleted) => {
 };
 
 const handleRestore = async (productId) => {
-    if (!confirm('Bạn có chắc chắn muốn khôi phục sản phẩm này?')) return;
+    const result = await Swal.fire({
+        title: 'Xác nhận khôi phục',
+        text: 'Bạn có chắc chắn muốn khôi phục sản phẩm này?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Khôi phục',
+        cancelButtonText: 'Hủy'
+    });
+    if (!result.isConfirmed) return;
     try {
         await api.put(`/products/${productId}/restore`);
         showToastMsg('Khôi phục sản phẩm thành công.', 'success');

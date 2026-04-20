@@ -35,6 +35,11 @@ class ProfileController extends Controller
         // Cho phép xóa số điện thoại bằng cách gửi chuỗi rỗng
         $user->phone = isset($validated['phone']) ? ($validated['phone'] ?: null) : $user->phone;
 
+        // Cập nhật ngày sinh
+        if (array_key_exists('date_of_birth', $validated)) {
+            $user->date_of_birth = $validated['date_of_birth'] ?: null;
+        }
+
         // Xử lý upload ảnh nếu có
         if ($request->hasFile('avatar')) {
             // Xoá ảnh cũ nếu là ảnh nội bộ (không phải URL Google/bên ngoài)

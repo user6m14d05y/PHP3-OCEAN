@@ -81,6 +81,7 @@
 <script setup>
 import { ref } from 'vue';
 import api from '../axios.js';
+import Swal from 'sweetalert2';
 
 const newsletterEmail = ref('');
 
@@ -89,9 +90,9 @@ const submitNewsletter = async () => {
   try {
     await api.post('/SubmitContactEmail', { email: newsletterEmail.value });
     newsletterEmail.value = '';
-    alert('Đăng ký nhận tin thành công!');
+    Swal.fire('Thành công', 'Đăng ký nhận tin thành công!', 'success');
   } catch (e) {
-    alert('Có lỗi xảy ra!');
+    Swal.fire('Lỗi', 'Có lỗi xảy ra!', 'error');
   }
 };
 </script>

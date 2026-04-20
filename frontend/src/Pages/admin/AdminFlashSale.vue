@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import api from '@/axios.js';
+import Swal from 'sweetalert2';
 
 // -- States --
 const flashSales = ref([]);
@@ -63,7 +64,7 @@ const resolveThumbnail = (url) => {
 const addProductToItems = (product) => {
     // Tránh thêm trùng lặp
     if (form.value.items.some(item => item.product_id === product.product_id)) {
-        alert("Sản phẩm đã có trong danh sách!");
+        Swal.fire('Lưu ý', 'Sản phẩm đã có trong danh sách!', 'warning');
         return;
     }
     
@@ -124,26 +125,36 @@ const handleSubmit = async () => {
         } else {
             await api.post('/admin/flash-sale', form.value);
         }
-        alert("Lưu thành công!");
+        Swal.fire('Thành công', 'Lưu thành công!', 'success');
         isModalOpen.value = false;
         fetchFlashSales();
     } catch (e) {
         if (e.response?.status === 422) {
             errors.value = e.response.data.errors;
         } else {
-            alert("Lỗi máy chủ!");
+            Swal.fire('Lỗi', 'Lỗi máy chủ!', 'error');
         }
     }
 };
 
 const handleDelete = async (id) => {
-    if (confirm('Bạn có chắc chắn muốn xóa chiến dịch Flash Sale này không?')) {
+    const result = await Swal.fire({
+         title: 'Khu vực nguy hiểm',
+         text: 'Bạn có chắc chắn muốn xóa chiến dịch Flash Sale này không?',
+         icon: 'warning',
+         showCancelButton: true,
+         confirmButtonColor: '#d33',
+         confirmButtonText: 'Xóa',
+         cancelButtonText: 'Hủy'
+    });
+    
+    if (result.isConfirmed) {
         try {
             await api.delete(`/admin/flash-sale/${id}`);
-            alert('Đã xóa thành công!');
+            Swal.fire('Thành công', 'Đã xóa thành công!', 'success');
             fetchFlashSales();
         } catch (e) {
-            alert('Lỗi xóa chiến dịch!');
+            Swal.fire('Lỗi', 'Lỗi xóa chiến dịch!', 'error');
         }
     }
 };

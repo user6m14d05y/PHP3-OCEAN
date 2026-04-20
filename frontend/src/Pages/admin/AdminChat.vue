@@ -108,6 +108,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import api from '../../axios';
+import Swal from 'sweetalert2';
 
 const sessions = ref([]);
 const activeSession = ref(null);
@@ -219,7 +220,7 @@ const sendReply = async () => {
     }
   } catch (err) {
     console.error(err);
-    alert('Lỗi! Không thể gửi.');
+    Swal.fire('Lỗi', 'Không thể gửi!', 'error');
     currentMessages.value.pop();
   } finally {
     isSending.value = false;
@@ -227,12 +228,21 @@ const sendReply = async () => {
 };
 
 const closeSession = async () => {
-   if (confirm("Xác nhận kết thúc hỗ trợ khách hàng này?")) {
+   const result = await Swal.fire({
+     title: 'Xác nhận',
+     text: 'Xác nhận kết thúc hỗ trợ khách hàng này?',
+     icon: 'warning',
+     showCancelButton: true,
+     confirmButtonText: 'Kết thúc',
+     cancelButtonText: 'Hủy'
+   });
+   
+   if (result.isConfirmed) {
       try {
          await api.post(`/admin/live-chats/${activeSession.value.id}/close`);
          activeSession.value.status = 'closed';
          fetchSessions();
-         alert("Đã kết thúc phiên!");
+         Swal.fire('Thành công', 'Đã kết thúc phiên!', 'success');
       } catch (e) {}
    }
 }

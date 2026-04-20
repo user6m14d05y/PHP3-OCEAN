@@ -337,6 +337,7 @@ const handleCheckout = async () => {
 // ================== BARCODE SCANNER ==================
 const barcodeValue = ref('');
 const isScannerActive = ref(true);
+const showMobileScannerModal = ref(false);
 const isScanning = ref(false);
 const scanResult = ref(null); // { type: 'success' | 'error', message: '' }
 const barcodeInputRef = ref(null);
@@ -541,25 +542,24 @@ onUnmounted(() => {
               <span>{{ scanResult.message }}</span>
             </div>
           </transition>
-          <!-- Mobile Session QR -->
-          <div class="mt-3 text-center border-top pt-3">
-              <h6 class="text-muted fw-bold mb-2">QUÉT BẰNG APP ĐIỆN THOẠI</h6>
-              <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent('pos_session:' + sessionId)}`" />
-              <p class="small text-muted mt-2 mb-0">Dùng App nhân viên quét mã này để liên kết làm máy quét</p>
-          </div>
         </div>
         
-        <!-- Thanh tìm kiếm -->
-        <div class="search-box mb-4 position-relative">
-          <i class="fas fa-search search-icon"></i>
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            @input="onSearchInput"
-            class="form-control form-control-lg ps-5" 
-            placeholder="Tìm kiếm sản phẩm theo tên, SKU..."
-          >
-          <div v-if="isSearching" class="spinner-border spinner-border-sm text-primary position-absolute top-50 end-0 translate-middle-y me-3" role="status"></div>
+        <!-- Thanh Tìm kiếm, Di chuyển nút QR lên đây chung hàng với Search -->
+        <div class="d-flex align-items-center gap-2 mb-4">
+          <div class="search-box position-relative flex-grow-1">
+            <i class="fas fa-search search-icon"></i>
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              @input="onSearchInput"
+              class="form-control form-control-lg ps-5" 
+              placeholder="Tìm kiếm sản phẩm theo tên, SKU..."
+            >
+            <div v-if="isSearching" class="spinner-border spinner-border-sm text-primary position-absolute top-50 end-0 translate-middle-y me-3" role="status"></div>
+          </div>
+          <button class="btn btn-outline-primary" style="height: 48px; border-radius: 12px; font-weight: 600" @click="showMobileScannerModal = true">
+             <i class="fas fa-qrcode me-1"></i> QR App
+          </button>
         </div>
         
         <!-- Kết quả tìm kiếm -->
@@ -806,6 +806,25 @@ onUnmounted(() => {
 
 
 
+  <!-- Mobile APP QR Modal -->
+  <div v-if="showMobileScannerModal" class="vue-modal-backdrop">
+    <div class="vue-modal-container">
+      <div class="vue-modal-content" style="max-width:350px;text-align:center;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="fw-bold mb-0 text-dark">QUÉT BẰNG APP ĐIỆN THOẠI</h6>
+          <button type="button" class="btn-close" @click="showMobileScannerModal = false"></button>
+        </div>
+        <div class="p-3">
+          <img :src="`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent('pos_session:' + sessionId)}`" />
+          <p class="small text-muted mt-3 mb-0">Dùng App nhân viên quét mã này để liên kết làm máy quét barcode</p>
+        </div>
+        <div class="mt-3">
+          <button class="btn btn-outline-primary w-100" @click="showMobileScannerModal = false">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Bootstrap Toast -->
   <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
     <div class="toast align-items-center border-0" :class="toastData.type === 'success' ? 'text-bg-success' : 'text-bg-danger'" id="posToast" role="alert">
@@ -1019,6 +1038,7 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   padding-right: 8px;
+  min-height: 0;
 }
 
 /* Tùy chỉnh thanh scroll */

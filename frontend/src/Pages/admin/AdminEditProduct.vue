@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, computed, nextTick } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import api from "@/axios";
+import Swal from 'sweetalert2';
 import AdminCategoryFormTree from "@/components/AdminCategoryFormTree.vue";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
@@ -178,7 +179,7 @@ const fetchProduct = async () => {
         }
     } catch (e) {
         console.error("Error fetching product:", e);
-        alert("Không thể tải thông tin sản phẩm.");
+        Swal.fire('Lỗi', 'Không thể tải thông tin sản phẩm.', 'error');
     } finally {
         isLoading.value = false;
         nextTick(() => initQuill());
@@ -343,12 +344,12 @@ const handleSubmit = async () => {
 
     try {
         await api.post(`/products/${productId.value}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
-        alert("Cập nhật sản phẩm thành công!");
+        Swal.fire('Thành công', 'Cập nhật sản phẩm thành công!', 'success');
         router.push("/admin/product");
     } catch (e) {
         console.error("Error:", e.response?.data || e);
         if (e.response?.data?.errors) errors.value = e.response.data.errors;
-        alert(e.response?.data?.message || "Có lỗi xảy ra khi cập nhật.");
+        Swal.fire('Lỗi', e.response?.data?.message || "Có lỗi xảy ra khi cập nhật.", 'error');
     } finally {
         isSaving.value = false;
     }
