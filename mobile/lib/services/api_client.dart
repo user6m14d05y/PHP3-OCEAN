@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
 
-const String kBaseUrl = 'http://10.0.2.2:8383/api';
+const String kBaseUrl = 'http://127.0.0.1:8383/api';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();

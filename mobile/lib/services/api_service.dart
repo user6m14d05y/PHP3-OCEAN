@@ -3,9 +3,9 @@ import 'package:http/http.dart' as http;
 import '../models/product_model.dart';
 
 class ApiService {
-  // Thay đổi 10.0.2.2 thành localhost nếu chạy trực tiếp trên desktop app (Windows/Mac)
-  // Trong Android Emulator, 10.0.2.2 trỏ về localhost của máy tính chứa server
-  static const String baseUrl = 'http://10.0.2.2:8383/api';
+  // Thay đổi 127.0.0.1 thành localhost nếu chạy trực tiếp trên desktop app (Windows/Mac)
+  // Trong Android Emulator, 127.0.0.1 trỏ về localhost của máy tính chứa server
+  static const String baseUrl = 'http://127.0.0.1:8383/api';
 
   static Future<List<Product>> fetchProducts() async {
     try {

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String kBaseUrl = 'http://10.0.2.2:8383/api';
+const String kBaseUrl = 'http://127.0.0.1:8383/api';
 
 class ReviewScreen extends StatefulWidget {
   final Map<String, dynamic> orderItem;
@@ -74,7 +74,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final imageUrl = widget.productImage != null
-      ? (widget.productImage!.startsWith('http') ? widget.productImage! : 'http://10.0.2.2:8383/api/image-proxy?path=${widget.productImage}')
+      ? (widget.productImage!.startsWith('http') ? widget.productImage! : 'http://127.0.0.1:8383/api/image-proxy?path=${widget.productImage}')
       : null;
 
     return Scaffold(

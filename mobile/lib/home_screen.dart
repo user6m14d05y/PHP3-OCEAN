@@ -29,6 +29,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   String search = '';
   final ScrollController _scrollController = ScrollController();
 
+  // ===== CATEGORIES =====
+  List<dynamic> categories = [];
+  bool isCatLoading = true;
+
   // ===== GỌI API =====
   Future<void> fetchProducts() async {
     if (!mounted) return;
@@ -93,6 +97,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   void initState() {
     super.initState();
     fetchProducts();
+    fetchCategories();
   }
 
   @override
@@ -253,14 +258,67 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildCategories() {
-    final categories = [
-      {'icon': Icons.scuba_diving, 'name': 'Đồ lặn'},
-      {'icon': Icons.surfing, 'name': 'Lướt ván'},
-      {'icon': Icons.hiking, 'name': 'Dã ngoại'},
-      {'icon': Icons.watch, 'name': 'Phụ kiện'},
-    ];
+  // ===== FETCH CATEGORIES =====
+  Future<void> fetchCategories() async {
+    try {
+      final res = await ApiClient().dio.get('/categories');
+      final data = res.data['data'] as List? ?? [];
+      // Chỉ lấy cấp 1 (parent_id == null hoặc == 0)
+      final rootCats = data.where((c) {
+        final pid = c['parent_id'];
+        return pid == null || pid == 0;
+      }).toList();
+      if (mounted) setState(() { categories = rootCats; isCatLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() => isCatLoading = false);
+    }
+  }
 
+  /// Lấy icon thích hợp dựa trên tên danh mục
+  IconData _iconForCategory(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('lặn') || n.contains('bơi') || n.contains('dưới nước')) return Icons.scuba_diving;
+    if (n.contains('lướt')) return Icons.surfing;
+    if (n.contains('dã ngoại') || n.contains('leo núi') || n.contains('cắm trại')) return Icons.hiking;
+    if (n.contains('phụ kiện') || n.contains('đồng hồ') || n.contains('kính')) return Icons.watch;
+    if (n.contains('quần áo') || n.contains('thời trang') || n.contains('áo')) return Icons.checkroom;
+    if (n.contains('giày') || n.contains('dép') || n.contains('sản phẩm')) return Icons.format_list_bulleted;
+    if (n.contains('kayak') || n.contains('chèo') || n.contains('thỹền')) return Icons.rowing;
+    if (n.contains('câu cá') || n.contains('bắt cá')) return Icons.phishing;
+    if (n.contains('thể thao') || n.contains('sport')) return Icons.sports;
+    if (n.contains('bảo hộ') || n.contains('an toàn')) return Icons.security;
+    if (n.contains('đèn') || n.contains('chiếu sáng')) return Icons.flashlight_on;
+    if (n.contains('tús') || n.contains('balo')) return Icons.backpack;
+    if (n.contains('máy ảnh') || n.contains('camera') || n.contains('quay')) return Icons.camera_alt;
+    if (n.contains('kife') || n.contains('dao') || n.contains('công cụ')) return Icons.handyman;
+    if (n.contains('giày lặn') || n.contains('chân nhái')) return Icons.do_not_step;
+    if (n.contains('xe') || n.contains('đạp')) return Icons.directions_bike;
+    if (n.contains('sóng') || n.contains('biển')) return Icons.waves;
+    return Icons.category_outlined;
+  }
+
+  /// Màu gradient theo index cho đẹp
+  List<Color> _colorsForIndex(int index) {
+    const palettes = [
+      [Color(0xFFE0F2FE), Color(0xFFBAE6FD)],
+      [Color(0xFFF0FDF4), Color(0xFFBBF7D0)],
+      [Color(0xFFFFF7ED), Color(0xFFFED7AA)],
+      [Color(0xFFFDF4FF), Color(0xFFF5D0FE)],
+      [Color(0xFFFFF1F2), Color(0xFFFFCDD2)],
+      [Color(0xFFF0F9FF), Color(0xFFB3E5FC)],
+      [Color(0xFFF0FFF4), Color(0xFFB3DFBD)],
+      [Color(0xFFFFFBEB), Color(0xFFFDE68A)],
+    ];
+    return palettes[index % palettes.length];
+  }
+
+  static const List<Color> _iconColors = [
+    Color(0xFF0284C7), Color(0xFF16A34A), Color(0xFFD97706),
+    Color(0xFF9333EA), Color(0xFFE11D48), Color(0xFF0EA5E9),
+    Color(0xFF059669), Color(0xFFCA8A04),
+  ];
+
+  Widget _buildCategories() {
     return Column(
       children: [
         Padding(
@@ -268,39 +326,103 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Danh mục phổ biến', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
-              TextButton(onPressed: () {}, child: const Text('Xem tất cả', style: TextStyle(color: Color(0xFF0EA5E9), fontWeight: FontWeight.w600))),
+              const Text('Danh mục phổ biến',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProductListScreen()),
+                ),
+                child: const Text('Xem tất cả', style: TextStyle(color: Color(0xFF0EA5E9), fontWeight: FontWeight.w600)),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 100,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              return Padding(
+          height: 110,
+          child: isCatLoading
+            ? ListView.builder(
+                scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE0F2FE),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: Icon(categories[index]['icon'] as IconData, color: const Color(0xFF0284C7), size: 28),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(categories[index]['name'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
-                  ],
+                itemCount: 5,
+                itemBuilder: (_, __) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Column(
+                    children: [
+                      Container(width: 60, height: 60, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(30))),
+                      const SizedBox(height: 8),
+                      Container(width: 50, height: 10, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4))),
+                    ],
+                  ),
                 ),
-              );
-            },
-          ),
+              )
+            : categories.isEmpty
+              ? const Center(child: Text('Chưa có danh mục', style: TextStyle(color: Colors.grey)))
+              : ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  itemCount: categories.length,
+                  itemBuilder: (context, index) {
+                    final cat = categories[index];
+                    final catName = cat['name']?.toString() ?? '';
+                    final catId = cat['category_id'] ?? cat['id'];
+                    final colors = _colorsForIndex(index);
+                    final iconColor = _iconColors[index % _iconColors.length];
+                    final icon = _iconForCategory(catName);
+
+                    return GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductListScreen(
+                            categoryId: catId is int ? catId : int.tryParse(catId.toString()),
+                            categoryName: catName,
+                          ),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: colors,
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colors[1].withOpacity(0.5),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(icon, color: iconColor, size: 30),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: 70,
+                              child: Text(
+                                catName,
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -362,7 +484,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       if (rawImage.toString().startsWith('http')) {
         imageUrl = rawImage.toString();
       } else {
-        imageUrl = 'http://10.0.2.2:8383/api/image-proxy?path=$rawImage';
+        imageUrl = 'http://127.0.0.1:8383/api/image-proxy?path=$rawImage';
       }
     }
 

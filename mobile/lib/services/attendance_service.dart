@@ -6,8 +6,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
 
 class AttendanceService {
-  // Thay url tương ứng với IP của bạn (10.0.2.2 cho giả lập)
-  static const String baseUrl = 'http://10.0.2.2:8383/api/attendance';
+  // Thay url tương ứng với IP của bạn (127.0.0.1 cho giả lập)
+  static const String baseUrl = 'http://127.0.0.1:8383/api/attendance';
   final _info = NetworkInfo();
 
   Future<String?> _getToken() async {

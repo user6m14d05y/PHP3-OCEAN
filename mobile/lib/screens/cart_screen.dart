@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import '../services/api_client.dart';
+import '../services/auth_service.dart';
+import 'login_screen.dart';
 import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
@@ -208,7 +209,7 @@ class _CartScreenState extends State<CartScreen> {
               String name = product != null ? product['name'] : 'Sản phẩm';
               String image = product != null ? product['thumbnail_url'] : '';
               if (!image.startsWith('http') && image.isNotEmpty) {
-                image = 'http://10.0.2.2:8383/api/image-proxy?path=$image';
+                image = 'http://127.0.0.1:8383/api/image-proxy?path=$image';
               }
               int qty = int.tryParse(item['quantity'].toString()) ?? 1;
               String variantStr = '';

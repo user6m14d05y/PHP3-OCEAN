@@ -314,7 +314,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       if (rawImage.toString().startsWith('http')) {
         imageUrl = rawImage.toString();
       } else {
-        imageUrl = 'http://10.0.2.2:8383/api/image-proxy?path=$rawImage';
+        imageUrl = 'http://127.0.0.1:8383/api/image-proxy?path=$rawImage';
       }
     }
 

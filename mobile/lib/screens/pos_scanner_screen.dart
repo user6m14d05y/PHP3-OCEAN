@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:http/http.dart' as http;
+import '../services/api_client.dart';
 
 class PosScannerScreen extends StatefulWidget {
   const PosScannerScreen({super.key});
@@ -33,18 +33,13 @@ class _PosScannerScreenState extends State<PosScannerScreen> {
     setState(() { isProcessing = true; });
     
     try {
-      const String apiUrl = 'http://10.0.2.2:8383/api/pos/mobile-scan';
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
+      final response = await ApiClient().dio.post(
+        '/admin/pos/mobile-scan',
+        data: {
           'barcode': barcode,
           'session_id': sessionId,
-        }),
-      ).timeout(const Duration(seconds: 5));
+        },
+      );
 
       if (response.statusCode == 200) {
         if (mounted) {

@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
+import '../services/api_client.dart';
+import '../services/auth_service.dart';
 import 'order_detail_screen.dart';
-
-const String kBaseUrl = 'http://10.0.2.2:8383/api';
+import 'login_screen.dart';
 
 class OrderScreen extends StatefulWidget {
   const OrderScreen({super.key});
@@ -17,6 +16,7 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
   late TabController _tabController;
   List<dynamic> allOrders = [];
   bool isLoading = true;
+  bool isGuest = false;
   String? errorMessage;
 
   @override
@@ -27,60 +27,42 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
   }
 
   Future<void> fetchOrders() async {
+    if (!mounted) return;
+    setState(() { isLoading = true; errorMessage = null; isGuest = false; });
+
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!loggedIn) {
+      if (mounted) setState(() { isGuest = true; isLoading = false; });
+      return;
+    }
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      
-      if (token == null) {
-        setState(() { errorMessage = 'Không tìm thấy thông tin đăng nhập.'; isLoading = false; });
-        return;
+      final response = await ApiClient().dio.get('/profile/orders');
+      final decoded = response.data;
+      List<dynamic> fetchedOrders = [];
+
+      if (decoded is List) {
+        fetchedOrders = decoded;
+      } else if (decoded['data'] is List) {
+        fetchedOrders = decoded['data'];
+      } else if (decoded['data'] != null && decoded['data']['data'] is List) {
+        fetchedOrders = decoded['data']['data'];
+      } else if (decoded['orders'] is List) {
+        fetchedOrders = decoded['orders'];
       }
 
-      final response = await http.get(
-        Uri.parse('$kBaseUrl/profile/orders'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        List<dynamic> fetchedOrders = [];
-        
-        if (decoded is List) {
-          fetchedOrders = decoded;
-        } else if (decoded['data'] is List) {
-          fetchedOrders = decoded['data'];
-        } else if (decoded['data'] != null && decoded['data']['data'] is List) {
-          fetchedOrders = decoded['data']['data'];
-        } else if (decoded['orders'] is List) {
-          fetchedOrders = decoded['orders'];
-        }
-
-        if (mounted) {
-          setState(() {
-            allOrders = fetchedOrders;
-            isLoading = false;
-          });
-        }
+      if (mounted) setState(() { allOrders = fetchedOrders; isLoading = false; });
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        if (mounted) setState(() { isGuest = true; isLoading = false; });
       } else {
-        if (mounted) {
-          setState(() {
-            errorMessage = 'Lỗi truy xuất đơn hàng (${response.statusCode})';
-            isLoading = false;
-          });
-        }
+        if (mounted) setState(() { errorMessage = 'Lỗi truy xuất đơn hàng (${e.response?.statusCode})'; isLoading = false; });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          errorMessage = 'Lỗi kết nối máy chủ.';
-          isLoading = false;
-        });
-      }
+      if (mounted) setState(() { errorMessage = 'Lỗi kết nối máy chủ.'; isLoading = false; });
     }
   }
+
 
   String _formatPrice(dynamic price) {
     try {
@@ -132,7 +114,34 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
     if (isLoading) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF0EA5E9)));
     }
-    
+
+    if (isGuest) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.receipt_long_outlined, size: 64, color: Color(0xFF94A3B8)),
+              const SizedBox(height: 16),
+              const Text('Chưa đăng nhập', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+              const SizedBox(height: 8),
+              const Text('Đăng nhập để xem lịch sử đơn hàng của bạn.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF64748B))),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () async {
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+                  fetchOrders();
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0EA5E9), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                child: const Text('Đăng nhập ngay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (errorMessage != null) {
       return Center(
         child: Column(
@@ -142,13 +151,7 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
             const SizedBox(height: 16),
             Text(errorMessage!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                setState(() { isLoading = true; errorMessage = null; });
-                fetchOrders();
-              },
-              child: const Text('Thử lại'),
-            )
+            ElevatedButton(onPressed: fetchOrders, child: const Text('Thử lại')),
           ],
         ),
       );
@@ -159,7 +162,7 @@ class _OrderScreenState extends State<OrderScreen> with SingleTickerProviderStat
       children: [
         _buildOrderList('all'),
         _buildOrderList('pending'),
-        _buildOrderList('shipping'), // Trạng thái mẫu, tùy mapping trên server
+        _buildOrderList('shipping'),
         _buildOrderList('completed'),
       ],
     );

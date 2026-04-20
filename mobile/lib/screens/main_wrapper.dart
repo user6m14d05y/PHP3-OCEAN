@@ -102,7 +102,7 @@ class _MainWrapperState extends State<MainWrapper> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(Icons.home_outlined, Icons.home, 'Trang chủ', 0),
-              _buildNavItem(Icons.grid_view_outlined, Icons.grid_view, 'Danh mục', 1),
+              _buildNavItem(Icons.grid_view_outlined, Icons.grid_view, 'Sản phẩm', 1),
               _buildNavItem(Icons.shopping_cart_outlined, Icons.shopping_cart, 'Giỏ hàng', 2, badgeCount: _cartBadgeCount),
               _buildNavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Đơn hàng', 3),
               _buildNavItem(Icons.person_outline, Icons.person, 'Cá nhân', 4),

@@ -252,8 +252,10 @@ Route::get('productFeatured', [ProductController::class, 'productFeatured']);
 // ==========================================
 Route::middleware(['auth:api,admin', 'role:admin,staff'])->group(function () {
     Route::post('categories', [CategoryController::class, 'store']);
+    Route::post('categories/{id}', [CategoryController::class, 'update']); // POST for multipart/form-data
     Route::put('categories/{id}', [CategoryController::class, 'update']);
     Route::delete('categories/{id}', [CategoryController::class, 'destroy']);
+    Route::delete('categories/{id}/image', [CategoryController::class, 'deleteImage']);
 
     // Import Excel (đặt TRƯỚC products/{id} để Laravel không match 'import' thành {id})
     Route::post('products/import', [ProductController::class, 'importExcel']);

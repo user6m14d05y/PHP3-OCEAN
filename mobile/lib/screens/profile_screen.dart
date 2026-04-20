@@ -206,7 +206,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ? NetworkImage(
                           avatar.toString().startsWith('http')
                               ? avatar.toString()
-                              : 'http://10.0.2.2:8383/api/image-proxy?path=$avatar',
+                              : 'http://127.0.0.1:8383/api/image-proxy?path=$avatar',
                         )
                       : null,
                   child: avatar == null
