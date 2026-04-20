@@ -120,6 +120,7 @@ const fetchProducts = async () => {
                 badge: item.is_featured ? "Hot" : null,
                 slug: item.slug,
                 category_id: item.category_id,
+                category_name: item.category ? item.category.name : 'Danh mục',
                 date: item.created_at,
             };
         });
@@ -156,20 +157,59 @@ const subcategories = computed(() => {
     return parent && parent.children ? parent.children : [];
 });
 
+let isResettingPage = false;
+
 // Lọc dữ liệu được xử lý ở backend, trả về nguyên trạng mảng
 const filteredProducts = computed(() => Products.value);
 
-// Lắng nghe sự thay đổi của bộ lọc để fetch lại
+// Lắng nghe sự thay đổi của bộ lọc để fetch lại và đồng bộ ngược lên URL (giúp Header Navigation update active)
 watch([selectedCategory, selectedSubcategory, selectedPriceRange, sortBy], () => {
+    if (currentPage.value !== 1) {
+        isResettingPage = true;
+        currentPage.value = 1;
+    }
+    fetchProducts();
+    
+    const newQuery = { ...route.query };
+    if (selectedCategory.value !== 'All') {
+        newQuery.category = selectedCategory.value;
+    } else {
+        delete newQuery.category;
+    }
+    
+    if (currentPage.value === 1) delete newQuery.page;
+    
+    router.replace({ query: newQuery }).catch(() => {});
+});
+
+// Lắng nghe khi header search điều hướng sang /product?search=...
+watch(() => route.query.search, (newSearch) => {
+    searchQuery.value = newSearch || '';
     currentPage.value = 1;
     fetchProducts();
 });
 
-// Lắng nghe khi header search điều hướng sang /product?q=...
 watch(() => route.query.q, (newQ) => {
-    searchQuery.value = newQ || '';
-    currentPage.value = 1;
-    fetchProducts();
+    if (newQ) {
+        searchQuery.value = newQ;
+        currentPage.value = 1;
+        fetchProducts();
+    }
+});
+
+// Lắng nghe khi điều hướng danh mục từ Header
+watch(() => route.query.category, (newCategory) => {
+    if (newCategory) {
+        const cat = Categories.value.find(c => c.category_id == newCategory || c.slug === newCategory);
+        if (cat) {
+            selectedCategory.value = cat.category_id;
+            selectedSubcategory.value = "All";
+            expandedCategories.value[cat.category_id] = true;
+        }
+    } else {
+        selectedCategory.value = "All";
+        selectedSubcategory.value = "All";
+    }
 });
 
 const clearSearch = () => {
@@ -195,8 +235,12 @@ const nextPage = () => {
 };
 
 watch(currentPage, () => {
+    if (isResettingPage) {
+        isResettingPage = false;
+        return; // Đã được xử lý fetch ở trong watch của bộ lọc
+    }
     fetchProducts();
-    router.replace({ query: { ...route.query, page: currentPage.value } });
+    router.replace({ query: { ...route.query, page: currentPage.value } }).catch(()=>{});
     window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
@@ -205,21 +249,27 @@ onMounted(async () => {
     if (pageFromUrl && pageFromUrl > 0) currentPage.value = pageFromUrl;
 
     // Đọc từ khoá tìm kiếm từ URL (do header search điều hướng đến)
-    if (route.query.q) {
+    if (route.query.search) {
+        searchQuery.value = route.query.search;
+    } else if (route.query.q) {
         searchQuery.value = route.query.q;
     }
 
-    await Promise.all([fetchProducts(), fetchCategories()]);
+    // Load categories first to match URL params
+    await fetchCategories();
 
-    // Xử lý query param ?category=slug
-    const categorySlug = route.query.category;
-    if (categorySlug) {
-        const cat = Categories.value.find(c => c.slug === categorySlug);
+    // Xử lý query param ?category=...
+    const categoryParam = route.query.category;
+    if (categoryParam) {
+        const cat = Categories.value.find(c => c.category_id == categoryParam || c.slug === categoryParam);
         if (cat) {
             selectedCategory.value = cat.category_id;
             expandedCategories.value[cat.category_id] = true;
         }
     }
+    
+    // Now load products with the correct selectedCategory applied
+    await fetchProducts();
 });
 </script>
 
@@ -659,8 +709,8 @@ onMounted(async () => {
 /* ======== PRODUCTS GRID (Đúng 4 cột hàng ngang) ======== */
 .products-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
 }
 
 /* Pagination */

@@ -14,6 +14,7 @@ const Product = () => import("../Pages/Client/Home/Product.vue");
 const ProductDetail = () => import("../Pages/Client/Home/productDetail.vue");
 const Coupon = () => import("../Pages/Client/Home/Coupon.vue")
 const FlashSale = () => import("../Pages/Client/Home/FlashSale.vue")
+const ProductCardDemo = () => import("../Pages/Client/Home/ProductCardDemo.vue")
 const Cart = () => import("../Pages/Client/Cart/Index.vue")
 const Checkout = () => import("../Pages/Client/Cart/Checkout.vue")
 const OrderSuccess = () => import("../Pages/Client/Cart/OrderSuccess.vue")
@@ -69,6 +70,7 @@ const routes = [
         children: [
             { path: "", name: "home", component: Home, meta: { title: 'Trang chủ' } },
             { path: "product", name: "product", component: Product, meta: { title: 'Sản phẩm' } },
+            { path: "product-cards-demo", name: "product-cards-demo", component: ProductCardDemo, meta: { title: 'Danh mục 20 Card' } },
             { path: "product/:slug", name: "product-detail", component: ProductDetail, meta: { title: 'Chi tiết sản phẩm' } },
             { path: "about", name: "brand-story", component: BrandStory, meta: { title: 'Câu chuyện thương hiệu' } },
             { path: "careers", name: "careers", component: Careers, meta: { title: 'Tuyển dụng' } },
@@ -136,6 +138,7 @@ const routes = [
         component: Contact,
         meta: { title: 'Liên hệ' },
     },
+    { path: "/product-cards-demo", name: "product-cards-demo", component: ProductCardDemo, meta: { title: 'Danh mục 20 Card' } },
     // Admin routes
     {
         path: "/admin",

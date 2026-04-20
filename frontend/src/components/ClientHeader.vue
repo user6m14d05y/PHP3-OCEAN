@@ -1,618 +1,8 @@
-<template>
-    <header class="site-header">
-        <div class="header-inner">
-            <!-- Logo -->
-            <router-link to="/" class="logo">
-                <img
-                    :src="BASE_URL + '/storage/logo/logo_OceanShop.png'"
-                    alt="Logo"
-                    class="logo-img"
-                    width="70px"
-                />
-            </router-link>
-            
-            <!-- Hamburger Menu Button (Mobile Only) -->
-            <button class="mobile-menu-btn" @click="showCategoryMenu = !showCategoryMenu" :class="{ 'is-active': showCategoryMenu }">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <line x1="4" y1="12" x2="20" y2="12"></line>
-                    <line x1="4" y1="6" x2="20" y2="6"></line>
-                    <line x1="4" y1="18" x2="20" y2="18"></line>
-                </svg>
-            </button>
-
-            <!-- Danh mục Mega Dropdown -->
-            <div
-                class="category-dropdown"
-                @mouseenter="showCategoryMenu = true"
-                @mouseleave="showCategoryMenu = false"
-            >
-                <button
-                    class="category-btn"
-                    :class="{ 'is-open': showCategoryMenu }"
-                >
-                    <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                    >
-                        <rect x="3" y="3" width="7" height="7" />
-                        <rect x="14" y="3" width="7" height="7" />
-                        <rect x="3" y="14" width="7" height="7" />
-                        <rect x="14" y="14" width="7" height="7" />
-                    </svg>
-                    Danh mục
-                </button>
-
-                <div class="mega-menu" v-show="showCategoryMenu">
-                    <div class="mega-menu-inner">
-                        <!-- Cột trái: Sidebar danh mục -->
-                        <div class="mega-sidebar">
-                            <div class="mega-sidebar-scroll">
-                                <!-- Danh mục động -->
-                                <router-link
-                                    v-for="cat in categories"
-                                    :key="cat.category_id"
-                                    :to="'/product?category=' + cat.category_id"
-                                    class="mega-sidebar-item"
-                                    :class="{
-                                        active:
-                                            hoveredCategory === cat.category_id,
-                                    }"
-                                    @mouseenter="
-                                        hoveredCategory = cat.category_id
-                                    "
-                                    @click="showCategoryMenu = false"
-                                >
-                                    <span class="mega-sidebar-label">{{
-                                        cat.name
-                                    }}</span>
-                                    <svg
-                                        v-if="
-                                            cat.children && cat.children.length
-                                        "
-                                        class="mega-sidebar-arrow"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.5"
-                                    >
-                                        <polyline points="9 18 15 12 9 6" />
-                                    </svg>
-                                </router-link>
-
-                                <!-- Divider -->
-                                <div class="mega-sidebar-divider"></div>
-
-                                <!-- Links tĩnh -->
-                                <router-link
-                                    to="/product"
-                                    class="mega-sidebar-item mega-static-link"
-                                    @click="showCategoryMenu = false"
-                                >
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.5"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path
-                                            d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"
-                                        />
-                                        <line x1="7" y1="7" x2="7.01" y2="7" />
-                                    </svg>
-                                    <span class="mega-sidebar-label"
-                                        >Tất cả sản phẩm</span
-                                    >
-                                </router-link>
-                                <router-link
-                                    to="/contact"
-                                    class="mega-sidebar-item mega-static-link"
-                                    @click="showCategoryMenu = false"
-                                >
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.5"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path
-                                            d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"
-                                        />
-                                    </svg>
-                                    <span class="mega-sidebar-label"
-                                        >Liên hệ</span
-                                    >
-                                </router-link>
-                                <router-link
-                                    to="/about"
-                                    class="mega-sidebar-item mega-static-link"
-                                    @click="showCategoryMenu = false"
-                                >
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.5"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path
-                                            d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"
-                                        />
-                                        <circle cx="9" cy="7" r="4" />
-                                        <path d="M23 21v-2a4 4 0 00-3-3.87" />
-                                        <path d="M16 3.13a4 4 0 010 7.75" />
-                                    </svg>
-                                    <span class="mega-sidebar-label"
-                                        >Giới thiệu</span
-                                    >
-                                </router-link>
-                            </div>
-                        </div>
-
-                        <!-- Cột phải: Danh mục con multi-column -->
-                        <div class="mega-content">
-                            <template
-                                v-for="cat in categories"
-                                :key="cat.category_id"
-                            >
-                                <div
-                                    v-if="hoveredCategory === cat.category_id"
-                                    class="mega-content-body"
-                                >
-                                    <div
-                                        v-if="
-                                            cat.children && cat.children.length
-                                        "
-                                        class="mega-columns"
-                                    >
-                                        <div
-                                            v-for="child in cat.children"
-                                            :key="child.category_id"
-                                            class="mega-column"
-                                        >
-                                            <router-link
-                                                :to="
-                                                    '/product?category=' +
-                                                    child.category_id
-                                                "
-                                                class="mega-column-title"
-                                                @click="
-                                                    showCategoryMenu = false
-                                                "
-                                            >
-                                                {{ child.name }}
-                                            </router-link>
-                                            <template
-                                                v-if="
-                                                    child.children &&
-                                                    child.children.length
-                                                "
-                                            >
-                                                <router-link
-                                                    v-for="sub in child.children"
-                                                    :key="sub.category_id"
-                                                    :to="
-                                                        '/product?category=' +
-                                                        sub.category_id
-                                                    "
-                                                    class="mega-column-item"
-                                                    @click="
-                                                        showCategoryMenu = false
-                                                    "
-                                                >
-                                                    {{ sub.name }}
-                                                </router-link>
-                                            </template>
-                                            <router-link
-                                                :to="
-                                                    '/product?category=' +
-                                                    child.category_id
-                                                "
-                                                class="mega-column-viewall"
-                                                @click="
-                                                    showCategoryMenu = false
-                                                "
-                                            >
-                                                Xem tất cả ›
-                                            </router-link>
-                                        </div>
-                                    </div>
-                                    <div v-else class="mega-empty">
-                                        <p>Chưa có danh mục con</p>
-                                        <router-link
-                                            :to="
-                                                '/product?category=' +
-                                                cat.category_id
-                                            "
-                                            class="mega-column-viewall"
-                                            @click="showCategoryMenu = false"
-                                        >
-                                            Xem tất cả sản phẩm ›
-                                        </router-link>
-                                    </div>
-                                </div>
-                            </template>
-                            <div
-                                v-if="hoveredCategory === null"
-                                class="mega-content-body"
-                            >
-                                <div class="mega-welcome">
-                                    <svg
-                                        width="48"
-                                        height="48"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="#c7d2fe"
-                                        stroke-width="1.5"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path
-                                            d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"
-                                        />
-                                        <line x1="7" y1="7" x2="7.01" y2="7" />
-                                    </svg>
-                                    <p>Di chuột vào danh mục để xem chi tiết</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Search Trigger — mở SearchModal (Vue InstantSearch + Meilisearch) -->
-            <button
-                id="headerSearchTrigger"
-                class="search-trigger-btn"
-                @click="showSearch = true"
-                title="Tìm kiếm (Ctrl+K)"
-            >
-                <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                >
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <span class="search-trigger-placeholder"
-                    >Tìm kiếm sản phẩm...</span
-                >
-                <kbd class="search-trigger-kbd">Ctrl K</kbd>
-            </button>
-
-            <!-- Search Modal -->
-            <SearchModal v-model="showSearch" />
-
-            <!-- Right icons -->
-            <div class="header-actions">
-                <!-- Flash Sale Link -->
-                <router-link
-                    to="/flash-sale"
-                    class="action-item flash-sale-link"
-                    title="Flash Sale đang diễn ra!"
-                >
-                    <svg class="flash-sale-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                    </svg>
-                    <span class="action-label flash-sale-label"
-                        >FLASH SALE</span
-                    >
-                </router-link>
-
-                <!-- Săn Voucher -->
-                <div
-                    class="account-dropdown"
-                    @mouseenter="showVoucherDropdown = true"
-                    @mouseleave="showVoucherDropdown = false"
-                >
-                    <router-link to="/coupon" class="action-item voucher-item">
-                        <svg
-                            width="28"
-                            height="28"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
-                            <path d="M13 5v2"/>
-                            <path d="M13 17v2"/>
-                            <path d="M13 11v2"/>
-                        </svg>
-                        <span class="action-label" style="color: var(--coral)"
-                            >Săn Voucher</span
-                        >
-                    </router-link>
-
-                    <div class="account-menu" v-show="showVoucherDropdown">
-                        <div class="account-menu-inner voucher-menu">
-                            <div class="dropdown-header">
-                                <span class="dropdown-title"
-                                    >Mã giảm giá mới nhất</span
-                                >
-                                <router-link to="/coupon" class="view-all"
-                                    >Tất cả</router-link
-                                >
-                            </div>
-                            <div class="dropdown-divider"></div>
-                            <div
-                                v-if="publicCoupons.length === 0"
-                                class="empty-voucher"
-                            >
-                                Không có voucher hot nào
-                            </div>
-                            <div v-else class="voucher-list">
-                                <div
-                                    v-for="cp in publicCoupons.slice(0, 4)"
-                                    :key="cp.id"
-                                    class="voucher-mini-card"
-                                >
-                                    <div class="cp-code">{{ cp.code }}</div>
-                                    <div class="cp-info">
-                                        {{
-                                            cp.type === "percent"
-                                                ? `Giảm ${cp.value}%`
-                                                : `Giảm ${formatCurrency(cp.value)}`
-                                        }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Giỏ hàng -->
-                <router-link to="/cart" class="action-item cart-action">
-                    <div class="cart-icon-wrapper">
-                        <svg
-                            width="28"
-                            height="28"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <circle cx="8" cy="21" r="1"/>
-                            <circle cx="19" cy="21" r="1"/>
-                            <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
-                        </svg>
-                        <span v-if="cartCount > 0" class="cart-badge">{{
-                            cartCount > 99 ? "99+" : cartCount
-                        }}</span>
-                    </div>
-                    <span class="action-label">Giỏ hàng</span>
-                </router-link>
-
-                <!-- Tài khoản -->
-                <div
-                    class="account-dropdown"
-                    @mouseenter="showDropdown = true"
-                    @mouseleave="showDropdown = false"
-                >
-                    <button class="action-item">
-                        <template v-if="isLoggedIn">
-                            <img
-                                v-if="userAvatar"
-                                :src="userAvatar"
-                                class="header-user-avatar"
-                            />
-                            <div v-else class="header-user-avatar-fallback">
-                                {{ (userName || "?")[0].toUpperCase() }}
-                            </div>
-                            <span class="action-label logged-in-name">{{
-                                userName
-                            }}</span>
-                        </template>
-                        <template v-else>
-                            <svg
-                                width="28"
-                                height="28"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            >
-                                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
-                                <circle cx="12" cy="7" r="4"/>
-                            </svg>
-                            <span class="action-label">Tài khoản</span>
-                        </template>
-                    </button>
-                    <div class="account-menu" v-show="showDropdown">
-                        <div class="account-menu-inner">
-                            <template v-if="isLoggedIn">
-                                <div class="dropdown-user">
-                                    <img
-                                        v-if="userAvatar"
-                                        :src="userAvatar"
-                                        class="dropdown-avatar-img"
-                                    />
-                                    <div v-else class="dropdown-avatar">
-                                        {{ (userName || "?")[0].toUpperCase() }}
-                                    </div>
-                                    <div class="dropdown-user-text">
-                                        <div class="dropdown-name">
-                                            {{ userName }}
-                                        </div>
-                                        <div class="dropdown-email">
-                                            {{ userEmail }}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="dropdown-divider"></div>
-                                <router-link
-                                    to="/profile"
-                                    class="account-menu-item"
-                                >
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.5"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path
-                                            d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
-                                        />
-                                        <circle cx="12" cy="7" r="4" />
-                                    </svg>
-                                    Tài khoản của tôi
-                                </router-link>
-                                <router-link
-                                    v-if="isAdmin"
-                                    to="/admin"
-                                    class="account-menu-item"
-                                >
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.5"
-                                    >
-                                        <rect
-                                            x="3"
-                                            y="3"
-                                            width="7"
-                                            height="7"
-                                        />
-                                        <rect
-                                            x="14"
-                                            y="3"
-                                            width="7"
-                                            height="7"
-                                        />
-                                        <rect
-                                            x="3"
-                                            y="14"
-                                            width="7"
-                                            height="7"
-                                        />
-                                        <rect
-                                            x="14"
-                                            y="14"
-                                            width="7"
-                                            height="7"
-                                        />
-                                    </svg>
-                                    Quản trị
-                                </router-link>
-                                <button
-                                    @click="handleLogout"
-                                    class="account-menu-item account-logout"
-                                >
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.5"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path
-                                            d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"
-                                        />
-                                        <polyline points="16 17 21 12 16 7" />
-                                        <line x1="21" y1="12" x2="9" y2="12" />
-                                    </svg>
-                                    Đăng xuất
-                                </button>
-                            </template>
-                            <template v-else>
-                                <router-link
-                                    to="/client/login"
-                                    class="account-menu-item"
-                                >
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.5"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path
-                                            d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"
-                                        />
-                                        <polyline points="10 17 15 12 10 7" />
-                                        <line x1="15" y1="12" x2="3" y2="12" />
-                                    </svg>
-                                    Đăng nhập
-                                </router-link>
-                                <router-link
-                                    to="/client/register"
-                                    class="account-menu-item"
-                                >
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.5"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <path
-                                            d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"
-                                        />
-                                        <circle cx="8.5" cy="7" r="4" />
-                                        <line x1="20" y1="8" x2="20" y2="14" />
-                                        <line x1="23" y1="11" x2="17" y2="11" />
-                                    </svg>
-                                    Đăng ký
-                                </router-link>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
-</template>
-
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { ref, onMounted, onUnmounted, watch, computed, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../axios.js";
 import { broadcastLogout } from "../sessionSync.js";
-import SearchModal from "./SearchModal.vue";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const route = useRoute();
@@ -624,23 +14,102 @@ const userEmail = ref("");
 const userAvatar = ref(null);
 const isAdmin = ref(false);
 const showDropdown = ref(false);
-const showVoucherDropdown = ref(false);
-const showCategoryMenu = ref(false);
 const categories = ref([]);
-const publicCoupons = ref([]);
-const hoveredCategory = ref(null);
 const cartCount = ref(0);
-const hasActiveFlashSale = ref(false);
 
-// Search Modal state
-const showSearch = ref(false);
+// Lấy 3 danh mục bán chạy nhất (ở đây giả sử là 3 root category đầu tiên trả về từ API)
+const topCategories = computed(() => {
+    return categories.value.slice(0, 3);
+});
 
-// Phím tắt Ctrl+K / Cmd+K để mở modal tìm kiếm
-const handleGlobalKeydown = (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        showSearch.value = true;
+// INLINE EXPANDABLE SEARCH & AUTOCOMPLETE
+const isSearchExpanded = ref(false);
+const searchQuery = ref("");
+const searchInputRef = ref(null);
+const searchResults = ref([]);
+const isSearching = ref(false);
+const showDropdownResult = ref(false);
+let searchTimeout = null;
+
+const toggleSearch = () => {
+    isSearchExpanded.value = !isSearchExpanded.value;
+    if (isSearchExpanded.value) {
+        nextTick(() => {
+            if (searchInputRef.value) searchInputRef.value.focus();
+        });
+    } else {
+        showDropdownResult.value = false;
     }
+};
+
+const executeSearch = () => {
+    if (searchQuery.value.trim()) {
+        router.push({
+            path: "/product",
+            query: { search: searchQuery.value.trim() },
+        });
+        isSearchExpanded.value = false;
+        showDropdownResult.value = false;
+        searchQuery.value = "";
+    }
+};
+
+const handleSearchBlur = () => {
+    setTimeout(() => {
+        isSearchExpanded.value = false;
+        showDropdownResult.value = false;
+    }, 200);
+};
+
+const handleSearchFocus = () => {
+    if (searchQuery.value.trim()) {
+        showDropdownResult.value = true;
+    }
+};
+
+watch(searchQuery, (newVal) => {
+    const val = newVal.trim();
+    if (!val) {
+        searchResults.value = [];
+        showDropdownResult.value = false;
+        return;
+    }
+    showDropdownResult.value = true;
+    isSearching.value = true;
+    
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(async () => {
+        try {
+            const response = await api.get('/products', { params: { search: val, limit: 5 } });
+            searchResults.value = response.data?.data || [];
+        } catch (e) {
+            console.error('Search error', e);
+        } finally {
+            isSearching.value = false;
+        }
+    }, 300); 
+});
+
+const getImageUrl = (item) => {
+    let path = item.thumbnail_url || (item.mainImage && item.mainImage.image_url) || (item.main_image && item.main_image.image_url);
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    
+    // Use the correctly configured BASE_URL and avoid double-slash issues
+    const base = BASE_URL.endsWith('/') ? BASE_URL.slice(0, -1) : BASE_URL;
+    const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+    return `${base}/storage/${cleanPath}`;
+};
+
+const formatPrice = (val) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+};
+
+const goToProduct = (slug) => {
+    router.push(`/product/${slug}`);
+    isSearchExpanded.value = false;
+    showDropdownResult.value = false;
+    searchQuery.value = "";
 };
 
 const fetchCategories = async () => {
@@ -651,30 +120,6 @@ const fetchCategories = async () => {
         console.error("Error fetching categories:", error);
     }
 };
-
-const fetchPublicCoupons = async () => {
-    try {
-        const response = await api.get("/coupons/public");
-        publicCoupons.value = response.data.data;
-    } catch (error) {
-        console.error("Error fetching vouchers:", error);
-    }
-};
-
-const formatCurrency = (val) => {
-    return new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: "VND",
-    }).format(val);
-};
-
-// Đóng mega menu khi chuyển trang
-watch(
-    () => route.path,
-    () => {
-        showCategoryMenu.value = false;
-    },
-);
 
 const checkAuth = () => {
     const userData = sessionStorage.getItem("user");
@@ -688,12 +133,12 @@ const checkAuth = () => {
 
             const path = user.avatar_url;
             if (path) {
-                const BASE_URL = (
+                const API_URL = (
                     import.meta.env.VITE_API_URL || "http://localhost:8383/api"
                 ).replace("/api", "");
                 userAvatar.value = path.startsWith("http")
                     ? path
-                    : `${BASE_URL}${path}`;
+                    : `${API_URL}${path}`;
             } else {
                 userAvatar.value = null;
             }
@@ -728,9 +173,7 @@ const handleLogout = async () => {
     } catch (e) {
         /* ignore */
     }
-    // Broadcast logout sang tất cả các tab khác đang mở
     broadcastLogout();
-    // Xóa session tab hiện tại
     localStorage.removeItem("auth_token");
     localStorage.removeItem("user");
     localStorage.removeItem("ocean_live_chat_token");
@@ -744,20 +187,82 @@ const handleLogout = async () => {
     window.location.reload();
 };
 
+/* DRAGGABLE FLASH SALE LOGIC */
+const flashSalePos = ref({
+    x: window.innerWidth - 100,
+    y: window.innerHeight - 150,
+});
+let isDragging = false;
+let hasMoved = false;
+let startX, startY, initialX, initialY;
 
+const startDrag = (e) => {
+    if (e.button !== 0 && e.type.includes("mouse")) return; // left click only
+    isDragging = true;
+    hasMoved = false;
+    startX = e.clientX || (e.touches && e.touches[0].clientX);
+    startY = e.clientY || (e.touches && e.touches[0].clientY);
+    initialX = flashSalePos.value.x;
+    initialY = flashSalePos.value.y;
+
+    document.addEventListener("mousemove", onDrag);
+    document.addEventListener("mouseup", stopDrag);
+    document.addEventListener("touchmove", onDrag, { passive: false });
+    document.addEventListener("touchend", stopDrag);
+};
+
+const onDrag = (e) => {
+    if (!isDragging) return;
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasMoved = true;
+    }
+
+    if (e.type.includes("touch")) {
+        e.preventDefault(); // prevent scrolling while dragging
+    }
+
+    flashSalePos.value.x = initialX + dx;
+    flashSalePos.value.y = initialY + dy;
+};
+
+const stopDrag = () => {
+    isDragging = false;
+    document.removeEventListener("mousemove", onDrag);
+    document.removeEventListener("mouseup", stopDrag);
+    document.removeEventListener("touchmove", onDrag);
+    document.removeEventListener("touchend", stopDrag);
+};
+
+const handleFlashSaleClick = (e) => {
+    if (hasMoved) {
+        e.preventDefault();
+        return;
+    }
+    router.push("/flash-sale");
+};
 
 onMounted(() => {
     checkAuth();
     fetchCategories();
-    fetchPublicCoupons();
     fetchCartCount();
 
     window.addEventListener("user-updated", checkAuth);
     window.addEventListener("cart-updated", fetchCartCount);
-    document.addEventListener("keydown", handleGlobalKeydown);
+
+    // adjust initial position for small screens
+    if (window.innerWidth < 768) {
+        flashSalePos.value.x = window.innerWidth - 80;
+        flashSalePos.value.y = window.innerHeight - 100;
+    }
 });
 onUnmounted(() => {
-    document.removeEventListener("keydown", handleGlobalKeydown);
+    window.removeEventListener("user-updated", checkAuth);
+    window.removeEventListener("cart-updated", fetchCartCount);
 });
 watch(
     () => route.path,
@@ -768,10 +273,251 @@ watch(
 );
 </script>
 
+<template>
+    <header class="site-header">
+        <div class="header-inner">
+            <!-- Wrapper Logo and Nav to stick them together -->
+            <div class="header-left">
+                <!-- Logo -->
+                <router-link to="/" class="logo">
+                    <img
+                        :src="BASE_URL + '/storage/logo/logo_OceanShop.png'"
+                        alt="Logo"
+                        class="logo-img"
+                        style="width: 70px; height: auto"
+                    />
+                </router-link>
+
+                <!-- Navigation Links -->
+                <nav class="main-nav">
+                    <router-link
+                        v-for="cat in topCategories"
+                        :key="cat.category_id"
+                        :to="'/product?category=' + cat.category_id"
+                        class="nav-link"
+                        :class="{ active: route.path === '/product' && route.query.category == cat.category_id }"
+                    >
+                        {{ cat.name }}
+                    </router-link>
+                    <router-link
+                        to="/contact"
+                        class="nav-link"
+                        exact-active-class="active"
+                        >Liên hệ</router-link
+                    >
+                </nav>
+            </div>
+
+            <div class="header-actions">
+                <!-- Inline Expandable Search -->
+                <div class="search-wrapper">
+                    <div
+                        class="search-container"
+                        :class="{ 'is-expanded': isSearchExpanded }"
+                    >
+                        <input
+                            type="text"
+                            class="search-input"
+                            v-model="searchQuery"
+                            ref="searchInputRef"
+                            @keyup.enter="executeSearch"
+                            @blur="handleSearchBlur"
+                            @focus="handleSearchFocus"
+                            placeholder="Tìm kiếm sản phẩm..."
+                        />
+                        <button
+                            class="icon-btn search-icon-btn"
+                            @click="toggleSearch"
+                        >
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Search dropdown results -->
+                    <div class="search-dropdown-box" v-if="isSearchExpanded && showDropdownResult">
+                        <div v-if="isSearching" class="search-msg">Đang tìm kiếm...</div>
+                        <div v-else-if="searchResults.length === 0 && searchQuery" class="search-msg">Không tìm thấy sản phẩm phù hợp.</div>
+                        <ul v-else class="search-list">
+                            <li v-for="item in searchResults" :key="item.product_id" class="search-item" @click.stop="goToProduct(item.slug)">
+                                <img :src="getImageUrl(item)" class="search-item-img" />
+                                <div class="search-item-info">
+                                    <div class="search-item-name">{{ item.name }}</div>
+                                    <div class="search-item-price">{{ formatPrice(item.min_price) }}</div>
+                                </div>
+                            </li>
+                        </ul>
+                        <div v-if="searchResults.length > 0" class="search-view-all" @click.stop="executeSearch">
+                            Xem tất cả kết quả
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Giỏ hàng -->
+                <router-link to="/cart" class="icon-btn cart-icon-btn">
+                    <div class="cart-icon-wrapper">
+                        <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path
+                                d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"
+                            ></path>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <path d="M16 10a4 4 0 0 1-8 0"></path>
+                        </svg>
+                        <span v-if="cartCount > 0" class="cart-badge">{{
+                            cartCount > 99 ? "99+" : cartCount
+                        }}</span>
+                    </div>
+                </router-link>
+
+                <!-- Tài khoản -->
+                <div
+                    class="account-dropdown"
+                    @mouseenter="showDropdown = true"
+                    @mouseleave="showDropdown = false"
+                >
+                    <button class="icon-btn user-icon-btn">
+                        <template v-if="isLoggedIn">
+                            <img
+                                v-if="userAvatar"
+                                :src="userAvatar"
+                                class="header-user-avatar"
+                            />
+                            <div v-else class="header-user-avatar-fallback">
+                                {{ (userName || "?")[0].toUpperCase() }}
+                            </div>
+                        </template>
+                        <template v-else>
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path
+                                    d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+                                ></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </template>
+                    </button>
+
+                    <!-- User Dropdown Menu -->
+                    <div class="account-menu" v-show="showDropdown">
+                        <div class="account-menu-inner">
+                            <template v-if="isLoggedIn">
+                                <div class="dropdown-user">
+                                    <img
+                                        v-if="userAvatar"
+                                        :src="userAvatar"
+                                        class="dropdown-avatar-img"
+                                    />
+                                    <div v-else class="dropdown-avatar">
+                                        {{ (userName || "?")[0].toUpperCase() }}
+                                    </div>
+                                    <div class="dropdown-user-text">
+                                        <div class="dropdown-name">
+                                            {{ userName }}
+                                        </div>
+                                        <div class="dropdown-email">
+                                            {{ userEmail }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <router-link
+                                    to="/profile"
+                                    class="account-menu-item"
+                                    >Tài khoản của tôi</router-link
+                                >
+                                <router-link
+                                    v-if="isAdmin"
+                                    to="/admin"
+                                    class="account-menu-item"
+                                    >Quản trị</router-link
+                                >
+                                <button
+                                    @click="handleLogout"
+                                    class="account-menu-item account-logout"
+                                >
+                                    Đăng xuất
+                                </button>
+                            </template>
+                            <template v-else>
+                                <router-link
+                                    to="/client/login"
+                                    class="account-menu-item"
+                                    >Đăng nhập</router-link
+                                >
+                                <router-link
+                                    to="/client/register"
+                                    class="account-menu-item"
+                                    >Đăng ký</router-link
+                                >
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Draggable Flash Sale Widget -->
+    <div
+        class="floating-flash-sale"
+        :style="{ left: flashSalePos.x + 'px', top: flashSalePos.y + 'px' }"
+        @mousedown="startDrag"
+        @touchstart="startDrag"
+        @click="handleFlashSaleClick"
+    >
+        <div class="flash-sale-badge">
+            <svg
+                class="flash-sale-icon"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <polygon
+                    points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
+                ></polygon>
+            </svg>
+            <span>FLASH SALE</span>
+        </div>
+    </div>
+</template>
+
 <style scoped>
 .site-header {
     background: #fff;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid #f0f0f0;
     position: sticky;
     top: 0;
     z-index: 100;
@@ -780,416 +526,300 @@ watch(
 .header-inner {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0 24px;
-    height: 80px;
+    padding: 0 40px;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* LAYOUT */
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 40px; /* distance between logo and nav */
+    height: 100%;
+}
+
+/* LOGO */
+.logo {
+    text-decoration: none;
+}
+
+/* NAVIGATION */
+.main-nav {
+    display: flex;
+    gap: 32px;
+    height: 100%;
+}
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    color: #555;
+    font-weight: 600;
+    font-size: 0.95rem;
+    position: relative;
+    transition: color 0.2s;
+    text-transform: capitalize;
+}
+.nav-link:hover {
+    color: #000;
+}
+.nav-link.active {
+    color: #3b82f6; /* Ocean blue like in the image */
+}
+.nav-link.active::after {
+    content: "";
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #3b82f6;
+    border-radius: 2px;
+}
+
+/* HEADER ACTIONS */
+.header-actions {
     display: flex;
     align-items: center;
     gap: 20px;
 }
 
-.logo {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    flex-shrink: 0;
-}
-
-.logo-text {
-    font-size: 1.45rem;
-    font-weight: 800;
-    color: var(--ocean-blue);
-    letter-spacing: -0.3px;
-}
-
-/* ====== Category Mega Dropdown ====== */
-.mobile-menu-btn {
-    display: none;
+.icon-btn {
     background: none;
     border: none;
-    padding: 8px;
-    color: var(--text-main);
-    border-radius: 8px;
+    color: #111;
+    cursor: pointer;
+    display: flex;
     align-items: center;
     justify-content: center;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background 0.2s;
 }
-.mobile-menu-btn.is-active {
+.icon-btn:hover {
     background: #f1f5f9;
 }
 
-.category-dropdown {
+/* INLINE EXPANDABLE SEARCH */
+.search-wrapper {
     position: relative;
-}
-
-.category-btn {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 9px 20px;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 10px;
-    background: #fff;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--text-main);
-    cursor: pointer;
-    font-family: inherit;
-    flex-shrink: 0;
-    transition: all 0.2s;
 }
-
-.category-btn:hover,
-.category-btn.is-open {
-    background: var(--ocean-blue);
-    color: #fff;
-    border-color: var(--ocean-blue);
+.search-container {
+    display: flex;
+    align-items: center;
+    position: relative;
+    width: 36px; /* only icon width */
+    height: 36px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    border-radius: 20px;
+    background: transparent;
 }
-.category-btn:hover svg,
-.category-btn.is-open svg {
-    stroke: #fff;
+.search-container.is-expanded {
+    width: 280px;
+    background: #f1f5f9;
+    padding-left: 12px;
 }
-
-.mega-menu {
+.search-input {
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 0;
+    opacity: 0;
+    transition:
+        opacity 0.3s,
+        width 0.3s;
+    font-size: 0.9rem;
+    color: #111;
+}
+.search-container.is-expanded .search-input {
+    width: flex-grow;
+    flex: 1;
+    opacity: 1;
+}
+.search-icon-btn {
     position: absolute;
-    top: 100%;
-    left: 0;
-    padding-top: 10px;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* SEARCH DROPDOWN */
+.search-dropdown-box {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    width: 380px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
     z-index: 300;
 }
-
-.mega-menu-inner {
-    display: flex;
-    background: #fff;
-    border: 1px solid #e2e5ea;
-    border-radius: 16px;
-    box-shadow:
-        0 16px 40px rgba(2, 136, 209, 0.08),
-        0 4px 12px rgba(2, 136, 209, 0.04);
-    overflow: hidden;
-    min-height: 360px;
-}
-
-.mega-sidebar {
-    width: 230px;
-    background: #fff;
-    border-right: 1px solid #f0f0f0;
-    flex-shrink: 0;
-}
-
-.mega-sidebar-scroll {
-    padding: 8px 0;
-}
-
-.mega-sidebar-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 18px;
-    margin: 2px 8px;
-    border-radius: 10px;
-    font-size: 0.93rem;
-    font-weight: 500;
-    color: #4b5563;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    text-decoration: none;
-    gap: 8px;
-}
-
-.mega-sidebar-item:hover {
-    background: var(--hover-bg);
-    color: var(--ocean-blue);
-}
-.mega-sidebar-item.active {
-    background: var(--ocean-blue);
-    color: #fff;
-}
-.mega-sidebar-item.active .mega-sidebar-arrow {
-    stroke: #fff;
-}
-
-.mega-sidebar-label {
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.mega-sidebar-arrow {
-    flex-shrink: 0;
-    transition: stroke 0.15s;
-}
-.mega-sidebar-divider {
-    height: 1px;
-    background: #f0f0f0;
-    margin: 6px 16px;
-}
-
-.mega-static-link {
-    gap: 10px;
-    justify-content: flex-start;
-}
-.mega-static-link svg {
-    flex-shrink: 0;
-    color: #9ca3af;
-}
-.mega-static-link:hover svg {
-    color: var(--ocean-blue);
-}
-
-.mega-content {
-    flex: 1;
-    min-width: 460px;
-    background: #fafbfc;
-}
-.mega-content-body {
-    padding: 28px 32px;
-}
-
-.mega-columns {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 28px 36px;
-}
-.mega-column {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.mega-column-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-main);
-    text-decoration: none;
-    margin-bottom: 4px;
-    transition: color 0.15s;
-}
-.mega-column-title:hover {
-    color: var(--ocean-blue);
-}
-
-.mega-column-item {
-    font-size: 0.88rem;
-    color: #6b7280;
-    text-decoration: none;
-    padding: 3px 0;
-    transition: color 0.15s;
-    font-weight: 450;
-}
-.mega-column-item:hover {
-    color: var(--ocean-blue);
-}
-
-.mega-column-viewall {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--ocean-blue);
-    text-decoration: none;
-    margin-top: 4px;
-    transition: color 0.15s;
-}
-.mega-column-viewall:hover {
-    color: rgba(2, 136, 209, 0.8);
-    text-decoration: underline;
-}
-
-.mega-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    gap: 12px;
-    color: #9ca3af;
+.search-msg {
+    padding: 24px;
+    text-align: center;
+    color: #64748b;
     font-size: 0.95rem;
 }
-
-.mega-welcome {
+.search-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 400px;
+    overflow-y: auto;
+}
+.search-item {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 280px;
     gap: 16px;
-    color: #b0b8c9;
-    font-size: 0.95rem;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: background 0.2s;
 }
-
-/* ── Search Trigger Button ─────────────────────────────────── */
-.search-trigger-btn {
-    flex: 2;
-    max-width: 1000px;
-    margin: 0 4vw;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 20px;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 12px;
+.search-item:last-child {
+    border-bottom: none;
+}
+.search-item:hover {
     background: #f8fafc;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.2s ease;
-    color: #9ca3af;
-    text-align: left;
 }
-.search-trigger-btn:hover {
-    border-color: var(--ocean-blue);
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.1);
-    color: #627d98;
-}
-.search-trigger-btn svg {
+.search-item-img {
+    width: 54px;
+    height: 54px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: #e2e8f0;
     flex-shrink: 0;
-    color: #9ca3af;
 }
-.search-trigger-btn:hover svg {
-    color: var(--ocean-blue);
-}
-.search-trigger-placeholder {
+.search-item-info {
     flex: 1;
-    font-size: 0.93rem;
-    color: inherit;
+    overflow: hidden;
 }
-.search-trigger-kbd {
-    background: #f1f5f9;
-    border: 1px solid #d1dce8;
-    border-radius: 5px;
-    padding: 2px 7px;
-    font-size: 0.72rem;
+.search-item-name {
+    font-size: 0.95rem;
     font-weight: 600;
-    color: #94a3b8;
-    font-family: inherit;
-    white-space: nowrap;
-    flex-shrink: 0;
+    color: #0f172a;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 4px;
+    line-height: 1.3;
 }
-
-.header-actions {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
+.search-item-price {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #0288d1; /* Ocean blue theme */
 }
-
-.action-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    color: var(--text-main);
-    text-decoration: none;
+.search-view-all {
+    padding: 14px;
+    text-align: center;
+    background: #f8fafc;
+    color: #0288d1;
+    font-weight: 700;
+    font-size: 0.9rem;
     cursor: pointer;
-    background: none;
-    border: none;
-    font-family: inherit;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 4px 2px;
+    transition: background 0.2s;
+    border-top: 1px solid #e2e8f0;
+}
+.search-view-all:hover {
+    background: #e2e8f0;
 }
 
-.action-item:hover {
-    color: var(--ocean-blue);
-    transform: translateY(-2px);
+/* CART BADGE */
+.cart-icon-wrapper {
+    position: relative;
+    display: inline-flex;
+}
+.cart-badge {
+    position: absolute;
+    top: -4px;
+    right: -6px;
+    background: #0288d1;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    line-height: 1;
+    border: 2px solid #fff;
 }
 
-.action-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.voucher-item svg {
-    color: var(--coral);
-}
-.voucher-item:hover svg {
-    color: #b91c1c;
-}
-
-/* Dropdown */
+/* USER DROPDOWN */
 .account-dropdown {
     position: relative;
 }
-
+.header-user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.header-user-avatar-fallback {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
 .account-menu {
     position: absolute;
     top: 100%;
     right: 0;
-    padding-top: 8px;
+    padding-top: 12px;
     min-width: 220px;
     z-index: 200;
 }
-
 .account-menu-inner {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     padding: 8px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
 }
-
 .dropdown-user {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px;
 }
-
-.dropdown-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--ocean-blue);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.85rem;
-    flex-shrink: 0;
-}
 .dropdown-avatar-img {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #e5e7eb;
-    flex-shrink: 0;
 }
-.dropdown-user-text {
-    overflow: hidden;
-}
-
-.header-user-avatar {
-    width: 32px;
-    height: 32px;
+.dropdown-avatar {
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    object-fit: cover;
-    border: 1.5px solid var(--ocean-blue);
-}
-.header-user-avatar-fallback {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--ocean-blue);
+    background: #3b82f6;
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.9rem;
     font-weight: 700;
 }
-.logged-in-name {
-    color: var(--ocean-blue) !important;
-    font-weight: 700 !important;
-    max-width: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .dropdown-name {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
-    color: var(--text-main);
 }
 .dropdown-email {
     font-size: 0.75rem;
@@ -1197,181 +827,88 @@ watch(
 }
 .dropdown-divider {
     height: 1px;
-    background: #e5e7eb;
+    background: #f0f0f0;
     margin: 4px 0;
 }
-
 .account-menu-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    display: block;
     padding: 10px 12px;
     border-radius: 8px;
     font-size: 0.85rem;
     font-weight: 500;
-    color: var(--text-main);
+    color: #333;
     text-decoration: none;
     cursor: pointer;
     background: none;
     border: none;
     width: 100%;
-    font-family: inherit;
+    text-align: left;
     transition: background 0.15s;
 }
-
 .account-menu-item:hover {
-    background: #f3f4f6;
+    background: #f1f5f9;
 }
 .account-logout {
-    color: var(--coral);
+    color: #ef4444;
 }
 .account-logout:hover {
-    background: #fff0f0;
+    background: #fef2f2;
 }
 
-/* Voucher Dropdown Style */
-.voucher-menu {
-    min-width: 280px;
+/* DRAGGABLE FLOATING FLASH SALE */
+.floating-flash-sale {
+    position: fixed;
+    z-index: 9999;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
 }
-.dropdown-header {
+.floating-flash-sale:active {
+    cursor: grabbing;
+}
+.flash-sale-badge {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 10px 12px;
-}
-.dropdown-title {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text-main);
-}
-.view-all {
-    font-size: 0.75rem;
-    color: var(--ocean-blue);
-    text-decoration: none;
-    font-weight: 600;
-}
-.view-all:hover {
-    text-decoration: underline;
-}
-.empty-voucher {
-    padding: 20px;
-    text-align: center;
-    font-size: 0.85rem;
-    color: #888;
-}
-.voucher-list {
-    padding: 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.voucher-mini-card {
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: #fff5f5;
-    border: 1px dashed #fecaca;
-}
-.cp-code {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--coral);
-    margin-bottom: 2px;
-}
-.cp-info {
-    font-size: 0.75rem;
-    color: #666;
-    font-weight: 500;
-}
-
-/* Cart Badge */
-.cart-icon-wrapper {
-    position: relative;
-    display: inline-flex;
-}
-.cart-badge {
-    position: absolute;
-    top: -6px;
-    right: -10px;
-    background: var(--coral);
+    gap: 6px;
+    background: linear-gradient(135deg, #0288d1, #02bcec);
     color: #fff;
-    font-size: 0.65rem;
-    font-weight: 700;
-    min-width: 18px;
-    height: 18px;
-    border-radius: 9px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 4px;
-    line-height: 1;
-    border: 2px solid #fff;
-    box-shadow: 0 2px 6px rgba(239, 83, 80, 0.4);
+    padding: 10px 16px;
+    border-radius: 30px;
+    box-shadow: 0 6px 16px rgba(2, 136, 209, 0.3);
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    animation: flash-pulse 2s infinite;
+}
+.flash-sale-badge svg {
+    color: #fff;
+    fill: rgba(255, 255, 255, 0.2);
 }
 
-@media (max-width: 1024px) {
-    .search-trigger-placeholder { display: none; }
-    .mega-content { min-width: 320px; }
-    .mega-columns { grid-template-columns: repeat(2, 1fr); }
+@keyframes flash-pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 6px 16px rgba(2, 136, 209, 0.3);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 8px 20px rgba(2, 136, 209, 0.5);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 6px 16px rgba(2, 136, 209, 0.3);
+    }
 }
 
 @media (max-width: 768px) {
-    .search-trigger-btn {
-        display: none;
+    .header-inner {
+        padding: 0 20px;
     }
-    .category-btn {
-        display: none;
+    .main-nav {
+        display: none; /* Hide on small mobile, or require a hamburger menu which we can add later if wanted */
     }
-    .mobile-menu-btn {
-        display: flex; /* Show hamburger */
+    .search-container.is-expanded {
+        width: 200px;
     }
-    .action-label { display: none; /* hide text under icons on mobile */ }
-    
-    .mega-menu {
-        position: fixed;
-        top: 80px; 
-        left: 0;
-        right: 0;
-        bottom: 0;
-        width: 100vw;
-        height: calc(100vh - 80px);
-        overflow-y: auto;
-        padding: 0;
-        background: #fff;
-    }
-    .mega-menu-inner {
-        flex-direction: column;
-        border-radius: 0;
-        border: none;
-        box-shadow: none;
-    }
-    .mega-sidebar {
-        width: 100%;
-        border-right: none;
-        border-bottom: 1px solid #e5e7eb;
-    }
-    .mega-content { display: none; /* simplify mobile nav */ }
-}
-
-
-/* Flash Sale Header Link */
-.flash-sale-link {
-    position: relative;
-    text-decoration: none !important;
-}
-
-.flash-sale-icon {
-    display: block;
-    color: var(--coral, #ff6b81);
-}
-
-.flash-sale-label {
-    font-size: 0.72rem !important;
-    font-weight: 900 !important;
-    letter-spacing: 0.8px;
-    background: linear-gradient(90deg, #ff4500, #ff8c00);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    white-space: nowrap;
 }
 </style>
