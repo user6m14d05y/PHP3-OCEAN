@@ -199,17 +199,17 @@ class OrderController extends Controller
             }
         }
 
-        // Tính phí vận chuyển động
-        $shippingFee = 30000; // Mặc định nếu không tìm thấy
-
-        // Tính phí vận chuyển động qua GHN API
+        // [FIX BUG-015] Xóa dòng duplicate. [FIX BUG-008] Dùng config() thay vì env()
         $shippingFee = 30000; // Mặc định nếu API lỗi hoặc không gọi được
 
-        if (env('VITE_TOKEN_GHN') && $address->district_code && $address->ward_code) {
+        $ghnToken = config('services.ghn.token');
+        $ghnShopId = config('services.ghn.shop_id');
+
+        if ($ghnToken && $address->district_code && $address->ward_code) {
             try {
                 $ghnResponse = \Illuminate\Support\Facades\Http::withHeaders([
-                    'Token' => env('VITE_TOKEN_GHN'),
-                    'ShopId' => env('VITE_SHOPID_GHN')
+                    'Token' => $ghnToken,
+                    'ShopId' => $ghnShopId
                 ])->get('https://online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/fee', [
                     'service_type_id' => 2,
                     'to_district_id' => (int) $address->district_code,

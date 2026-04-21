@@ -1,10 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';import { useRouter } from 'vue-router';
 import api from '@/axios';
-import Swal from 'sweetalert2';
 import FreeshipBar from '@/components/FreeshipBar.vue';
 import QuickAddSlider from '@/components/QuickAddSlider.vue';
 import { useCartUpsell } from '@/composables/useCartUpsell';
+import { storageUrl } from '@/utils/storage';
 
 const router = useRouter();
 const cartItems = ref([]);
@@ -295,9 +295,9 @@ const defaultSvg = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`<sv
 
 // Lấy ảnh sản phẩm
 const getProductImage = (item) => {
-    if (item.variant?.image_url) return `http://localhost:8383/storage/${item.variant.image_url}`;
-    if (item.product?.main_image) return `http://localhost:8383/storage/${item.product.main_image}`;
-    if (item.product?.thumbnail_url && item.product.thumbnail_url !== '0') return `http://localhost:8383/storage/${item.product.thumbnail_url}`;
+    if (item.variant?.image_url) return storageUrl(item.variant.image_url);
+    if (item.product?.main_image) return storageUrl(item.product.main_image);
+    if (item.product?.thumbnail_url && item.product.thumbnail_url !== '0') return storageUrl(item.product.thumbnail_url);
     return defaultSvg;
 };
 
@@ -505,7 +505,7 @@ onMounted(async () => {
                         <div class="vmodal-product-snippet" v-if="variantModal.item">
                             <!-- Hiển thị ảnh của biến thể đang chọn (nếu có), nếu không có thì lấy ảnh mặc định của sp -->
                             <img 
-                                :src="modalSelectedVariant?.image_url && modalSelectedVariant?.image_url !== '0' ? 'http://localhost:8383/storage/' + modalSelectedVariant.image_url : getProductImage(variantModal.item)" 
+                                :src="modalSelectedVariant?.image_url && modalSelectedVariant?.image_url !== '0' ? storageUrl(modalSelectedVariant.image_url) : getProductImage(variantModal.item)" 
                                 :alt="variantModal.item.product?.name" 
                                 class="vmodal-product-img" 
                             />

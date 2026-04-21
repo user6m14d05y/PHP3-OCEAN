@@ -159,10 +159,19 @@ const setupEcho = () => {
              // Đang mở cuộc trò chuyện này, mark as read luôn phía Backend + đẩy tin nhắn vào UI
              currentMessages.value.push(e.message);
              scrollToBottom();
-             api.get(`/admin/live-chats/${sessionId}`); // Gọi nhỏ lẻ để đánh dấu đã đọc
+             api.get(`/admin/live-chats/${sessionId}`).then(res => {
+                 // Cập nhật user nếu phiên này vừa được dán user_id
+                 if (res.data.session.user && !existingSession.user) {
+                     existingSession.user = res.data.session.user;
+                 }
+             });
           } else {
              // Tăng số chưa đọc
              existingSession.unread_count = (existingSession.unread_count || 0) + 1;
+             // Nếu là khách mà hệ thống có thể đã gắn user_id ngầm, gọi reload nhẹ
+             if (!existingSession.user) {
+                 fetchSessions();
+             }
           }
           
           sessions.value.sort((a,b) => new Date(b.last_message_at) - new Date(a.last_message_at));

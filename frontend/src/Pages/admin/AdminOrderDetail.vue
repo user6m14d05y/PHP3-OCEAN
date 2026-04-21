@@ -3,6 +3,7 @@ import { ref, nextTick, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/axios';
 import { Toast, Modal } from 'bootstrap';
+import { storageUrl } from '@/utils/storage';
 
 const route = useRoute();
 const router = useRouter();
@@ -227,9 +228,9 @@ const getPaymentBadgeClass = (status) => {
 };
 
 const getProductImage = (item) => {
-  if (item.variant?.image_url) return `http://localhost:8383/storage/${item.variant.image_url}`;
-  if (item.product?.main_image) return `http://localhost:8383/storage/${item.product.main_image}`;
-  if (item.product?.thumbnail_url && item.product.thumbnail_url !== '0') return `http://localhost:8383/storage/${item.product.thumbnail_url}`;
+  if (item.variant?.image_url) return storageUrl(item.variant.image_url);
+  if (item.product?.main_image) return storageUrl(item.product.main_image);
+  if (item.product?.thumbnail_url && item.product.thumbnail_url !== '0') return storageUrl(item.product.thumbnail_url);
   return 'https://placehold.co/80x80?text=No+Img';
 };
 

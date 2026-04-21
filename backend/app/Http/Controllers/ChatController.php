@@ -17,28 +17,48 @@ class ChatController extends Controller
     {
         $sessionToken = $request->input('session_token');
         
-        $session = null;
-        if ($sessionToken) {
-            $session = ChatSession::where('session_token', $sessionToken)->first();
-            // Nếu session đã bị admin đóng, thì tạo một session mới thay vì tái sử dụng
-            if ($session && $session->status === 'closed') {
-                $session = null;
-                $sessionToken = null; // Bắt buộc phải là null để tạo UUID mới, vì UUID trong db là unique
-            }
+        // Lấy thông tin user nếu có gửi Bearer token
+        $user = null;
+        if ($request->bearerToken()) {
+            try {
+                $user = auth('api')->user();
+            } catch (\Exception $e) {}
         }
 
-        // Lấy thông tin user nếu có gửi Bearer token
-        $user = auth('api')->user();
+        $session = null;
 
-        if (!$session) {
-            $session = ChatSession::create([
-                'session_token' => $sessionToken ?: (string) Str::uuid(),
-                'user_id' => $user ? $user->user_id : null,
-                'status' => 'open'
-            ]);
-        } else if ($user && !$session->user_id) {
-            // Update user_id nếu khách vừa đăng nhập
-            $session->update(['user_id' => $user->user_id]);
+        if ($user) {
+            // Đã đăng nhập: Ưu tiên tìm phiên chat ĐANG MỞ của chính user này
+            $session = ChatSession::where('user_id', $user->user_id)
+                                  ->where('status', 'open')
+                                  ->first();
+            
+            // Nếu chưa có, tạo mới luôn (bỏ qua session_token của khách ở local storage)
+            if (!$session) {
+                $session = ChatSession::create([
+                    'session_token' => (string) Str::uuid(),
+                    'user_id' => $user->user_id,
+                    'status' => 'open'
+                ]);
+            }
+        } else {
+            // Khách vãng lai: Sử dụng sessionToken từ frontend nếu hợp lệ
+            if ($sessionToken) {
+                $session = ChatSession::where('session_token', $sessionToken)->first();
+                
+                // Nếu khách đưa token cũ đã đóng, hoặc token cũ lại thuộc về một user đã đăng nhập nào đó -> Xóa và tạo mới
+                if ($session && ($session->status === 'closed' || $session->user_id !== null)) {
+                    $session = null;
+                }
+            }
+
+            if (!$session) {
+                $session = ChatSession::create([
+                    'session_token' => (string) Str::uuid(),
+                    'user_id' => null,
+                    'status' => 'open'
+                ]);
+            }
         }
         
         return response()->json([

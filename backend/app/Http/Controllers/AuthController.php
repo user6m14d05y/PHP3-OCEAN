@@ -14,15 +14,16 @@ class AuthController extends Controller
 {
     /**
      * Xác thực Cloudflare Turnstile token
+     * [FIX BUG-007] Tăng cường bảo mật: mobile bypass cần custom header thay vì body param
      */
     private function verifyTurnstile(?string $token): bool
     {
-        // Bypass CAPTCHA for Mobile App (Flutter) — check Dart User-Agent OR is_mobile flag
+        // Bypass CAPTCHA for Mobile App (Flutter) — kiểm tra User-Agent VÀ custom header
         $userAgent = request()->userAgent() ?? '';
-        $isMobileApp = request()->input('is_mobile') == true;
         $hasDartAgent = str_contains(strtolower($userAgent), 'dart');
+        $hasMobileHeader = request()->header('X-Ocean-Mobile-App') === config('app.mobile_app_key', 'ocean_mobile_2024');
 
-        if ($hasDartAgent || ($isMobileApp && empty($token))) {
+        if ($hasDartAgent && $hasMobileHeader) {
             return true;
         }
 
@@ -81,11 +82,26 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $name = $request->input('full_name') ?? $request->input('name');
+        // [FIX BUG-005] Thêm validate đầy đủ cho register
+        $request->validate([
+            'full_name' => 'required|string|max:120',
+            'email'     => 'required|email|max:255|unique:users,email',
+            'password'  => 'required|string|min:8',
+        ], [
+            'full_name.required' => 'Vui lòng nhập họ và tên!',
+            'full_name.max'      => 'Họ tên không được dài quá 120 ký tự!',
+            'email.required'     => 'Vui lòng nhập email!',
+            'email.email'        => 'Email không hợp lệ!',
+            'email.unique'       => 'Địa chỉ email này đã được sử dụng!',
+            'password.required'  => 'Vui lòng nhập mật khẩu!',
+            'password.min'       => 'Mật khẩu phải có ít nhất 8 ký tự!',
+        ]);
+
+        $name = $request->input('full_name');
         $email = $request->input('email');
         $password = $request->input('password');
 
-        // Password validation
+        // Password validation (chữ hoa + số + ký tự đặc biệt)
         $passwordError = $this->validatePassword($password);
         if ($passwordError) {
             return response()->json([
@@ -94,28 +110,18 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $checkEmail = DB::select("SELECT * FROM users WHERE email = ?", [$email]);
-
-        if (count($checkEmail) > 0) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => [
-                    'email' => ['Địa chỉ email này đã được sử dụng!']
-                ]
-            ], 422);
-        }
-
-        $hashedPassword = Hash::make($password);
-        $now = Carbon::now()->toDateTimeString();
-
-        DB::insert(
-            "INSERT INTO users (full_name, email, password, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-            [$name, $email, $hashedPassword, 'customer', $now, $now]
-        );
+        // [FIX BUG-006] Dùng Eloquent thay vì raw SQL
+        $user = User::create([
+            'full_name' => $name,
+            'email'     => $email,
+            'password'  => $password, // Model cast 'hashed' sẽ tự hash
+            'role'      => 'customer',
+        ]);
 
         $credentials = ['email' => $email, 'password' => $password];
         $token = auth('api')->attempt($credentials);
 
+        // [FIX BUG-013] Trả về user data trong response
         return response()->json([
             'status' => 'success',
             'message' => 'Đăng ký tài khoản thành công!',
@@ -123,6 +129,8 @@ class AuthController extends Controller
             'refresh_token' => $token,
             'token_type' => 'Bearer',
             'expires_in' => auth('api')->factory()->getTTL() * 60,
+            'role' => 'customer',
+            'user' => $user,
         ], 201);
     }
 
@@ -376,7 +384,7 @@ class AuthController extends Controller
             Log::error('Google login error: ' . $e->getMessage());
             return response()->json([
                 'status' => 'error',
-                'message' => 'Đăng nhập Google thất bại! ' . $e->getMessage()
+                'message' => 'Đăng nhập Google thất bại! Vui lòng thử lại sau.'
             ], 500);
         }
     }
@@ -502,7 +510,7 @@ class AuthController extends Controller
             Log::error('Facebook login error: ' . $e->getMessage());
             return response()->json([
                 'status' => 'error',
-                'message' => 'Đăng nhập Facebook thất bại! ' . $e->getMessage()
+                'message' => 'Đăng nhập Facebook thất bại! Vui lòng thử lại sau.'
             ], 500);
         }
     }

@@ -60,12 +60,14 @@ Route::middleware('auth:api,admin')->group(function () {
     Route::get('/user', function (Request $request) {
         return auth('admin')->user() ?? auth('api')->user();
     });
-    Route::post('/products', [ProductController::class, 'store']);
-    Route::put('/products/{id}', [ProductController::class, 'update']);
-    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+    // [FIX BUG-003] Đã xóa product CRUD routes trùng lặp ở đây.
+    // Product CRUD chỉ nằm ở nhóm role:admin,staff bên dưới (line ~270).
     Route::get('products/edit/{id}', [ProductController::class, 'edit']);
+});
 
-    // Post categories routes
+// Post categories routes (Protected - cần JWT + role admin)
+// [FIX BUG-017] Thêm role:admin để chặn customer tạo/sửa/xóa post categories
+Route::middleware(['auth:api,admin', 'role:admin'])->group(function () {
     Route::get('/post-categories', [PostCategoryController::class, 'index']);
     Route::post('/post-categories', [PostCategoryController::class, 'create']);
     Route::put('/post-categories/{id}', [PostCategoryController::class, 'edit']);
@@ -255,7 +257,7 @@ Route::get('products/{id}/variants', [ProductController::class, 'getVariants']);
 Route::get('products/slug/{slug}', [ProductController::class, 'show']);
 Route::get('products/{slug}/related', [ProductController::class, 'related']);
 Route::get('products/{product_id}/comments', [ProductCommentController::class, 'getByProduct']);
-Route::get('productFeatured', [ProductController::class, 'productFeatured']);
+// [FIX BUG-023] Xóa route trùng: productFeatured (đã có productsFeatured ở line ~277)
 
 // ==========================================
 // NHÓM 4: QUẢN LÝ KHO (admin, staff)
@@ -309,8 +311,9 @@ Route::middleware('throttle:30,1')->get('/payment/momo-return', [\App\Http\Contr
 Route::post('/payment/momo-ipn', [\App\Http\Controllers\MoMoController::class, 'momoIpn']);
 // =====================================================================
 // ██ DEBUG ROUTES — Chạy thủ công scheduler commands (XÓA KHI PRODUCTION)
+// [FIX BUG-001] Đã thêm middleware auth + role:admin để chặn truy cập public
 // =====================================================================
-Route::prefix('debug')->group(function () {
+Route::middleware(['auth:api,admin', 'role:admin'])->prefix('debug')->group(function () {
     // Test: Chạy abandoned cart command ngay lập tức
     // GET /api/debug/run-abandoned-cart
     Route::get('/run-abandoned-cart', function () {
@@ -326,7 +329,6 @@ Route::prefix('debug')->group(function () {
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
             ], 500);
         }
     });
@@ -346,7 +348,6 @@ Route::prefix('debug')->group(function () {
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
             ], 500);
         }
     });
@@ -404,7 +405,6 @@ Route::prefix('debug')->group(function () {
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
             ], 500);
         }
     });
@@ -437,11 +437,14 @@ Route::prefix('debug')->group(function () {
     });
 });
 
+// [FIX BUG-004] Chặn path traversal: sanitize path, dùng Storage::disk thay vì raw path
 Route::get('image-proxy', function (\Illuminate\Http\Request $request) {
     $path = $request->query('path');
     if (!$path) abort(404);
-    $absolutePath = storage_path('app/public/' . $path);
-    if (!file_exists($absolutePath)) abort(404);
-    return response()->file($absolutePath);
+    // Chặn path traversal: loại bỏ ../ và null bytes
+    $path = str_replace(['..', "\0", '..\\'], '', $path);
+    $path = ltrim($path, '/');
+    if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) abort(404);
+    return response()->file(\Illuminate\Support\Facades\Storage::disk('public')->path($path));
 });
-Route::middleware('throttle:30,1')->post('/payment/momo-ipn', [\App\Http\Controllers\MoMoController::class, 'momoIpn']);
+// [FIX BUG-009] Đã xóa route MoMo IPN trùng lặp (đã khai báo ở line ~309)

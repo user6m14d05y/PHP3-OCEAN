@@ -899,15 +899,24 @@ const formatDate = (dateString) => {
 .table-count { font-size: 0.85rem; color: var(--text-muted); font-weight: 500;}
 .table-count strong { color: var(--text-main); font-weight: 800;}
 .table-wrapper { overflow-x: auto; }
-.data-table { width: 100%; border-collapse: collapse; text-align: left; }
+.data-table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; }
+.data-table th:nth-child(1) { width: 6%; }   /* ID */
+.data-table th:nth-child(2) { width: 6%; }   /* Ảnh */
+.data-table th:nth-child(3) { width: 30%; }  /* Tên sản phẩm */
+.data-table th:nth-child(4) { width: 9%; }   /* Loại */
+.data-table th:nth-child(5) { width: 15%; }  /* Giá */
+.data-table th:nth-child(6) { width: 7%; }   /* Kho */
+.data-table th:nth-child(7) { width: 10%; }  /* Trạng thái */
+.data-table th:nth-child(8) { width: 12%; }  /* Thao tác */
 .data-table th {
-    padding: 14px 24px; font-size: 0.72rem; font-weight: 700;
+    padding: 14px 16px; font-size: 0.72rem; font-weight: 700;
     color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;
     border-bottom: 1px solid var(--border-color);
     background: var(--ocean-deepest);
+    white-space: nowrap;
 }
 .data-table td {
-    padding: 16px 24px; border-bottom: 1px solid var(--border-color);
+    padding: 16px 16px; border-bottom: 1px solid var(--border-color);
     transition: background 0.15s; vertical-align: middle;
 }
 .data-table tbody tr:hover td { background: var(--hover-bg); }

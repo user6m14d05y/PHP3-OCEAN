@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import api from '@/axios';
 import axios from 'axios';
 import { useCartUpsell } from '@/composables/useCartUpsell';
+import { storageUrl } from '@/utils/storage';
 
 const router = useRouter();
 const cartItems = ref([]);
@@ -449,9 +450,9 @@ const placeOrder = async () => {
 
 // Các hàm tiện ích
 const getProductImage = (item) => {
-    if (item.variant?.image_url) return `http://localhost:8383/storage/${item.variant.image_url}`;
-    if (item.product?.main_image) return `http://localhost:8383/storage/${item.product.main_image}`;
-    if (item.product?.thumbnail_url && item.product.thumbnail_url !== '0') return `http://localhost:8383/storage/${item.product.thumbnail_url}`;
+    if (item.variant?.image_url) return storageUrl(item.variant.image_url);
+    if (item.product?.main_image) return storageUrl(item.product.main_image);
+    if (item.product?.thumbnail_url && item.product.thumbnail_url !== '0') return storageUrl(item.product.thumbnail_url);
     return 'https://placehold.co/120x120?text=No+Image';
 };
 

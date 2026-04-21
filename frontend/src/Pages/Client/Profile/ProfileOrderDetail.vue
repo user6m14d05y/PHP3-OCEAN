@@ -3,6 +3,7 @@ import { ref, nextTick, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/axios';
 import { Toast } from 'bootstrap';
+import { storageUrl } from '@/utils/storage';
 
 const toastData = ref({ message: '', type: 'success' });
 const showToast = (message, type = 'success') => {
@@ -27,16 +28,16 @@ const formatPrice = (price) => {
 
 const getProductImage = (item) => {
     if (item.variant?.image_url) {
-        return item.variant.image_url.startsWith('http') ? item.variant.image_url : `http://localhost:8383/storage/${item.variant.image_url}`;
+        return item.variant.image_url.startsWith('http') ? item.variant.image_url : storageUrl(item.variant.image_url);
     }
     
     if (item.product?.images && item.product.images.length > 0) {
         const defaultImage = item.product.images.find(img => img.is_main) || item.product.images[0];
-        return defaultImage.image_url.startsWith('http') ? defaultImage.image_url : `http://localhost:8383/storage/${defaultImage.image_url}`;
+        return defaultImage.image_url.startsWith('http') ? defaultImage.image_url : storageUrl(defaultImage.image_url);
     }
     
     if (item.product?.thumbnail_url && item.product.thumbnail_url !== '0') {
-        return item.product.thumbnail_url.startsWith('http') ? item.product.thumbnail_url : `http://localhost:8383/storage/${item.product.thumbnail_url}`;
+        return item.product.thumbnail_url.startsWith('http') ? item.product.thumbnail_url : storageUrl(item.product.thumbnail_url);
     }
     
     return '/placeholder.png';

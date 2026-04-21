@@ -227,7 +227,7 @@ const messages = ref([]);
 const messagesContainer = ref(null);
 const chatInput = ref(null);
 
-const mode = ref('ai'); // 'ai' or 'live'
+const mode = ref('live'); // 'ai' or 'live' — mặc định mở live chat với nhân viên
 const sessionToken = ref(localStorage.getItem('ocean_live_chat_token') || '');
 const isConnecting = ref(false);
 let isConnectedLiveChat = false;
@@ -238,9 +238,9 @@ const conversationHistory = ref([]);
 const quickActions = computed(() => {
   if (mode.value === 'live') {
     return [
-      { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>', text: 'Trở lại Chatbot AI' },
       { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', text: 'Đơn hàng của tôi đang ở đâu?' },
-      { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', text: 'Xin chào, tôi cần hỗ trợ!' }
+      { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', text: 'Xin chào, tôi cần hỗ trợ!' },
+      { icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7v1a7 7 0 01-14 0V9a7 7 0 017-7z"/><path d="M5 22v-1a7 7 0 0114 0v1"/><circle cx="12" cy="10" r="3"/></svg>', text: 'Chuyển sang Chatbot AI' }
     ];
   }
   return [
@@ -268,9 +268,26 @@ onMounted(() => {
     } catch (e) { /* ignore */ }
   }
   
+  // Phục hồi kết nối
   if (sessionToken.value) {
-     mode.value = 'live';
      connectLiveChat();
+  }
+});
+
+// Detect Auth state changes (login -> logout or vice versa) via Vue Router's afterEach hook
+let authCache = sessionStorage.getItem('auth_token');
+router.afterEach(() => {
+  const currentToken = sessionStorage.getItem('auth_token');
+  if (currentToken !== authCache) {
+    authCache = currentToken;
+    if (mode.value === 'live') {
+      // Refresh live chat immediately to switch between User Session and Guest Session
+      startLiveChat();
+    } else {
+      // Clear anonymous active session
+      sessionToken.value = '';
+      localStorage.removeItem('ocean_live_chat_token');
+    }
   }
 });
 
@@ -288,6 +305,10 @@ function toggleChat() {
   isOpen.value = !isOpen.value;
   hasUnread.value = false;
   if (isOpen.value) {
+    // Tự động khởi tạo live chat khi mở chatbox lần đầu
+    if (mode.value === 'live' && !sessionToken.value && !isConnectedLiveChat) {
+      startLiveChat();
+    }
     nextTick(() => {
       chatInput.value?.focus();
       scrollToBottom();
@@ -336,7 +357,7 @@ function formatMessage(text) {
 }
 
 function sendQuickAction(text) {
-  if (text === 'Trở lại Chatbot AI') {
+  if (text === 'Chuyển sang Chatbot AI') {
     mode.value = 'ai';
     showQuickActions.value = true;
     messages.value.push({ role: 'assistant', content: 'Đã chuyển về AI thông minh. Tôi có thể giúp gì cho bạn?' });
@@ -350,6 +371,7 @@ function sendQuickAction(text) {
   inputMessage.value = text;
   sendMessage();
 }
+
 
 async function startLiveChat() {
   mode.value = 'live';

@@ -126,7 +126,7 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
         </div>
         <div class="stat-info">
-          <span class="stat-number">0</span>
+          <span class="stat-number">{{ orderCount }}</span>
           <span class="stat-label">Đơn hàng</span>
         </div>
       </div>
@@ -135,7 +135,7 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
         </div>
         <div class="stat-info">
-          <span class="stat-number">0</span>
+          <span class="stat-number">{{ favoriteCount }}</span>
           <span class="stat-label">Yêu thích</span>
         </div>
       </div>
@@ -161,6 +161,8 @@ const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').r
 
 const user = ref({});
 const addressCount = ref(0);
+const orderCount = ref(0);
+const favoriteCount = ref(0);
 const form = ref({ full_name: '', phone: '', date_of_birth: '' });
 const avatarFile = ref(null);
 const previewAvatar = ref(null);
@@ -310,6 +312,18 @@ onMounted(async () => {
   try {
     const res = await api.get('/profile/addresses');
     addressCount.value = Array.isArray(res.data?.data) ? res.data.data.length : 0;
+  } catch (_) {}
+
+  // Đếm đơn hàng
+  try {
+    const res = await api.get('/profile/orders?page=1&status=all');
+    orderCount.value = res.data?.data?.total || 0;
+  } catch (_) {}
+
+  // Đếm sản phẩm yêu thích
+  try {
+    const res = await api.get('/profile/favorites');
+    favoriteCount.value = Array.isArray(res.data?.data) ? res.data.data.length : 0;
   } catch (_) {}
 });
 </script>

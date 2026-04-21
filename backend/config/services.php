@@ -59,6 +59,7 @@ return [
 
     'ghn' => [
         'token' => env('VITE_TOKEN_GHN', ''),
+        'shop_id' => env('VITE_SHOPID_GHN', ''),
     ],
 
     'store' => [

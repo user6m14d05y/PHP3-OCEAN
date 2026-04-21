@@ -267,6 +267,15 @@ class CategoryController extends Controller
             ], 400);
         }
 
+        // [FIX BUG-012] Kiểm tra sản phẩm liên kết trước khi xóa
+        $hasProducts = \App\Models\Product::where('category_id', $id)->exists();
+        if ($hasProducts) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không thể xóa danh mục đang có sản phẩm! Vui lòng chuyển sản phẩm sang danh mục khác trước.'
+            ], 400);
+        }
+
         // Xóa ảnh kèm theo khi xóa danh mục
         if ($category->image) {
             Storage::disk('public')->delete($category->image);

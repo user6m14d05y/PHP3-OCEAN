@@ -139,7 +139,7 @@ const routes = [
         component: Contact,
         meta: { title: 'Liên hệ' },
     },
-    { path: "/product-cards-demo", name: "product-cards-demo", component: ProductCardDemo, meta: { title: 'Danh mục 20 Card' } },
+    // [FIX BUG-019] Đã xóa route product-cards-demo trùng lặp (đã khai báo trong ClientLayout children)
     // Admin routes
     {
         path: "/admin",
@@ -284,13 +284,15 @@ const routes = [
                 component: () => import("../Pages/admin/AdminAttendanceList.vue"),
                 meta: { roles: ['admin'], title: 'Danh sách Chấm công' },
             },
-            {
-                path: "stats",
-                name: "admin-stats",
-                component: () => import("../Pages/admin/AdminStats.vue"),
-                meta: { roles: ['admin'], title: 'Thống kê' },
-            },
+            // [FIX BUG-010] Đã xóa route admin-stats trùng lặp (đã khai báo ở line 276)
         ],
+    },
+    // [FIX BUG-011] 404 catch-all route
+    {
+        path: '/:catchAll(.*)',
+        name: 'not-found',
+        component: () => import('../Pages/Client/NotFound.vue'),
+        meta: { title: 'Không tìm thấy trang' },
     },
 
 ];

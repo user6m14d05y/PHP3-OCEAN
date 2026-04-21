@@ -196,8 +196,11 @@ class ProductController extends Controller
                 },
             ]);
 
+            // [FIX BUG-026] Group điều kiện đúng để tránh match sai sản phẩm
             if (is_numeric($identifier)) {
-                $query->where('product_id', $identifier)->orWhere('slug', $identifier);
+                $query->where(function ($q) use ($identifier) {
+                    $q->where('product_id', $identifier)->orWhere('slug', $identifier);
+                });
             } else {
                 $query->where('slug', $identifier);
             }
