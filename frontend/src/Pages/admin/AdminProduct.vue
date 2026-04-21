@@ -217,17 +217,56 @@ const handleImportExcel = async () => {
     formData.append('excel_file', importFile.value);
 
     try {
-        const response = await api.post('/products/import', formData);
-        const { success_count, error_count, errors } = response.data;
+        // Bước 1: Upload file → server lưu vào disk và trả về session_id + total_chunks
+        const parseRes = await api.post('/products/import', formData, {
+            timeout: 120000, // 2 phút cho upload và đếm dòng
+        });
 
-        importResult.value = { success_count, error_count, errors };
+        if (!parseRes.data.success) {
+            throw new Error(parseRes.data.message || 'Lỗi khi upload file.');
+        }
+
+        const { session_id, total_chunks } = parseRes.data;
+        let cumulativeSuccess = 0;
+        let cumulativeErrors = [];
+
+        // Bước 2: Gọi từng chunk tuần tự — KHÔNG đặt timeout (mỗi chunk có thể mất vài phút nếu download ảnh)
+        for (let i = 0; i < total_chunks; i++) {
+            try {
+                const chunkRes = await api.post('/products/import/process-chunk', {
+                    session_id,
+                    chunk_index: i
+                }, { 
+                    timeout: 0  // Vô hiệu hóa timeout — Nginx đã được cấu hình 300s
+                });
+
+                if (chunkRes.data.success) {
+                    cumulativeSuccess += chunkRes.data.success_count || 0;
+                    if (chunkRes.data.errors && chunkRes.data.errors.length > 0) {
+                        cumulativeErrors = cumulativeErrors.concat(chunkRes.data.errors);
+                    }
+                } else {
+                    cumulativeErrors.push(`Lỗi chunk ${i}: ` + (chunkRes.data.error || 'Unknown error'));
+                }
+            } catch (chunkErr) {
+                console.error(`Chunk ${i} error:`, chunkErr);
+                // Không dừng — tiếp tục chunk tiếp theo
+                cumulativeErrors.push(`Lỗi kết nối chunk ${i}: ` + (chunkErr.message || 'Network error'));
+            }
+        }
+
+        importResult.value = { 
+            success_count: cumulativeSuccess, 
+            error_count: cumulativeErrors.length, 
+            errors: cumulativeErrors 
+        };
         closeImportModal();
         showImportResult.value = true;
         fetchProducts();
 
     } catch (error) {
         console.error('Import error:', error);
-        const msg = error.response?.data?.message || 'Có lỗi xảy ra khi import file.';
+        const msg = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi import file.';
         showToastMsg(msg, 'danger');
     } finally {
         isImporting.value = false;

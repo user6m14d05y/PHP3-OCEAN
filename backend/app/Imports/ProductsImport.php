@@ -13,38 +13,11 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithStartRow;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Writer\PngWriter;
 
-/**
- * ProductsImport — Import sản phẩm (simple + variant) từ file Excel
- *
- * === CẤU TRÚC EXCEL (16 cột) ===
- * A: TÊN SẢN PHẨM (*)       — Cùng tên = cùng sản phẩm (gom nhóm)
- * B: LOẠI SP (*)             — simple | variant
- * C: MÃ DANH MỤC (*)        — ID danh mục
- * D: MÃ THƯƠNG HIỆU         — ID thương hiệu (tùy chọn)
- * E: MÔ TẢ NGẮN             — Short description
- * F: MÔ TẢ CHI TIẾT         — Full description
- * G: TRẠNG THÁI             — active | draft (mặc định draft)
- * H: NỔI BẬT                — 1 | 0 (mặc định 0)
- * I: ẢNH CHÍNH (URL)        — URL ảnh chính sản phẩm
- * J: ẢNH PHỤ (URLs)         — Nhiều URL cách nhau dấu phẩy
- * K: MÀU SẮC                — Màu biến thể
- * L: KÍCH CỠ                — Size biến thể
- * M: GIÁ BÁN (*)            — Giá bán
- * N: GIÁ GỐC                — Giá gốc (compare_at_price)
- * O: SỐ LƯỢNG KHO (*)       — Tồn kho
- * P: ẢNH BIẾN THỂ (URLs)    — URL ảnh biến thể, cách nhau dấu phẩy
- *
- * === LOGIC GOM NHÓM ===
- * 1. Đọc toàn bộ rows, gom theo tên sản phẩm (cột A)
- * 2. Dòng đầu tiên của mỗi nhóm = thông tin sản phẩm (A-J) + biến thể đầu tiên (K-P)
- * 3. Các dòng tiếp theo = biến thể bổ sung (K-P)
- * 4. Nếu simple: chỉ 1 dòng, tạo 1 variant mặc định
- * 5. Nếu variant: nhiều dòng, mỗi dòng tạo 1 variant với color/size
- */
-class ProductsImport implements ToCollection, WithStartRow
+class ProductsImport implements ToCollection, WithStartRow, WithChunkReading
 {
     protected int $successCount = 0;
     protected array $errors = [];
@@ -55,6 +28,11 @@ class ProductsImport implements ToCollection, WithStartRow
     public function startRow(): int
     {
         return 2;
+    }
+
+    public function chunkSize(): int
+    {
+        return 500;
     }
 
     /**
@@ -102,7 +80,7 @@ class ProductsImport implements ToCollection, WithStartRow
     /**
      * Xử lý 1 nhóm sản phẩm (1 product + N variants)
      */
-    private function processProductGroup(array $group): void
+    public function processProductGroup(array $group): void
     {
         $firstRow = $group[0]['row'];
         $firstExcelRow = $group[0]['excelRow'];
@@ -235,50 +213,70 @@ class ProductsImport implements ToCollection, WithStartRow
                 }
             }
 
-            // --- TẠO PRODUCT ---
-            $slug = Str::slug($name) . '-' . Str::random(5);
-            $allPrices = array_column($variantsData, 'price');
+            // --- LẤY HOẶC TẠO PRODUCT ---
+            $slug = Str::slug($name);
+            $product = Product::where('name', $name)->orWhere('slug', $slug)->first();
+            $isNewProduct = false;
 
-            $product = Product::create([
-                'category_id'       => (int)$categoryId,
-                'brand_id'          => $brandId ? (int)$brandId : null,
-                'name'              => $name,
-                'slug'              => $slug,
-                'short_description' => $shortDesc ?: null,
-                'description'       => $description ?: null,
-                'thumbnail_url'     => $thumbnailPath,
-                'product_type'      => $type,
-                'status'            => $status,
-                'is_featured'       => (bool)(int)$isFeatured,
-                'min_price'         => min($allPrices),
-                'max_price'         => max($allPrices),
-            ]);
+            if (!$product) {
+                $isNewProduct = true;
+                $slug = $slug . '-' . Str::random(5);
+                $allPrices = array_column($variantsData, 'price');
 
-            // --- LƯU ẢNH CHÍNH VÀO product_images ---
-            if ($thumbnailPath) {
-                ProductImage::create([
-                    'product_id' => $product->product_id,
-                    'image_url'  => $thumbnailPath,
-                    'is_main'    => true,
-                    'sort_order' => 0,
+                $product = Product::create([
+                    'category_id'       => (int)$categoryId,
+                    'brand_id'          => $brandId ? (int)$brandId : null,
+                    'name'              => $name,
+                    'slug'              => $slug,
+                    'short_description' => $shortDesc ?: null,
+                    'description'       => $description ?: null,
+                    'thumbnail_url'     => $thumbnailPath,
+                    'product_type'      => $type,
+                    'status'            => $status,
+                    'is_featured'       => (bool)(int)$isFeatured,
+                    'min_price'         => count($allPrices) > 0 ? min($allPrices) : 0,
+                    'max_price'         => count($allPrices) > 0 ? max($allPrices) : 0,
                 ]);
-            }
 
-            // --- TẢI VÀ LƯU ẢNH PHỤ ---
-            if (!empty($galleryUrls)) {
-                $urls = array_filter(array_map('trim', explode(',', $galleryUrls)));
-                foreach ($urls as $i => $url) {
-                    $galleryPath = $this->downloadImage($url, 'products/gallery');
-                    if ($galleryPath === null) {
-                        DB::rollBack();
-                        $this->errors[] = "{$rowLabel}: Không thể tải ảnh phụ từ URL: {$url}";
-                        return;
-                    }
+                // --- LƯU ẢNH CHÍNH VÀO product_images ---
+                if ($thumbnailPath) {
                     ProductImage::create([
                         'product_id' => $product->product_id,
-                        'image_url'  => $galleryPath,
-                        'is_main'    => false,
-                        'sort_order' => $i + 1,
+                        'image_url'  => $thumbnailPath,
+                        'is_main'    => true,
+                        'sort_order' => 0,
+                    ]);
+                }
+
+                // --- TẢI VÀ LƯU ẢNH PHỤ ---
+                if (!empty($galleryUrls)) {
+                    $urls = array_filter(array_map('trim', explode(',', $galleryUrls)));
+                    foreach ($urls as $i => $url) {
+                        $galleryPath = $this->downloadImage($url, 'products/gallery');
+                        if ($galleryPath === null) {
+                            // Cảnh báo nhưng không rollback toàn bộ SP
+                            $this->errors[] = "{$rowLabel}: Không thể tải ảnh phụ từ URL: {$url}";
+                            continue;
+                        }
+                        ProductImage::create([
+                            'product_id' => $product->product_id,
+                            'image_url'  => $galleryPath,
+                            'is_main'    => false,
+                            'sort_order' => $i + 1,
+                        ]);
+                    }
+                }
+            } else {
+                $slug = $product->slug;
+                // Nếu sản phẩm đã tồn tại, cập nhật lại min/max price
+                $allPrices = array_merge(
+                    $product->variants->pluck('price')->toArray(),
+                    array_column($variantsData, 'price')
+                );
+                if (count($allPrices) > 0) {
+                    $product->update([
+                        'min_price' => min($allPrices),
+                        'max_price' => max($allPrices),
                     ]);
                 }
             }

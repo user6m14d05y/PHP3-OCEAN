@@ -236,6 +236,15 @@ Route::middleware(['auth:api,admin', 'role:admin,seller,staff'])->prefix('admin'
 });
 
 
+// ==========================================
+// NHÓM KHO / IMPORT (Khai báo trước các route động như products/{id} để tránh shadowing)
+// ==========================================
+Route::middleware(['auth:api,admin', 'role:admin,staff'])->group(function () {
+    Route::post('products/import', [ProductController::class, 'importExcel']);
+    Route::post('products/import/process-chunk', [ProductController::class, 'processImportChunk']);
+    Route::get('products/import-template', [ProductController::class, 'downloadTemplate']);
+});
+
 // Business routes
 // Public resources (Chỉ cho phép GET public, các thao tác khác cần admin)
 Route::get('categories', [CategoryController::class, 'index']);
@@ -257,10 +266,6 @@ Route::middleware(['auth:api,admin', 'role:admin,staff'])->group(function () {
     Route::put('categories/{id}', [CategoryController::class, 'update']);
     Route::delete('categories/{id}', [CategoryController::class, 'destroy']);
     Route::delete('categories/{id}/image', [CategoryController::class, 'deleteImage']);
-
-    // Import Excel (đặt TRƯỚC products/{id} để Laravel không match 'import' thành {id})
-    Route::post('products/import', [ProductController::class, 'importExcel']);
-    Route::get('products/import-template', [ProductController::class, 'downloadTemplate']);
 
     Route::post('products', [ProductController::class, 'store']);
     Route::post('products/{id}', [ProductController::class, 'update']); // Use POST for multipart/form-data with _method=PUT

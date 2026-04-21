@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import api from '@/axios.js';
 import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
 
 // -- States --
 const flashSales = ref([]);
@@ -9,6 +10,16 @@ const isModalOpen = ref(false);
 const isEditing = ref(false);
 const errors = ref({});
 const isLoading = ref(false);
+
+const toastObj = ref({ message: '', type: 'success' });
+
+const showToast = (message, type = 'success') => {
+  toastObj.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('flashSaleToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 2500 }).show();
+  });
+};
 
 const STATUS_LABELS = {
     'draft': { text: 'Nháp', class: 'bg-secondary' },
@@ -64,7 +75,7 @@ const resolveThumbnail = (url) => {
 const addProductToItems = (product) => {
     // Tránh thêm trùng lặp
     if (form.value.items.some(item => item.product_id === product.product_id)) {
-        Swal.fire('Lưu ý', 'Sản phẩm đã có trong danh sách!', 'warning');
+        showToast('Sản phẩm đã có trong danh sách!', 'warning');
         return;
     }
     
@@ -125,36 +136,35 @@ const handleSubmit = async () => {
         } else {
             await api.post('/admin/flash-sale', form.value);
         }
-        Swal.fire('Thành công', 'Lưu thành công!', 'success');
+        showToast('Lưu thành công!', 'success');
         isModalOpen.value = false;
         fetchFlashSales();
     } catch (e) {
         if (e.response?.status === 422) {
             errors.value = e.response.data.errors;
         } else {
-            Swal.fire('Lỗi', 'Lỗi máy chủ!', 'error');
+            showToast('Lỗi máy chủ!', 'danger');
         }
     }
 };
 
 const handleDelete = async (id) => {
     const result = await Swal.fire({
-         title: 'Khu vực nguy hiểm',
+         title: 'Xóa Flash Sale?',
          text: 'Bạn có chắc chắn muốn xóa chiến dịch Flash Sale này không?',
          icon: 'warning',
          showCancelButton: true,
-         confirmButtonColor: '#d33',
-         confirmButtonText: 'Xóa',
+         confirmButtonText: 'Đồng ý xóa',
          cancelButtonText: 'Hủy'
     });
     
     if (result.isConfirmed) {
         try {
             await api.delete(`/admin/flash-sale/${id}`);
-            Swal.fire('Thành công', 'Đã xóa thành công!', 'success');
+            showToast('Đã xóa thành công!', 'success');
             fetchFlashSales();
         } catch (e) {
-            Swal.fire('Lỗi', 'Lỗi xóa chiến dịch!', 'error');
+            showToast('Lỗi xóa chiến dịch!', 'danger');
         }
     }
 };
@@ -306,6 +316,16 @@ onMounted(fetchFlashSales);
                 <div class="card-footer bg-white text-end">
                     <button class="btn btn-secondary me-2" @click="isModalOpen = false">Hủy</button>
                     <button class="btn btn-primary" @click="handleSubmit">Lưu Thay Đổi</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bootstrap Toast -->
+        <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+            <div class="toast align-items-center border-0" :class="toastObj.type === 'success' ? 'text-bg-success' : (toastObj.type === 'warning' ? 'text-bg-warning' : 'text-bg-danger')" id="flashSaleToast" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body fw-bold text-white fs-6">{{ toastObj.message }}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
                 </div>
             </div>
         </div>

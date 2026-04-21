@@ -39,8 +39,6 @@ const defaultForm = () => ({
 const form = ref(defaultForm());
 
 const toast = ref({ message: '', type: 'success' });
-const deletingCouponId = ref(null);
-let deleteModalInstance = null;
 
 const showToast = (message, type = 'success') => {
   toast.value = { message, type };
@@ -181,27 +179,26 @@ const handleSubmit = async () => {
     }
 };
 
-const confirmDeleteCouponPrompt = (id) => {
-    deletingCouponId.value = id;
-    nextTick(() => {
-        const el = document.getElementById('deleteCouponModal');
-        if (el) {
-            deleteModalInstance = Modal.getOrCreateInstance(el);
-            deleteModalInstance.show();
-        }
-    });
-};
+import Swal from 'sweetalert2';
 
-const confirmDeleteCoupon = async () => {
-    if (!deletingCouponId.value) return;
-    try {
-        const res = await api.delete(`/admin/coupons/${deletingCouponId.value}`);
-        if (deleteModalInstance) deleteModalInstance.hide();
-        showToast(res.data.message || 'Đã xóa mã giảm giá!', 'success');
-        await fetchCoupons();
-    } catch (error) {
-        if (deleteModalInstance) deleteModalInstance.hide();
-        showToast(error.response?.data?.message || 'Xóa thất bại!', 'danger');
+const confirmDeleteCouponPrompt = async (id) => {
+    const result = await Swal.fire({
+        title: 'Xóa mã giảm giá?',
+        text: 'Bạn có chắc chắn muốn xóa (xóa mềm) mã giảm giá này không? Lịch sử giao dịch cũ sẽ không bị ảnh hưởng.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Đồng ý xóa',
+        cancelButtonText: 'Hủy'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const res = await api.delete(`/admin/coupons/${id}`);
+            showToast(res.data.message || 'Đã xóa mã giảm giá!', 'success');
+            await fetchCoupons();
+        } catch (error) {
+            showToast(error.response?.data?.message || 'Xóa thất bại!', 'danger');
+        }
     }
 };
 
@@ -583,30 +580,7 @@ const selectedCategoryNames = computed(() => {
             </div>
         </Transition>
 
-        <!-- Bootstrap Modal: Xác nhận xóa -->
-        <div class="modal fade" id="deleteCouponModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content border-0 shadow" style="border-radius: 12px; overflow: hidden;">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title fw-bold" style="font-size:1.1rem">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                            Xóa mã giảm giá?
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body" style="padding: 24px;">
-                        <p class="mb-2" style="font-size:1.05rem; color:#333;">Bạn có chắc chắn muốn xóa (xóa mềm) mã giảm giá này không?</p>
-                        <p class="text-danger mb-0 fw-semibold" style="font-size:0.9rem">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="me-1"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Lịch sử giao dịch cũ có chứa mã này sẽ không bị ảnh hưởng!
-                        </p>
-                    </div>
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal" style="border-radius:8px">Hủy</button>
-                        <button type="button" class="btn btn-danger px-4 fw-bold" @click="confirmDeleteCoupon" style="border-radius:8px">Đồng ý xóa</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+
 
         <!-- Vue Modal: Xem lượt dùng coupon -->
         <Transition name="modal">

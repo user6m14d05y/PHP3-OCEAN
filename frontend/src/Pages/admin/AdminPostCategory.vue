@@ -24,8 +24,6 @@ const defaultForm = () => ({
 const form = ref(defaultForm());
 
 const toast = ref({ message: '', type: 'success' });
-const deletingCategoryId = ref(null);
-let deleteModalInstance = null;
 
 const showToast = (message, type = 'success') => {
   toast.value = { message, type };
@@ -116,27 +114,26 @@ const handleSubmit = async () => {
     }
 };
 
-const deleteCategory = async (id) => {
-    deletingCategoryId.value = id;
-    nextTick(() => {
-        const el = document.getElementById('deleteCategoryModal');
-        if (el) {
-            deleteModalInstance = Modal.getOrCreateInstance(el);
-            deleteModalInstance.show();
-        }
-    });
-};
+import Swal from 'sweetalert2';
 
-const confirmDeleteCategory = async () => {
-    if (!deletingCategoryId.value) return;
-    try {
-        const res = await api.delete(`/post-categories/${deletingCategoryId.value}`);
-        if (deleteModalInstance) deleteModalInstance.hide();
-        showToast(res.data?.message || 'Đã xóa danh mục!', 'success');
-        await fetchCategories();
-    } catch (error) {
-        if (deleteModalInstance) deleteModalInstance.hide();
-        showToast(error.response?.data?.message || 'Xóa thất bại!', 'danger');
+const deleteCategory = async (id) => {
+    const result = await Swal.fire({
+        title: 'Xóa danh mục?',
+        text: 'Danh mục này sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Đồng ý xóa',
+        cancelButtonText: 'Hủy'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const res = await api.delete(`/post-categories/${id}`);
+            showToast(res.data?.message || 'Đã xóa danh mục!', 'success');
+            await fetchCategories();
+        } catch (error) {
+            showToast(error.response?.data?.message || 'Xóa thất bại!', 'danger');
+        }
     }
 };
 </script>
@@ -278,25 +275,7 @@ const confirmDeleteCategory = async () => {
             </div>
         </Transition>
 
-        <!-- Bootstrap Modal: Xác nhận xóa danh mục -->
-        <div class="modal fade" id="deleteCategoryModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Xóa danh mục?</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>Danh mục này sẽ bị xóa vĩnh viễn. Bạn có chắc chắn không?</p>
-                        <p class="text-muted mb-0">Hành động này không thể hoàn tác.</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                        <button type="button" class="btn btn-danger" @click="confirmDeleteCategory">Đồng ý xóa</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+
 
         <!-- Bootstrap Toast -->
         <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">

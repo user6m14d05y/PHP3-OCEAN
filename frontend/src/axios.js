@@ -6,7 +6,7 @@ const api = axios.create({
         'Accept': 'application/json',
         'Content-Type': 'application/json',
     },
-    timeout: 30000,
+    timeout: 300000, 
 });
 
 // ── Helpers: đọc/ghi token từ sessionStorage (SessionSync xử lý cross-tab) ──
