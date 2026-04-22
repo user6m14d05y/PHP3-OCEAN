@@ -23,8 +23,11 @@ export default defineConfig({
     port: 3302,
     // Cho phép domain production truy cập dev server
     allowedHosts: ['ocean.pro.vn', 'www.ocean.pro.vn', 'api.ocean.pro.vn'],
-    // HMR qua WebSocket → hot reload nhanh hơn
+    // HMR: dùng public domain thay vì localhost khi chạy trong Docker
     hmr: {
+      host: 'ocean.pro.vn',
+      protocol: 'wss',
+      clientPort: 443,
       overlay: true,
     },
   },
