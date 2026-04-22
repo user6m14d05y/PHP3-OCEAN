@@ -27,7 +27,6 @@ export default defineConfig({
     hmr: {
       host: 'ocean.pro.vn',
       protocol: 'wss',
-      clientPort: 443,
       overlay: true,
     },
   },
