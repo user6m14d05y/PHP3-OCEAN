@@ -11,9 +11,9 @@ if (reverbKey) {
         broadcaster: 'reverb',
         key: reverbKey,
         wsHost: import.meta.env.VITE_REVERB_HOST || window.location.hostname,
-        wsPort: import.meta.env.VITE_REVERB_PORT ?? 8383,
-        wssPort: import.meta.env.VITE_REVERB_PORT ?? 8383,
-        forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https',
+        wsPort: import.meta.env.VITE_REVERB_PORT ?? 443,
+        wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
+        forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
         enabledTransports: ['ws', 'wss'],
         authEndpoint: `${import.meta.env.VITE_REVERB_SCHEME ?? 'http'}://${window.location.hostname}:8383/api/broadcasting/auth`,
         authorizer: (channel, options) => {
