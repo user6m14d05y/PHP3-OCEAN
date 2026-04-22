@@ -53,6 +53,12 @@ class Order extends Model
     {
         return $this->hasMany(OrderStatusHistory::class, 'order_id', 'order_id');
     }
+
+    public function seller()
+    {
+        return $this->belongsTo(Admin::class, 'seller_id', 'admin_id');
+    }
+
     public function getOrderId($order_code)
     {
         $order = $this->where('order_code', $order_code)->first();

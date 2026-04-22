@@ -281,4 +281,21 @@ class PosController extends Controller
 
         return $pdf->download("hoadon_{$order->order_code}.pdf");
     }
+    /**
+     * Nhận sự kiện barcode quét từ điện thoại
+     */
+    public function mobileScan(Request $request)
+    {
+        $request->validate([
+            'barcode' => 'required|string',
+            'session_id' => 'required|string',
+        ]);
+        
+        event(new \App\Events\PosBarcodeScanned($request->barcode, $request->session_id));
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã gửi mã vạch lên màn hình POS',
+        ]);
+    }
 }

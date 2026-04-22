@@ -17,6 +17,15 @@ class AuthController extends Controller
      */
     private function verifyTurnstile(?string $token): bool
     {
+        // Bypass CAPTCHA for Mobile App (Flutter) — check Dart User-Agent OR is_mobile flag
+        $userAgent = request()->userAgent() ?? '';
+        $isMobileApp = request()->input('is_mobile') == true;
+        $hasDartAgent = str_contains(strtolower($userAgent), 'dart');
+
+        if ($hasDartAgent || ($isMobileApp && empty($token))) {
+            return true;
+        }
+
         if (!$token) {
             return false;
         }
@@ -132,11 +141,34 @@ class AuthController extends Controller
 
         // BƯỚC 1: Thử đăng nhập Admin (nhân sự) trước
         if ($token = auth('admin')->attempt($credentials)) {
+            $user = auth('admin')->user();
+            if (isset($user->status) && $user->status !== 'active') {
+                auth('admin')->logout();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tài khoản của bạn đã bị khóa hoặc vô hiệu hóa!'
+                ], 403);
+            }
             return $this->respondWithToken($token, 'admin');
         }
 
         // BƯỚC 2: Thử đăng nhập Customer
         if ($token = auth('api')->attempt($credentials)) {
+            $user = auth('api')->user();
+            if (isset($user->status) && $user->status !== 'active') {
+                auth('api')->logout();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tài khoản của bạn đã bị khóa hoặc vô hiệu hóa!'
+                ], 403);
+            }
+            if ($user->deleted_at !== null) {
+                auth('api')->logout();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tài khoản của bạn đã bị xóa khỏi hệ thống!'
+                ], 403);
+            }
             return $this->respondWithToken($token, 'customer');
         }
 

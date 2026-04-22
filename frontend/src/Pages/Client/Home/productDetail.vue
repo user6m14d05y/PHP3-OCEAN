@@ -3,13 +3,16 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/axios';
 import { useFavorites } from '@/composables/useFavorites';
+import PremiumUpgrade from '@/components/PremiumUpgrade.vue';
 const route = useRoute();
 const router = useRouter();
-const slug = route.params.slug;
+// slug là computed để watch được khi route thay đổi
+const slug = computed(() => route.params.slug);
 const product = ref(null);
 const selectedVariant = ref(null);
 const selectedColor = ref(null);
 const selectedSize = ref(null);
+const relatedProducts = ref([]);
 const addingToCart = ref(false);
 const toast = ref({ show: false, message: '', type: 'success' });
 const showSizeGuide = ref(false);
@@ -40,43 +43,62 @@ const allImages = computed(() => {
     const variants = product.value.variants || [];
     const hasVariants = variants.length > 0;
 
+    const getUniqueImages = (imageArray) => {
+        const seen = new Set();
+        return imageArray.filter(img => {
+            if (!img.image_url) return false;
+            const isDuplicate = seen.has(img.image_url);
+            seen.add(img.image_url);
+            return !isDuplicate;
+        });
+    };
+
     // Sản phẩm biến thể + đã chọn màu → hiện ảnh của variant màu đó
     if (hasVariants && selectedColor.value) {
         const colorVariants = variants.filter(v => v.color === selectedColor.value);
         const variantIds = colorVariants.map(v => v.variant_id);
 
         const variantImgs = imgs.filter(img => img.variant_id && variantIds.includes(img.variant_id));
-        if (variantImgs.length > 0) return variantImgs;
+        if (variantImgs.length > 0) return getUniqueImages(variantImgs);
 
         const directImgs = colorVariants
             .filter(v => v.image_url)
             .map(v => ({ image_url: v.image_url, variant_id: v.variant_id }));
-        if (directImgs.length > 0) return directImgs;
-    }
+        if (directImgs.length > 0) return getUniqueImages(directImgs);
 
-    // Sản phẩm biến thể + chưa chọn màu → chỉ hiện thumbnail
-    if (hasVariants && !selectedColor.value) {
+        // Fallback: NẾU BIẾN THỂ KHÔNG CÓ ẢNH -> Trả về Ảnh chung của sản phẩm (ảnh không thuộc biến thể nào)
+        const generalImgs = imgs.filter(img => !img.variant_id);
+        if (generalImgs.length > 0) return getUniqueImages(generalImgs);
+
         if (product.value.thumbnail_url && product.value.thumbnail_url !== '0') {
             return [{ image_url: product.value.thumbnail_url }];
         }
         return [{ image_url: null }];
     }
 
-    // Sản phẩm đơn giản → hiện tất cả ảnh
-    if (imgs.length > 0) return imgs;
+    // Tất cả các trường hợp khác: hiển thị tất cả các ảnh nhưng lọc trùng
+    if (imgs.length > 0) return getUniqueImages(imgs);
+
     if (product.value.thumbnail_url && product.value.thumbnail_url !== '0') {
         return [{ image_url: product.value.thumbnail_url }];
     }
     return [{ image_url: null }];
 });
 
-const fetchProduct = async () => {
+const fetchProduct = async (currentSlug) => {
     try {
-        const response = await api.get(`/products/${slug}`);
+        const response = await api.get(`/products/${currentSlug}`);
         product.value = response.data;
+        // Reset selections khi đổi sản phẩm
+        selectedVariant.value = null;
+        selectedColor.value = null;
+        selectedSize.value = null;
+        activeImageIndex.value = 0;
+
         if (product.value.product_id) {
             fetchReviews(product.value.product_id);
         }
+        fetchRelatedProducts(currentSlug);
 
         // Auto-select variant if it's a simple product (no colors, no sizes)
         if (product.value.variants && product.value.variants.length > 0) {
@@ -89,6 +111,18 @@ const fetchProduct = async () => {
         }
     } catch (error) {
         console.error("Error fetching product:", error);
+    }
+};
+
+const fetchRelatedProducts = async (currentSlug) => {
+    try {
+        const res = await api.get(`/products/${currentSlug}/related`);
+        if (res.data.status === 'success') {
+            relatedProducts.value = res.data.data;
+        }
+    } catch (err) {
+        console.error('Related products error:', err);
+        relatedProducts.value = [];
     }
 };
 
@@ -196,6 +230,38 @@ const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 };
 
+const displayPriceInfo = computed(() => {
+    if (!product.value) return { current: 0, original: null, discount: 0 };
+    
+    if (selectedVariant.value) {
+        let orig = null;
+        if (selectedVariant.value.is_on_sale) orig = selectedVariant.value.price;
+        else if (selectedVariant.value.compare_at_price > selectedVariant.value.price) orig = selectedVariant.value.compare_at_price;
+        
+        return {
+            current: selectedVariant.value.effective_price,
+            original: orig,
+            discount: selectedVariant.value.discount_percent || 0
+        };
+    }
+    
+    // Nếu chưa chọn variant, tìm variant có effective_price thấp nhất
+    const variants = product.value.variants || [];
+    if (variants.length === 0) return { current: product.value.min_price || 0, original: null, discount: 0 };
+    
+    const lowest = variants.reduce((min, v) => ((v.effective_price || v.price) < (min.effective_price || min.price) ? v : min), variants[0]);
+    
+    let orig = null;
+    if (lowest.is_on_sale) orig = lowest.price;
+    else if (lowest.compare_at_price > lowest.price) orig = lowest.compare_at_price;
+    
+    return {
+        current: lowest.effective_price || lowest.price,
+        original: orig,
+        discount: lowest.discount_percent || 0
+    };
+});
+
 const increaseQuantity = () => quantity.value++;
 const decreaseQuantity = () => { if (quantity.value > 1) quantity.value-- };
 
@@ -248,8 +314,53 @@ const buyNow = async () => {
     }
 };
 
+/**
+ * sortedVariants: danh sách variants active, sắp xếp theo giá tăng dần.
+ * API đã sort sẵn, nhưng computed này đảm bảo thứ tự đúng ở client.
+ */
+const sortedVariants = computed(() => {
+    if (!product.value?.variants) return [];
+    return [...product.value.variants]
+        .filter((v) => v.status === 'active' || v.status === undefined)
+        .sort((a, b) => a.price - b.price);
+});
+
+/**
+ * handleUpgrade: Khi khách nhấn "Nâng cấp", tự động cập nhật
+ * selectedColor, selectedSize, selectedVariant sang variant premium.
+ */
+const handleUpgrade = (premiumVariant) => {
+    if (!premiumVariant) return;
+    // Cập nhật màu (nếu có)
+    if (premiumVariant.color) {
+        selectedColor.value = premiumVariant.color;
+    }
+    // Cập nhật size (nếu có)
+    if (premiumVariant.size) {
+        selectedSize.value = premiumVariant.size;
+    }
+    // Gán trực tiếp để đảm bảo selectedVariant luôn đúng
+    selectedVariant.value = premiumVariant;
+    // Cuộn ô chọn variant lên để user thấy sự thay đổi
+    const variantSection = document.querySelector('.variant-selector');
+    if (variantSection) {
+        variantSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    showToast(`Đã nâng cấp lên phiên bản ${premiumVariant.color || ''} ${premiumVariant.size || ''}`.trim(), 'success');
+};
+
+// Watch route slug để reload dữ liệu khi điều hướng sang SP khác
+watch(slug, (newSlug, oldSlug) => {
+    if (newSlug && newSlug !== oldSlug) {
+        product.value = null;
+        relatedProducts.value = [];
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        fetchProduct(newSlug);
+    }
+});
+
 onMounted(() => {
-    fetchProduct();
+    fetchProduct(slug.value);
 });
 </script>
 
@@ -303,10 +414,10 @@ onMounted(() => {
 
         <!-- Giá tiền -->
         <div class="product-pricing">
-          <span class="current-price">{{ formatPrice(selectedVariant ? selectedVariant.price : product.min_price) }}</span>
-          <span class="original-price" v-if="product.originalPrice">{{ formatPrice(product.originalPrice) }}</span>
-          <span class="discount-badge" v-if="product.originalPrice">
-            -{{ Math.round((1 - product.price / product.originalPrice) * 100) }}%
+          <span class="current-price">{{ formatPrice(displayPriceInfo.current) }}</span>
+          <span class="original-price" v-if="displayPriceInfo.original">{{ formatPrice(displayPriceInfo.original) }}</span>
+          <span class="discount-badge" v-if="displayPriceInfo.discount > 0">
+            -{{ displayPriceInfo.discount }}%
           </span>
         </div>
 
@@ -369,7 +480,6 @@ onMounted(() => {
           </button>
         </div>
         <div class="action-buttons-row">
-          <button class="btn-primary btn-buyNow" @click="buyNow" :disabled="addingToCart">Mua ngay</button>
           <button class="btn-outline btn-hero-fav" 
                   :class="{'is-active': product && isFavorited(product.product_id)}" 
                   @click="handleToggleFav" 
@@ -377,7 +487,15 @@ onMounted(() => {
             <i class="fas fa-heart" v-if="product && isFavorited(product.product_id)"></i>
             <i class="far fa-heart" v-else></i>
           </button>
+          <button class="btn-primary btn-buyNow" @click="buyNow" :disabled="addingToCart">Mua ngay</button>
         </div>
+
+        <!-- ✦ Premium Variant Upsell Box ✦ -->
+        <PremiumUpgrade
+          :current-variant="selectedVariant"
+          :all-variants="sortedVariants"
+          @upgrade="handleUpgrade"
+        />
 
         <!-- Tiện ích đi kèm -->
         <div class="service-perks">
@@ -424,6 +542,39 @@ onMounted(() => {
             <p class="review-content">{{ review.content }}</p>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- Section Sản phẩm liên quan -->
+    <section class="related-products-section" v-if="relatedProducts.length > 0">
+      <div class="related-header">
+        <div class="related-title-group">
+          <h2 class="related-title">Sản phẩm liên quan</h2>
+          <div class="related-title-line"></div>
+        </div>
+      </div>
+      <div class="related-grid">
+        <router-link
+          v-for="item in relatedProducts"
+          :key="item.product_id"
+          :to="`/product/${item.slug}`"
+          class="related-card"
+        >
+          <div class="related-card-image">
+            <img
+              :src="getImageUrl(item.thumbnail_url)"
+              :alt="item.name"
+              loading="lazy"
+            />
+            <div class="related-card-overlay">
+              <span class="related-view-btn">Xem chi tiết</span>
+            </div>
+          </div>
+          <div class="related-card-body">
+            <p class="related-card-name">{{ item.name }}</p>
+            <span class="related-card-price">{{ formatPrice(item.min_price) }}</span>
+          </div>
+        </router-link>
       </div>
     </section>
 
@@ -542,6 +693,10 @@ onMounted(() => {
   grid-template-columns: 5fr 7fr;
   gap: 40px;
   margin-bottom: 40px;
+}
+
+.product-main-grid > div {
+  min-width: 0;
 }
 
 /* Thư viện ảnh */
@@ -953,10 +1108,127 @@ onMounted(() => {
   to { opacity: 1; }
 }
 
+/* ── Related Products Section ─────────────────────────────── */
+.related-products-section {
+  margin-top: 52px;
+  padding-top: 8px;
+}
+.related-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.related-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.related-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--ocean-blue, #0288d1);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.related-title-line {
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--ocean-blue, #0288d1), var(--coral, #ef5350));
+  border-radius: 2px;
+}
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+.related-card {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-color, #d9e8f0);
+  background: #fff;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+.related-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 32px rgba(2,136,209,0.14);
+  border-color: var(--ocean-blue, #0288d1);
+}
+.related-card-image {
+  position: relative;
+  aspect-ratio: 1/1;
+  overflow: hidden;
+  background: #f4f9f9;
+}
+.related-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s ease;
+}
+.related-card:hover .related-card-image img {
+  transform: scale(1.07);
+}
+.related-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(2,136,209,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.related-card:hover .related-card-overlay {
+  opacity: 1;
+}
+.related-view-btn {
+  background: white;
+  color: var(--ocean-blue, #0288d1);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 99px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.related-card-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.related-card-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #102a43;
+  line-height: 1.4;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.related-card-price {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--coral, #ef5350);
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .product-main-grid { grid-template-columns: 1fr; gap: 24px; }
   .product-details-reviews { grid-template-columns: 1fr; }
+  .related-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+}
+@media (max-width: 500px) {
+  .related-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
 }
 
 /* Variant Selector */

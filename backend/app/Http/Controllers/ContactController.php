@@ -179,6 +179,34 @@ class ContactController extends Controller
 
             $mailer->send($email);
 
+            // --- Ghi notification cho khách hàng (nếu khách là User hệ thống) ---
+            try {
+                $user = \App\Models\User::where('email', $contact->email)->first();
+                if ($user) {
+                    $notificationData = [
+                        'title'   => 'Phản hồi hỗ trợ',
+                        'message' => 'Admin đã trả lời yêu cầu hỗ trợ của bạn: "' . $contact->subject . '".',
+                        'type'    => 'contact_reply'
+                    ];
+
+                    \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                        'id'              => \Illuminate\Support\Str::uuid(),
+                        'type'            => 'App\Notifications\ContactReplyNotification',
+                        'notifiable_type' => \App\Models\User::class,
+                        'notifiable_id'   => $user->user_id,
+                        'data'            => json_encode($notificationData),
+                        'read_at'         => null,
+                        'created_at'      => \Carbon\Carbon::now(),
+                        'updated_at'      => \Carbon\Carbon::now(),
+                    ]);
+
+                    // Broadcast realtime event
+                    event(new \App\Events\UserNotificationEvent($user->user_id, $notificationData));
+                }
+            } catch (\Exception $ex) {
+                Log::error("Save contact reply notification failed: " . $ex->getMessage());
+            }
+
         } catch (\Exception $e) {
             Log::error('Contact reply email error: ' . $e->getMessage());
             return response()->json([

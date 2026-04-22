@@ -49,31 +49,19 @@ const getAllowedFulfillmentOptions = (currentStatus) => {
   return statuses.filter(s => allowed.includes(s.value));
 };
 
-// ====== Payment Status ======
+// ====== Payment Status (Chỉ hiển thị, tự động bởi hệ thống) ======
 const paymentOptions = [
   { value: 'unpaid', label: 'Chưa thanh toán' },
   { value: 'paid', label: 'Đã thanh toán' },
+  { value: 'pending', label: 'Đang xử lý' },
   { value: 'failed', label: 'Thất bại' },
   { value: 'refunded', label: 'Hoàn tiền' },
-  { value: 'partially_refunded', label: 'Hoàn 1 phần' },
+  { value: 'partially_refunded', label: 'Hoàn một phần' },
 ];
 
-const paymentTransitions = {
-  'unpaid':             ['unpaid', 'paid', 'failed'],
-  'paid':               ['paid', 'refunded', 'partially_refunded'],
-  'failed':             ['failed', 'unpaid', 'paid'],
-  'refunded':           ['refunded'],
-  'partially_refunded': ['partially_refunded', 'refunded'],
-};
-
-const getAllowedPaymentOptions = (currentStatus) => {
-  const allowed = paymentTransitions[currentStatus] || [currentStatus];
-  return paymentOptions.filter(s => allowed.includes(s.value));
-};
-
-const isPaymentDisabled = (or) => {
+const isTerminalOrder = (or) => {
   if (!or) return true;
-  return or.fulfillment_status === 'cancelled' || or.payment_status === 'refunded';
+  return or.fulfillment_status === 'cancelled' || or.fulfillment_status === 'completed';
 };
 
 const getStatusLabel = (value) => statuses.find(s => s.value === value)?.label || paymentOptions.find(p => p.value === value)?.label || value;
@@ -157,6 +145,12 @@ const dismissCancelModal = () => {
 const updateFulfillment = async () => {
   const oldStatus = order.value._prevFulfillmentStatus;
 
+  // Nếu chọn lại đúng trạng thái hiện tại → báo lỗi
+  if (order.value.fulfillment_status === oldStatus) {
+    toast.error(`Đơn hàng đang ở trạng thái "${getStatusLabel(oldStatus)}" rồi. Vui lòng chọn trạng thái tiếp theo!`);
+    return;
+  }
+
   // Nếu chọn hủy → bắt buộc nhập lý do
   if (order.value.fulfillment_status === 'cancelled') {
     const cancelReason = await showCancelReasonModal();
@@ -197,21 +191,7 @@ const updateFulfillment = async () => {
   }
 };
 
-const updatePayment = async () => {
-  const oldPaymentStatus = order.value._prevPaymentStatus || 'unpaid';
-  try {
-    const res = await api.put(`/admin/orders/${order.value.order_id}/status`, {
-      payment_status: order.value.payment_status
-    });
-    if (res.data.status === 'success') {
-      order.value._prevPaymentStatus = order.value.payment_status;
-      toast.success('Cập nhật thanh toán thành công!');
-    }
-  } catch (error) {
-    order.value.payment_status = oldPaymentStatus;
-    toast.error(error.response?.data?.message || 'Lỗi cập nhật thanh toán');
-  }
-};
+
 
 const formatPrice = (price) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
@@ -475,9 +455,16 @@ onMounted(() => fetchOrder());
             </div>
             <div class="action-group">
               <label class="action-label">Thanh toán</label>
-              <select class="form-select" v-model="order.payment_status" @change="updatePayment" :disabled="isPaymentDisabled(order)">
-                <option v-for="s in getAllowedPaymentOptions(order._prevPaymentStatus || order.payment_status)" :key="s.value" :value="s.value">{{ s.label }}</option>
-              </select>
+              <div class="payment-auto-badge" :class="'ps-' + order.payment_status">
+                <span class="payment-auto-icon">
+                  <svg v-if="order.payment_status === 'paid'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <svg v-else-if="order.payment_status === 'refunded'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                  <svg v-else-if="order.payment_status === 'failed'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </span>
+                <span class="payment-auto-text">{{ paymentLabels[order.payment_status] || order.payment_status }}</span>
+                <span class="payment-auto-hint">(Tự động)</span>
+              </div>
             </div>
           </div>
 
@@ -726,7 +713,7 @@ onMounted(() => fetchOrder());
   background: linear-gradient(90deg, #0284c7, #0ea5e9);
 }
 .timeline-step.active .step-connector {
-  background: linear-gradient(90deg, #0ea5e9 60%, #e2e8f0 60%);
+  background: linear-gradient(90deg, #0284c7, #0ea5e9);
 }
 
 /* Step dot */
@@ -1046,4 +1033,99 @@ onMounted(() => fetchOrder());
 .modal-enter-active, .modal-leave-active { transition: all 0.25s ease; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
 .modal-enter-from .cancel-modal-box, .modal-leave-to .cancel-modal-box { transform: scale(0.95) translateY(10px); }
+
+/* ===== Payment Auto Badge (Read-only) ===== */
+.payment-auto-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1.5px solid;
+  transition: all 0.3s ease;
+}
+.payment-auto-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.payment-auto-text {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+.payment-auto-hint {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.6;
+  margin-left: auto;
+}
+
+/* Paid */
+.ps-paid {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+.ps-paid .payment-auto-icon {
+  background: #d1fae5;
+  color: #059669;
+}
+.ps-paid .payment-auto-text { color: #065f46; }
+
+/* Unpaid */
+.ps-unpaid {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.ps-unpaid .payment-auto-icon {
+  background: #fef3c7;
+  color: #d97706;
+}
+.ps-unpaid .payment-auto-text { color: #92400e; }
+
+/* Pending */
+.ps-pending {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.ps-pending .payment-auto-icon {
+  background: #fef3c7;
+  color: #f59e0b;
+}
+.ps-pending .payment-auto-text { color: #92400e; }
+
+/* Failed */
+.ps-failed {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+.ps-failed .payment-auto-icon {
+  background: #fee2e2;
+  color: #dc2626;
+}
+.ps-failed .payment-auto-text { color: #991b1b; }
+
+/* Refunded */
+.ps-refunded {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.ps-refunded .payment-auto-icon {
+  background: #e2e8f0;
+  color: #475569;
+}
+.ps-refunded .payment-auto-text { color: #475569; }
+
+/* Partially refunded */
+.ps-partially_refunded {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.ps-partially_refunded .payment-auto-icon {
+  background: #e2e8f0;
+  color: #475569;
+}
+.ps-partially_refunded .payment-auto-text { color: #475569; }
 </style>

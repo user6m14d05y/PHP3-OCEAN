@@ -26,13 +26,8 @@
       </div>
     </div>
 
-    <div class="filter-actions">
-      <button class="btn btn-primary" @click="applyFilters">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-        Lọc dữ liệu
-      </button>
-      <button class="btn btn-outline" @click="resetFilters">Làm mới</button>
-    </div>
+
+
   </div>
 </template>
 

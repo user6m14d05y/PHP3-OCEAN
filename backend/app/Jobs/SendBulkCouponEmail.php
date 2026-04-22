@@ -53,8 +53,9 @@ class SendBulkCouponEmail implements ShouldQueue
             User::whereNotNull('email')
                 ->where('email', '!=', '')
                 ->whereNull('deleted_at')
-                ->select('email', 'full_name')
+                ->select('user_id', 'email', 'full_name')
                 ->chunk(200, function ($users) use ($mailer, $emailUser) {
+                    $notifications = [];
                     foreach ($users as $user) {
                         try {
                             $htmlBody = $this->buildCouponEmailHtml($this->coupon, $user->full_name ?? 'Quý khách');
@@ -66,8 +67,39 @@ class SendBulkCouponEmail implements ShouldQueue
                                 ->html($htmlBody);
 
                             $mailer->send($emailMessage);
+
+                            // Tạo dữ liệu cho bảng notifications
+                            $notificationData = [
+                                'title'          => '🎁 Mã Giảm Giá Mới!',
+                                'message'        => 'Bạn vừa nhận được mã giảm giá ' . $this->coupon->code . '. Nhanh tay sử dụng ngay!',
+                                'coupon_code'    => $this->coupon->code,
+                                'discount_value' => $this->coupon->value,
+                                'type'           => 'coupon_received'
+                            ];
+
+                            $notifications[] = [
+                                'id'              => \Illuminate\Support\Str::uuid(),
+                                'type'            => 'App\Notifications\CouponReceivedNotification',
+                                'notifiable_type' => \App\Models\User::class,
+                                'notifiable_id'   => $user->user_id,
+                                'data'            => json_encode($notificationData),
+                                'read_at'         => null,
+                                'created_at'      => \Carbon\Carbon::now(),
+                                'updated_at'      => \Carbon\Carbon::now(),
+                            ];
+
+                            event(new \App\Events\UserNotificationEvent($user->user_id, $notificationData));
                         } catch (\Exception $e) {
                             Log::error("Coupon email failed for {$user->email}: " . $e->getMessage());
+                        }
+                    }
+
+                    // Insert batch notifications into DB
+                    if (!empty($notifications)) {
+                        try {
+                            \Illuminate\Support\Facades\DB::table('notifications')->insert($notifications);
+                        } catch (\Exception $ex) {
+                            Log::error("Save bulk notifications failed: " . $ex->getMessage());
                         }
                     }
                 });

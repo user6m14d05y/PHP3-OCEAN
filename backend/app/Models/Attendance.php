@@ -15,6 +15,8 @@ class Attendance extends Model
         'ip_address',
         'latitude',
         'longitude',
+        'wifi_ssid',
+        'wifi_bssid',
         'image_path',
         'note',
     ];

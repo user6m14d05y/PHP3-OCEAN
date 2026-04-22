@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'main_wrapper.dart';
 import 'review_screen.dart';
 
-const String kBaseUrl = 'http://localhost:8383/api';
+const String kBaseUrl = 'http://127.0.0.1:8383/api';
 
 class OrderDetailScreen extends StatefulWidget {
   final String orderId;
@@ -701,6 +701,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   String _resolveImageUrl(String raw) {
     if (raw.isEmpty) return '';
-    return raw.startsWith('http') ? raw : 'http://localhost:8383/api/image-proxy?path=$raw';
+    return raw.startsWith('http') ? raw : 'http://127.0.0.1:8383/api/image-proxy?path=$raw';
   }
 }

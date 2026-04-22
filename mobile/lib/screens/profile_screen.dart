@@ -1,16 +1,14 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import '../services/auth_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_client.dart';
 import 'login_screen.dart';
-import 'main_wrapper.dart';
 import 'address_screen.dart';
 import 'change_password_screen.dart';
 import 'favorite_screen.dart';
 import 'edit_profile_screen.dart';
-
-const String kBaseUrl = 'http://localhost:8383/api';
+import 'pos_scanner_screen.dart';
+import 'attendance_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,6 +20,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? userData;
   bool isLoading = true;
+  bool isGuest = false;
   String? errorMessage;
 
   @override
@@ -31,68 +30,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> fetchProfile() async {
+    if (!mounted) return;
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+      isGuest = false;
+    });
+
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!loggedIn) {
+      if (mounted) setState(() { isGuest = true; isLoading = false; });
+      return;
+    }
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      
-      if (token == null) {
-        if (mounted) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-        }
-        return;
+      final response = await ApiClient().dio.get('/me');
+      if (mounted) {
+        setState(() {
+          userData = response.data['user'];
+          isLoading = false;
+        });
       }
-
-      final response = await http.get(
-        Uri.parse('$kBaseUrl/me'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (mounted) {
-          setState(() {
-            userData = data['user'];
-            isLoading = false;
-          });
-        }
-      } else if (response.statusCode == 401) {
-        // Token hết hạn → xóa token và redirect đăng nhập
-        await prefs.remove('access_token');
-        if (mounted) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-        }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        await AuthService.logout();
+        if (mounted) setState(() { isGuest = true; isLoading = false; });
       } else {
         if (mounted) {
           setState(() {
-            errorMessage = 'Không thể lấy thông tin (${response.statusCode})';
+            errorMessage = 'Không thể lấy thông tin (${e.response?.statusCode})';
             isLoading = false;
           });
         }
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          errorMessage = 'Lỗi kết nối máy chủ.';
-          isLoading = false;
-        });
-      }
+      if (mounted) setState(() { errorMessage = 'Lỗi kết nối máy chủ.'; isLoading = false; });
     }
   }
 
   void _handleLogout() async {
-    // Show loading
-    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
-    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
     await AuthService.logout();
-    
     if (mounted) {
-      Navigator.pop(context); // hide loading
+      Navigator.pop(context);
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const MainWrapper()),
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
         (route) => false,
       );
     }
@@ -105,7 +92,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0EA5E9),
         elevation: 0,
-        title: const Text('Hồ Sơ Cá Nhân', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: const Text(
+          'Hồ Sơ Cá Nhân',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         centerTitle: true,
       ),
       body: _buildBody(),
@@ -116,7 +106,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (isLoading) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF0EA5E9)));
     }
-    
+
+    // Chưa đăng nhập → hiện giao diện Guest
+    if (isGuest) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE0F2FE),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person_outline, size: 64, color: Color(0xFF0284C7)),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Bạn chưa đăng nhập',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Đăng nhập để xem hồ sơ, đơn hàng và ưu đãi dành riêng cho bạn.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Color(0xFF64748B), height: 1.5),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    );
+                    fetchProfile();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0EA5E9),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Đăng nhập ngay',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (errorMessage != null) {
       return Center(
         child: Column(
@@ -127,12 +173,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(errorMessage!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () {
-                setState(() { isLoading = true; errorMessage = null; });
-                fetchProfile();
-              },
+              onPressed: fetchProfile,
               child: const Text('Thử lại'),
-            )
+            ),
           ],
         ),
       );
@@ -145,43 +188,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return SingleChildScrollView(
       child: Column(
         children: [
-          // Header Background
           Container(
             padding: const EdgeInsets.only(bottom: 30, top: 20, left: 24, right: 24),
             decoration: const BoxDecoration(
               color: Color(0xFF0EA5E9),
-              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
+              ),
             ),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 36,
                   backgroundColor: Colors.white,
-                  backgroundImage: avatar != null ? NetworkImage(avatar.startsWith('http') ? avatar : 'http://localhost:8383/api/image-proxy?path=$avatar') : null,
-                  child: avatar == null ? const Icon(Icons.person, size: 40, color: Color(0xFF0EA5E9)) : null,
+                  backgroundImage: avatar != null
+                      ? NetworkImage(
+                          avatar.toString().startsWith('http')
+                              ? avatar.toString()
+                              : 'http://127.0.0.1:8383/api/image-proxy?path=$avatar',
+                        )
+                      : null,
+                  child: avatar == null
+                      ? const Icon(Icons.person, size: 40, color: Color(0xFF0EA5E9))
+                      : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                      Text(
+                        name.toString(),
+                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
+                      ),
                       const SizedBox(height: 4),
-                      Text(email, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                      Text(
+                        email.toString(),
+                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
-          // Menu
+
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children: [
+                if (userData?['role'] == 'admin' ||
+                    userData?['role'] == 'seller' ||
+                    userData?['role'] == 'staff') ...[
+                  _buildMenuItem(Icons.qr_code_scanner, 'Máy quét POS', () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const PosScannerScreen()));
+                  }),
+                  _buildMenuItem(Icons.fingerprint, 'Điểm danh (Chấm công)', () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const AttendanceScreen()));
+                  }),
+                ],
                 _buildMenuItem(Icons.edit_outlined, 'Chỉnh sửa hồ sơ', () async {
                   if (userData == null) return;
                   final updated = await Navigator.push(
@@ -206,7 +274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _buildMenuItem(Icons.logout, 'Đăng xuất', _handleLogout, isLogout: true),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -220,7 +288,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-        ]
+        ],
       ),
       child: ListTile(
         onTap: onTap,
@@ -233,8 +301,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Icon(icon, color: isLogout ? Colors.red : const Color(0xFF64748B), size: 20),
         ),
         title: Text(
-          title, 
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isLogout ? Colors.red : const Color(0xFF0F172A))
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: isLogout ? Colors.red : const Color(0xFF0F172A),
+          ),
         ),
         trailing: isLogout ? null : const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFFCBD5E1)),
       ),

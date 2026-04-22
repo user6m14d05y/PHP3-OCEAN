@@ -1,12 +1,12 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'services/auth_service.dart';
 import 'productDetail.dart';
 import 'screens/product_list_screen.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/notification_screen.dart';
-
-const String kBaseUrl = 'http://localhost:8383/api';
+import 'package:dio/dio.dart';
+import 'services/api_client.dart';
+import 'widgets/shimmer_loading.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,7 +15,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   // ===== STATE =====
   List<dynamic> products = [];
   bool isLoading = true;
@@ -26,55 +29,67 @@ class _HomeScreenState extends State<HomeScreen> {
   String search = '';
   final ScrollController _scrollController = ScrollController();
 
+  // ===== CATEGORIES =====
+  List<dynamic> categories = [];
+  bool isCatLoading = true;
+
   // ===== GỌI API =====
   Future<void> fetchProducts() async {
+    if (!mounted) return;
     setState(() {
       isLoading = true;
       errorMessage = null;
     });
 
     try {
-      final url = '$kBaseUrl/products?page=$currentPage&search=$search';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
+      final response = await ApiClient().dio.get(
+        '/products',
+        queryParameters: {
+          'page': currentPage,
+          'search': search,
         },
-      ).timeout(const Duration(seconds: 10));
+      );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = response.data;
         List<dynamic> fetched = [];
 
         if (data is List) {
           fetched = data;
-          setState(() {
-            products = fetched;
-            totalPages = 1;
-            totalProducts = fetched.length;
-            isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              products = fetched;
+              totalPages = 1;
+              totalProducts = fetched.length;
+              isLoading = false;
+            });
+          }
         } else if (data['data'] is List) {
           fetched = data['data'];
+          if (mounted) {
+            setState(() {
+              products = fetched;
+              totalPages = data['total_pages'] ?? 1;
+              totalProducts = data['total'] ?? fetched.length;
+              isLoading = false;
+            });
+          }
+        }
+      } else {
+        if (mounted) {
           setState(() {
-            products = fetched;
-            totalPages = data['total_pages'] ?? 1;
-            totalProducts = data['total'] ?? fetched.length;
+            errorMessage = 'Lỗi server: ${response.statusCode}';
             isLoading = false;
           });
         }
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          errorMessage = 'Lỗi server: ${response.statusCode}';
+          errorMessage = 'Không kết nối được API!\nLỗi: $e';
           isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        errorMessage = 'Không kết nối được API!\nLỗi: $e';
-        isLoading = false;
-      });
     }
   }
 
@@ -82,6 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     fetchProducts();
+    fetchCategories();
   }
 
   @override
@@ -92,6 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
@@ -100,19 +117,16 @@ class _HomeScreenState extends State<HomeScreen> {
             currentPage = 1;
             await fetchProducts();
           },
-          child: SingleChildScrollView(
+          child: CustomScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                _buildSearchBar(),
-                _buildHeroBanner(),
-                _buildCategories(),
-                _buildProductsSection(),
-              ],
-            ),
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeader()),
+              SliverToBoxAdapter(child: _buildSearchBar()),
+              SliverToBoxAdapter(child: _buildHeroBanner()),
+              SliverToBoxAdapter(child: _buildCategories()),
+              _buildProductsSection(),
+            ],
           ),
         ),
       ),
@@ -244,14 +258,67 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCategories() {
-    final categories = [
-      {'icon': Icons.scuba_diving, 'name': 'Đồ lặn'},
-      {'icon': Icons.surfing, 'name': 'Lướt ván'},
-      {'icon': Icons.hiking, 'name': 'Dã ngoại'},
-      {'icon': Icons.watch, 'name': 'Phụ kiện'},
-    ];
+  // ===== FETCH CATEGORIES =====
+  Future<void> fetchCategories() async {
+    try {
+      final res = await ApiClient().dio.get('/categories');
+      final data = res.data['data'] as List? ?? [];
+      // Chỉ lấy cấp 1 (parent_id == null hoặc == 0)
+      final rootCats = data.where((c) {
+        final pid = c['parent_id'];
+        return pid == null || pid == 0;
+      }).toList();
+      if (mounted) setState(() { categories = rootCats; isCatLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() => isCatLoading = false);
+    }
+  }
 
+  /// Lấy icon thích hợp dựa trên tên danh mục
+  IconData _iconForCategory(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('lặn') || n.contains('bơi') || n.contains('dưới nước')) return Icons.scuba_diving;
+    if (n.contains('lướt')) return Icons.surfing;
+    if (n.contains('dã ngoại') || n.contains('leo núi') || n.contains('cắm trại')) return Icons.hiking;
+    if (n.contains('phụ kiện') || n.contains('đồng hồ') || n.contains('kính')) return Icons.watch;
+    if (n.contains('quần áo') || n.contains('thời trang') || n.contains('áo')) return Icons.checkroom;
+    if (n.contains('giày') || n.contains('dép') || n.contains('sản phẩm')) return Icons.format_list_bulleted;
+    if (n.contains('kayak') || n.contains('chèo') || n.contains('thỹền')) return Icons.rowing;
+    if (n.contains('câu cá') || n.contains('bắt cá')) return Icons.phishing;
+    if (n.contains('thể thao') || n.contains('sport')) return Icons.sports;
+    if (n.contains('bảo hộ') || n.contains('an toàn')) return Icons.security;
+    if (n.contains('đèn') || n.contains('chiếu sáng')) return Icons.flashlight_on;
+    if (n.contains('tús') || n.contains('balo')) return Icons.backpack;
+    if (n.contains('máy ảnh') || n.contains('camera') || n.contains('quay')) return Icons.camera_alt;
+    if (n.contains('kife') || n.contains('dao') || n.contains('công cụ')) return Icons.handyman;
+    if (n.contains('giày lặn') || n.contains('chân nhái')) return Icons.do_not_step;
+    if (n.contains('xe') || n.contains('đạp')) return Icons.directions_bike;
+    if (n.contains('sóng') || n.contains('biển')) return Icons.waves;
+    return Icons.category_outlined;
+  }
+
+  /// Màu gradient theo index cho đẹp
+  List<Color> _colorsForIndex(int index) {
+    const palettes = [
+      [Color(0xFFE0F2FE), Color(0xFFBAE6FD)],
+      [Color(0xFFF0FDF4), Color(0xFFBBF7D0)],
+      [Color(0xFFFFF7ED), Color(0xFFFED7AA)],
+      [Color(0xFFFDF4FF), Color(0xFFF5D0FE)],
+      [Color(0xFFFFF1F2), Color(0xFFFFCDD2)],
+      [Color(0xFFF0F9FF), Color(0xFFB3E5FC)],
+      [Color(0xFFF0FFF4), Color(0xFFB3DFBD)],
+      [Color(0xFFFFFBEB), Color(0xFFFDE68A)],
+    ];
+    return palettes[index % palettes.length];
+  }
+
+  static const List<Color> _iconColors = [
+    Color(0xFF0284C7), Color(0xFF16A34A), Color(0xFFD97706),
+    Color(0xFF9333EA), Color(0xFFE11D48), Color(0xFF0EA5E9),
+    Color(0xFF059669), Color(0xFFCA8A04),
+  ];
+
+  Widget _buildCategories() {
     return Column(
       children: [
         Padding(
@@ -259,78 +326,148 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Danh mục phổ biến', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
-              TextButton(onPressed: () {}, child: const Text('Xem tất cả', style: TextStyle(color: Color(0xFF0EA5E9), fontWeight: FontWeight.w600))),
+              const Text('Danh mục phổ biến',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProductListScreen()),
+                ),
+                child: const Text('Xem tất cả', style: TextStyle(color: Color(0xFF0EA5E9), fontWeight: FontWeight.w600)),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 100,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              return Padding(
+          height: 110,
+          child: isCatLoading
+            ? ListView.builder(
+                scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE0F2FE),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: Icon(categories[index]['icon'] as IconData, color: const Color(0xFF0284C7), size: 28),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(categories[index]['name'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
-                  ],
+                itemCount: 5,
+                itemBuilder: (_, __) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Column(
+                    children: [
+                      Container(width: 60, height: 60, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(30))),
+                      const SizedBox(height: 8),
+                      Container(width: 50, height: 10, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4))),
+                    ],
+                  ),
                 ),
-              );
-            },
-          ),
+              )
+            : categories.isEmpty
+              ? const Center(child: Text('Chưa có danh mục', style: TextStyle(color: Colors.grey)))
+              : ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  itemCount: categories.length,
+                  itemBuilder: (context, index) {
+                    final cat = categories[index];
+                    final catName = cat['name']?.toString() ?? '';
+                    final catId = cat['category_id'] ?? cat['id'];
+                    final colors = _colorsForIndex(index);
+                    final iconColor = _iconColors[index % _iconColors.length];
+                    final icon = _iconForCategory(catName);
+
+                    return GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductListScreen(
+                            categoryId: catId is int ? catId : int.tryParse(catId.toString()),
+                            categoryName: catName,
+                          ),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: colors,
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colors[1].withOpacity(0.5),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(icon, color: iconColor, size: 30),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: 70,
+                              child: Text(
+                                catName,
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );
   }
 
   Widget _buildProductsSection() {
-    return Padding(
+    return SliverPadding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-               const Text('Dành cho bạn', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
-               const Icon(Icons.more_horiz, color: Color(0xFF94A3B8))
-            ],
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                     const Text('Dành cho bạn', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                     const Icon(Icons.more_horiz, color: Color(0xFF94A3B8))
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (errorMessage != null && !isLoading)
+                  Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(errorMessage!, style: const TextStyle(color: Colors.red))))
+                else if (products.isEmpty && !isLoading)
+                  const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Không có sản phẩm nào phù hợp'))),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
           if (isLoading && products.isEmpty)
-            const Center(child: CircularProgressIndicator(color: Color(0xFF0EA5E9)))
-          else if (errorMessage != null)
-            Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red)))
-          else if (products.isEmpty)
-            const Center(child: Text('Không có sản phẩm nào phù hợp'))
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+            const SliverShimmerLoading()
+          else if (!isLoading && errorMessage == null && products.isNotEmpty)
+            SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 childAspectRatio: 0.65,
               ),
-              itemCount: products.length,
-              itemBuilder: (context, index) {
-                return _buildProductCard(products[index]);
-              },
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  return _buildProductCard(products[index]);
+                },
+                childCount: products.length,
+              ),
             ),
         ],
       ),
@@ -347,7 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (rawImage.toString().startsWith('http')) {
         imageUrl = rawImage.toString();
       } else {
-        imageUrl = 'http://localhost:8383/api/image-proxy?path=$rawImage';
+        imageUrl = 'http://127.0.0.1:8383/api/image-proxy?path=$rawImage';
       }
     }
 
@@ -376,7 +513,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ClipRRect(
                   borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
                   child: imageUrl.isNotEmpty
-                      ? Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imagePlaceholder())
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl, 
+                          height: 160, 
+                          width: double.infinity, 
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(height: 160, color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                          errorWidget: (context, url, error) => _imagePlaceholder(),
+                        )
                       : _imagePlaceholder(),
                 ),
                 Positioned(
@@ -385,18 +529,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: GestureDetector(
                     onTap: () async {
                       try {
-                        final prefs = await SharedPreferences.getInstance();
-                        final token = prefs.getString('access_token');
-                        if (token == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng đăng nhập để lưu!')));
+                        final loggedIn = await AuthService.isLoggedIn();
+                        if (!loggedIn) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng đăng nhập để lưu!')));
+                          }
                           return;
                         }
-                        await http.post(
-                          Uri.parse('$kBaseUrl/profile/favorites/toggle'),
-                          headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-                          body: jsonEncode({'product_id': product['product_id'] ?? product['id']})
+                        await ApiClient().dio.post(
+                          '/profile/favorites/toggle',
+                          data: {'product_id': product['product_id'] ?? product['id']}
                         );
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã cập nhật danh sách yêu thích!'), duration: Duration(seconds: 1)));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã cập nhật danh sách yêu thích!'), duration: Duration(seconds: 1)));
+                        }
                       } catch (_) {}
                     },
                     child: Container(

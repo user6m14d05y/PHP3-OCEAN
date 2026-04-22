@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { useFavorites } from '@/composables/useFavorites';
+import { useFavorites } from "@/composables/useFavorites";
 
 const props = defineProps({
     product: {
@@ -9,111 +9,153 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['unfavorite']);
+const emit = defineEmits(["unfavorite"]);
 const { isFavorited, toggleFavorite } = useFavorites();
 
 const handleToggleFav = async () => {
     const pId = props.product.id || props.product.product_id;
     if (!pId) return;
-    
-    // Check old state
+
     const wasFavorited = isFavorited(pId);
-    
     const success = await toggleFavorite(pId);
     if (success && wasFavorited) {
-        emit('unfavorite', pId); // Notify parent if it was removed
+        emit("unfavorite", pId);
     }
 };
 
+const handleAddToCart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Phát event add-to-cart nếu cần, hoặc xử lý thêm vào giỏ hàng ở đây
+    console.log("Thêm vào giỏ", props.product.name);
+};
 </script>
 
 <template>
-    <div class="product-card ocean-card group">
+    <div class="product-card">
         <router-link
             :to="{
                 name: 'product-detail',
                 params: { slug: props.product.slug },
             }"
-            class="text-decoration-none"
+            class="text-decoration-none card-link"
         >
-            <div class="product-img-wrapper">
-                <!-- Badges -->
-                <div class="badges-container">
-                    <span
-                        class="product-badge"
-                        v-if="props.product.badge"
-                        :class="{'badge-hot': props.product.badge === 'Hot', 'badge-new': props.product.badge === 'New'}"
+            <div class="img-frame">
+                <div class="img-wrapper">
+                    <!-- Badges -->
+                    <div class="badges-container">
+                        <span
+                            class="product-badge"
+                            v-if="props.product.badge"
+                            :class="{
+                                'badge-hot': props.product.badge === 'Hot',
+                                'badge-new': props.product.badge === 'New',
+                            }"
+                        >
+                            {{ props.product.badge }}
+                        </span>
+                    </div>
+
+                    <!-- Main Image -->
+                    <img
+                        :src="props.product.image"
+                        :alt="props.product.name"
+                        loading="lazy"
+                    />
+
+                    <!-- Top Right action (Favorite) -->
+                    <button
+                        class="fav-top-btn"
+                        :class="{ 'is-active': isFavorited(props.product.id || props.product.product_id) }"
+                        @click.prevent="handleToggleFav"
+                        title="Yêu thích"
                     >
-                        {{ props.product.badge }}
-                    </span>
+                        <svg v-if="isFavorited(props.product.id || props.product.product_id)" width="18" height="18" viewBox="0 0 24 24" fill="#ff4757" stroke="#ff4757" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                        </svg>
+                        <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                        </svg>
+                    </button>
                 </div>
 
-                <!-- Main Image -->
-                <img
-                    :src="props.product.image"
-                    :alt="props.product.name"
-                    class="product-img main-img"
-                    loading="lazy"
-                />
-                
-                <!-- Top Right Actions -->
-                <div class="action-cluster">
-                    <button class="icon-action-btn cart-icon-btn" @click.prevent="() => {}" title="Thêm vào giỏ">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/><path d="M20 20a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                    </button>
-                    <button class="icon-action-btn fav-icon-btn" 
-                            :class="{'is-active': isFavorited(props.product.id || props.product.product_id)}" 
-                            @click.prevent="handleToggleFav" title="Yêu thích">
-                        <svg v-if="isFavorited(props.product.id || props.product.product_id)" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                        <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-                    </button>
-                </div>
+                <!-- Floating bag icon (Now outside overflow:hidden but inside relative frame) -->
+                <button class="fab-btn" @click.prevent="handleAddToCart" title="Thêm vào giỏ">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <path d="M16 10a4 4 0 0 1-8 0"></path>
+                    </svg>
+                </button>
             </div>
-            
-            <div class="product-info">
-                <h3 class="product-name text-truncate" :title="props.product.name">{{ props.product.name }}</h3>
-                <div class="d-flex align-items-center justify-content-between mt-2">
-                    <span class="product-price">{{ props.product.price }}</span>
-                </div>
+
+            <div class="info">
+                <p class="category text-truncate" v-if="props.product.category_name">
+                    {{ props.product.category_name }}
+                </p>
+                <h3 class="name" :title="props.product.name">
+                    {{ props.product.name }}
+                </h3>
+                <span class="price">{{ props.product.price }}</span>
             </div>
         </router-link>
     </div>
 </template>
 
 <style scoped>
+/* ================== S17: FAB BUTTON ================== */
 .product-card {
-    padding: 0;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.card-link {
     display: flex;
     flex-direction: column;
-    transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-    background: var(--card-bg, #ffffff);
-    border: 1px solid #ebebeb;
-    border-radius: 12px;
-    overflow: hidden;
+    width: 100%;
+    background:#fff; 
+    border-radius: 16px; 
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
+    padding-bottom: 16px;
     height: 100%;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s;
 }
 
-.product-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    border-color: rgba(2, 136, 209, 0.15);
+.card-link:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.08); 
 }
 
-.product-img-wrapper {
+.img-frame {
     position: relative;
     width: 100%;
-    margin: 0;
-    border-radius: 10px;
-    aspect-ratio: 3/4; /* Chuẩn tỉ lệ ảnh thời trang */
-    background: #f8fafc;
-    overflow: hidden;
 }
 
+.img-wrapper { 
+    position:relative; 
+    width:100%; 
+    aspect-ratio:1/1; 
+    border-radius: 16px; 
+    overflow:hidden;
+    background: #f8fafc;
+}
+
+.img-wrapper img { 
+    width:100%; 
+    height:100%; 
+    object-fit:cover; 
+    transition:0.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.card-link:hover .img-wrapper img { 
+    transform:scale(1.05);
+}
+
+/* Badges */
 .badges-container {
     position: absolute;
-    top: 16px;
-    left: 16px;
+    top: 12px;
+    left: 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -121,45 +163,23 @@ const handleToggleFav = async () => {
 }
 
 .product-badge {
-    background: var(--ocean-blue);
     color: white;
-    padding: 6px 14px;
-    border-radius: var(--radius-micro);
-    font-size: 0.70rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    box-shadow: none;
 }
 
-.badge-hot { background: #0F172A; }
-.badge-new { background: #64748b; }
+.badge-hot { background: #0f172a; }
+.badge-new { background: var(--ocean-blue); }
 
-.product-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.product-card:hover .main-img {
-    transform: scale(1.05); /* Slight gentle zoom */
-}
-
-/* Action cluster top right */
-.action-cluster {
+/* Favorite button top right */
+.fav-top-btn {
     position: absolute;
     top: 12px;
     right: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 10;
-}
-
-.icon-action-btn {
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.9);
     border: none;
     border-radius: 50%;
     width: 36px;
@@ -167,86 +187,96 @@ const handleToggleFav = async () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-muted, #64748b);
+    color: #64748b;
     cursor: pointer;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: all 0.3s ease;
     opacity: 0;
     transform: translateX(10px);
+    z-index: 10;
 }
 
-/* Stagger animation */
-.cart-icon-btn { transition-delay: 0.05s; }
-.fav-icon-btn { transition-delay: 0.1s; }
-
-.product-card:hover .icon-action-btn, 
-.fav-icon-btn.is-active {
+.card-link:hover .fav-top-btn,
+.fav-top-btn.is-active {
     opacity: 1;
     transform: translateX(0);
 }
 
-.icon-action-btn:hover {
-    color: var(--ocean-blue, #0288D1);
-    transform: translateX(0) scale(1.08) !important;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.12);
+.fav-top-btn:hover {
+    color: #111111;
+    transform: scale(1.1) !important;
 }
 
-.fav-icon-btn.is-active {
+.fav-top-btn.is-active {
     color: #ff4757;
 }
 
-.fav-icon-btn.is-active:hover {
-    background: #ffffff;
-    color: #ff6b81;
+/* FAB button bottom right */
+.fab-btn { 
+    position:absolute; 
+    bottom:-20px; 
+    right: 20px; 
+    width:46px; 
+    height:46px; 
+    border-radius:50%; 
+    background:var(--ocean-blue); 
+    color:white; 
+    border: 3px solid #ffffff; 
+    box-shadow: 0 4px 10px rgba(2,136,209,0.35); 
+    z-index:11; 
+    cursor:pointer; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.product-info {
-    padding: 12px 16px 20px;
-    background: transparent;
-    flex-grow: 1;
+.card-link:hover .fab-btn {
+    bottom: -22px; /* Slight dip when card lifts */
+}
+
+.fab-btn:hover { 
+    transform:scale(1.1); 
+    background: #0277bd;
+}
+
+.info { 
+    padding: 24px 16px 0; 
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    flex-grow: 1;
 }
 
-.product-name {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-bottom: 12px;
-    color: var(--text-main);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    transition: opacity 0.2s;
+.category { 
+    font-size: 0.7rem; 
+    color: #64748b; 
+    font-weight: 600; 
+    text-transform:uppercase; 
+    margin-bottom:4px;
+}
+
+.name { 
+    font-size: 0.95rem; 
+    font-weight: 700; 
+    color: #1e293b; 
+    margin-bottom:6px; 
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    overflow: hidden;
-    min-height: 44px; /* ~2 lines */
+    overflow: hidden; 
+    padding-right: 30px; /* leave space so text text doesn't hit FAB completely if wrapping */
     line-height: 1.4;
+    transition: 0.2s;
 }
 
-.product-card:hover .product-name {
-    opacity: 0.7;
-    color: var(--text-main);
-}
-
-.product-price {
-    font-weight: 800;
+.card-link:hover .name {
     color: var(--ocean-blue);
-    font-size: 1.05rem;
 }
 
-.swatch-dot {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 0 0 1px #cbd5e1;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-
-.swatch-dot:hover {
-    transform: scale(1.3);
+.price { 
+    font-weight: 700; 
+    color: var(--ocean-blue);
+    font-size: 1rem;
+    margin-top: auto;
 }
 </style>

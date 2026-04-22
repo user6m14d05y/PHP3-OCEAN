@@ -13,6 +13,8 @@ import Home from "../Pages/Client/Home/Home.vue";
 const Product = () => import("../Pages/Client/Home/Product.vue");
 const ProductDetail = () => import("../Pages/Client/Home/productDetail.vue");
 const Coupon = () => import("../Pages/Client/Home/Coupon.vue")
+const FlashSale = () => import("../Pages/Client/Home/FlashSale.vue")
+const ProductCardDemo = () => import("../Pages/Client/Home/ProductCardDemo.vue")
 const Cart = () => import("../Pages/Client/Cart/Index.vue")
 const Checkout = () => import("../Pages/Client/Cart/Checkout.vue")
 const OrderSuccess = () => import("../Pages/Client/Cart/OrderSuccess.vue")
@@ -68,6 +70,7 @@ const routes = [
         children: [
             { path: "", name: "home", component: Home, meta: { title: 'Trang chủ' } },
             { path: "product", name: "product", component: Product, meta: { title: 'Sản phẩm' } },
+            { path: "product-cards-demo", name: "product-cards-demo", component: ProductCardDemo, meta: { title: 'Danh mục 20 Card' } },
             { path: "product/:slug", name: "product-detail", component: ProductDetail, meta: { title: 'Chi tiết sản phẩm' } },
             { path: "about", name: "brand-story", component: BrandStory, meta: { title: 'Câu chuyện thương hiệu' } },
             { path: "careers", name: "careers", component: Careers, meta: { title: 'Tuyển dụng' } },
@@ -77,6 +80,7 @@ const routes = [
             { path: "return-policy", name: "return-policy", component: ReturnPolicy, meta: { title: 'Chính sách đổi trả' } },
             { path: "shopping-guide", name: "shopping-guide", component: ShoppingGuide, meta: { title: 'Hướng dẫn mua hàng' } },
             { path: "coupon", name: "coupon", component: Coupon, meta: { title: 'Mã giảm giá' } },
+            { path: "flash-sale", name: "flash-sale", component: FlashSale, meta: { title: 'Flash Sale ⚡' } },
             { path: "cart", name: "cart", component: Cart, meta: { requiresAuth: true, title: 'Giỏ hàng' } },
             { path: "checkout", name: "checkout", component: Checkout, meta: { requiresAuth: true, title: 'Thanh toán' } },
             { path: "order-success/:order_code", name: "order-success", component: OrderSuccess, meta: { requiresAuth: true, title: 'Đặt hàng thành công' } },
@@ -95,6 +99,7 @@ const routes = [
                     { path: "wishlist", name: "profile-wishlist", component: ProfileWishlist },
                     { path: "change-password", name: "profile-change-password", component: ProfileChangePassword },
                     { path: "coupon", name: "profile-coupon", component: ProfileCoupon },
+                    { path: "notifications", name: "profile-notifications", component: () => import("../Pages/Client/Profile/ProfileNotifications.vue") },
                 ],
             },
         ],
@@ -134,6 +139,7 @@ const routes = [
         component: Contact,
         meta: { title: 'Liên hệ' },
     },
+    { path: "/product-cards-demo", name: "product-cards-demo", component: ProductCardDemo, meta: { title: 'Danh mục 20 Card' } },
     // Admin routes
     {
         path: "/admin",
@@ -219,6 +225,12 @@ const routes = [
                 meta: { roles: ['admin'], title: 'Quản lý mã giảm giá' },
             },
             {
+                path: "flash-sale",
+                name: "admin-flash-sale",
+                component: () => import("../Pages/admin/AdminFlashSale.vue"),
+                meta: { roles: ['admin'], title: 'Quản lý Flash Sale' },
+            },
+            {
                 path: "post",
                 name: "admin-post",
                 component: () => import("../Pages/admin/AdminPost.vue"),
@@ -271,6 +283,12 @@ const routes = [
                 name: "admin-attendance-list",
                 component: () => import("../Pages/admin/AdminAttendanceList.vue"),
                 meta: { roles: ['admin'], title: 'Danh sách Chấm công' },
+            },
+            {
+                path: "stats",
+                name: "admin-stats",
+                component: () => import("../Pages/admin/AdminStats.vue"),
+                meta: { roles: ['admin'], title: 'Thống kê' },
             },
         ],
     },

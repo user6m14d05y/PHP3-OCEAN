@@ -365,8 +365,31 @@ class VNPayController extends Controller
         // Gửi email xác nhận đơn hàng
         try {
             $this->sendPaymentConfirmationEmail($order);
+            
+            // --- Ghi log notification cho khách hàng ---
+            $notificationData = [
+                'title'       => '✅ Thanh toán thành công',
+                'message'     => 'Đơn hàng ' . $order->order_code . ' đã được thanh toán thành công qua VNPay.',
+                'order_code'  => $order->order_code,
+                'grand_total' => $order->grand_total,
+                'type'        => 'payment_success'
+            ];
+            
+            \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                'id'              => \Illuminate\Support\Str::uuid(),
+                'type'            => 'App\Notifications\OrderPaidNotification',
+                'notifiable_type' => \App\Models\User::class,
+                'notifiable_id'   => $order->user_id,
+                'data'            => json_encode($notificationData),
+                'read_at'         => null,
+                'created_at'      => \Carbon\Carbon::now(),
+                'updated_at'      => \Carbon\Carbon::now(),
+            ]);
+
+            // Broadcast realtime event
+            event(new \App\Events\UserNotificationEvent($order->user_id, $notificationData));
         } catch (\Exception $e) {
-            Log::error('VNPay post-payment: Email failed', [
+            Log::error('VNPay post-payment: Email/Notification failed', [
                 'order_code' => $order->order_code,
                 'error' => $e->getMessage(),
             ]);

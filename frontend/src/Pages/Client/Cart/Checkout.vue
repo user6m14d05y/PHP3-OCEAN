@@ -3,10 +3,14 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '@/axios';
 import axios from 'axios';
+import { useCartUpsell } from '@/composables/useCartUpsell';
 
 const router = useRouter();
 const cartItems = ref([]);
 const loading = ref(true);
+
+const { state: upsellState, fetchUpsellData } = useCartUpsell();
+
 const TOKEN_GHN = import.meta.env.VITE_TOKEN_GHN;
 const SHOPID_GHN = import.meta.env.VITE_SHOPID_GHN;
 
@@ -103,18 +107,7 @@ const fetchCoupons = async () => {
     }
 };
 
-// Lấy danh sách phí vận chuyển
-const shippingZones = ref([]);
-const fetchShippingZones = async () => {
-    try {
-        const res = await api.get('/shipping-zones/active');
-        if (res.data?.status === 'success') {
-            shippingZones.value = res.data.data;
-        }
-    } catch (e) {
-        console.error('Lỗi tải phí vận chuyển:', e);
-    }
-};
+// Đã bỏ tính năng ShippingZone tự làm do sử dụng GHN API
 
 
 // Format full address để render UI
@@ -163,6 +156,14 @@ const subtotal = computed(() => {
 });
 
 const shippingFee = ref(0);
+
+const finalShippingFee = computed(() => {
+    // Miễn phí vận chuyển nếu đơn đạt mốc freeship
+    if (subtotal.value >= upsellState.freeshipThreshold) {
+        return 0;
+    }
+    return shippingFee.value;
+});
 
 // GHN API Methods
 const getGHNProvinces = async () => {
@@ -313,7 +314,7 @@ const discount = computed(() => {
     } else if (type === 'free_ship') {
         disc = value;
         // With free_ship, it applies to shipping fee
-        return Math.min(disc, shippingFee.value); 
+        return Math.min(disc, finalShippingFee.value); 
     } else {
         // fixed
         disc = value;
@@ -322,7 +323,7 @@ const discount = computed(() => {
 });
 
 const total = computed(() => {
-    return subtotal.value + shippingFee.value - discount.value;
+    return subtotal.value + finalShippingFee.value - discount.value;
 });
 
 // Appy coupon (Mã cứng mockup cho UI: OCEAN10)
@@ -460,7 +461,7 @@ const showToast = (message, type = 'success') => {
 };
 
 onMounted(async () => {
-    await Promise.all([fetchCart(), fetchAddresses(), fetchCoupons(), fetchShippingZones(), getGHNProvinces()]);
+    await Promise.all([fetchCart(), fetchAddresses(), fetchCoupons(), getGHNProvinces(), fetchUpsellData()]);
     loading.value = false;
 });
 </script>
@@ -754,17 +755,19 @@ onMounted(async () => {
                                         <div class="bill-item-img-wrapper">
                                             <img :src="getProductImage(item)" :alt="item.product?.name"
                                                 class="bill-item-img" />
-                                            <span class="bill-item-badge">{{ item.quantity }}</span>
                                         </div>
                                         <div class="bill-item-info">
                                             <h4 class="bill-item-name">{{ item.product?.name }}</h4>
                                             <p class="bill-item-variant">
-                                                {{ item.variant?.color || '' }} {{ item.variant?.color &&
-                                                item.variant?.size ? '/' : '' }} {{ item.variant?.size || '' }}
+                                                {{ item.variant?.color || '' }} 
+                                                <span v-if="item.variant?.color && item.variant?.size" class="variant-divider">•</span> 
+                                                {{ item.variant?.size || '' }}
                                             </p>
                                         </div>
-                                        <div class="bill-item-price">{{ formatPrice((item.variant?.price || 0) *
-                                            item.quantity) }}</div>
+                                        <div class="bill-item-price-col">
+                                            <div class="bill-item-price">{{ formatPrice((item.variant?.price || 0) * item.quantity) }}</div>
+                                            <div class="bill-item-qty">✕ {{ item.quantity }}</div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -797,8 +800,8 @@ onMounted(async () => {
                                         <span>Phí vận chuyển</span>
                                         <span class="fw-600">
                                             <span v-if="isCalculatingFee" class="calculating-text">Đang tính...</span>
-                                            <span v-else-if="shippingFee === 0" class="free-badge">Miễn phí</span>
-                                            <span v-else>{{ formatPrice(shippingFee) }}</span>
+                                            <span v-else-if="finalShippingFee === 0" class="free-badge">Miễn phí</span>
+                                            <span v-else>{{ formatPrice(finalShippingFee) }}</span>
                                         </span>
                                     </div>
                                     <div class="total-row" v-if="discount > 0">
@@ -1520,12 +1523,12 @@ textarea.note-input {
 }
 
 .bill-summary-card {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-radius: 16px;
-    border: 1px solid rgba(2, 136, 209, 0.15);
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.04);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(2, 136, 209, 0.1);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.05);
     overflow: hidden;
 }
 
@@ -1576,30 +1579,12 @@ textarea.note-input {
 }
 
 .bill-item-img {
-    width: 66px;
-    height: 66px;
+    width: 60px;
+    height: 60px;
     object-fit: cover;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    border: 1px solid #f1f5f9;
     background: #ffffff;
-}
-
-.bill-item-badge {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    background: #64748b;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    width: 22px;
-    height: 22px;
-    font-weight: 700;
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .bill-item-info {
@@ -1623,15 +1608,36 @@ textarea.note-input {
 }
 
 .bill-item-variant {
-    margin: 0;
-    font-size: 0.8rem;
+    margin: 4px 0 0;
+    font-size: 0.82rem;
     color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.variant-divider {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+}
+
+.bill-item-price-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
 }
 
 .bill-item-price {
     font-weight: 700;
     color: #0f172a;
-    font-size: 1rem;
+    font-size: 0.95rem;
+}
+
+.bill-item-qty {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-weight: 600;
 }
 
 /* Coupons */

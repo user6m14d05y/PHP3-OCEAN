@@ -1,12 +1,12 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8383/api',
+    baseURL: import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8383/api`,
     headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
     },
-    timeout: 30000,
+    timeout: 300000, 
 });
 
 // ── Helpers: đọc/ghi token từ sessionStorage (SessionSync xử lý cross-tab) ──

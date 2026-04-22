@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, computed, nextTick } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import api from "@/axios";
+import Swal from 'sweetalert2';
 import AdminCategoryFormTree from "@/components/AdminCategoryFormTree.vue";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
@@ -70,6 +71,11 @@ const product = reactive({
     price: "",
     compare_at_price: "",
     stock: "",
+    // Sale fields (simple product)
+    has_sale: false,
+    sale_price: "",
+    sale_starts_at: "",
+    sale_ends_at: "",
     variants: [],
     gallery_files: [],
     galleryPreviews: [],
@@ -118,9 +124,16 @@ const fetchProduct = async () => {
 
         // Simple product
         if (p.product_type === "simple" && p.variants && p.variants.length > 0) {
-            product.price = p.variants[0].price || "";
-            product.compare_at_price = p.variants[0].compare_at_price || "";
-            product.stock = p.variants[0].stock || "";
+            const defVariant = p.variants[0];
+            product.price = defVariant.price || "";
+            product.compare_at_price = defVariant.compare_at_price || "";
+            product.stock = defVariant.stock || "";
+            if (defVariant.sale_price) {
+                product.has_sale = true;
+                product.sale_price = defVariant.sale_price;
+                product.sale_starts_at = defVariant.sale_starts_at ? defVariant.sale_starts_at.slice(0, 16) : "";
+                product.sale_ends_at = defVariant.sale_ends_at ? defVariant.sale_ends_at.slice(0, 16) : "";
+            }
         }
 
         // Variant product: group variants by color
@@ -143,6 +156,10 @@ const fetchProduct = async () => {
                     size: v.size || "",
                     price: v.price || 0,
                     stock: v.stock || 0,
+                    has_sale: !!v.sale_price,
+                    sale_price: v.sale_price || "",
+                    sale_starts_at: v.sale_starts_at ? v.sale_starts_at.slice(0, 16) : "",
+                    sale_ends_at: v.sale_ends_at ? v.sale_ends_at.slice(0, 16) : "",
                 });
             });
 
@@ -162,7 +179,7 @@ const fetchProduct = async () => {
         }
     } catch (e) {
         console.error("Error fetching product:", e);
-        alert("Không thể tải thông tin sản phẩm.");
+        Swal.fire('Lỗi', 'Không thể tải thông tin sản phẩm.', 'error');
     } finally {
         isLoading.value = false;
         nextTick(() => initQuill());
@@ -171,10 +188,10 @@ const fetchProduct = async () => {
 
 // ===== Variants =====
 const addVariant = () => {
-    product.variants.push({ color: "", images: [], imagePreviews: [], existingImages: [], sizes: [{ size: "", stock: 0, price: 0 }] });
+    product.variants.push({ color: "", images: [], imagePreviews: [], existingImages: [], sizes: [{ size: "", stock: 0, price: 0, has_sale: false, sale_price: "", sale_starts_at: "", sale_ends_at: "" }] });
 };
 const removeVariant = (i) => product.variants.splice(i, 1);
-const addSize = (vi) => product.variants[vi].sizes.push({ size: "", stock: 0, price: 0 });
+const addSize = (vi) => product.variants[vi].sizes.push({ size: "", stock: 0, price: 0, has_sale: false, sale_price: "", sale_starts_at: "", sale_ends_at: "" });
 const removeSize = (vi, si) => product.variants[vi].sizes.splice(si, 1);
 
 // ===== Images =====
@@ -191,6 +208,12 @@ const handleGalleryChange = (e) => {
 };
 const removeNewGalleryImage = (i) => { product.gallery_files.splice(i, 1); product.galleryPreviews.splice(i, 1); };
 const removeExistingGalleryImage = (i, id) => { product.existing_gallery.splice(i, 1); product.deleted_gallery_ids.push(id); };
+
+// Tính % giảm giá preview (simple)
+const simpleSalePercent = computed(() => {
+    if (!product.has_sale || !product.sale_price || !product.price) return 0;
+    return Math.round((product.price - product.sale_price) / product.price * 100);
+});
 
 const handleVariantImageChange = (e, vi) => {
     Array.from(e.target.files).forEach((f) => {
@@ -215,7 +238,12 @@ const validateForm = () => {
     if (!product.category_id) { errors.value.category_id = "Danh mục là bắt buộc"; ok = false; }
     if (product.product_type === "simple") {
         if (!product.price) { errors.value.price = "Giá bán là bắt buộc"; ok = false; }
+        else if (Number(product.price) < 100000) { errors.value.price = "Giá bán tối thiểu là 100.000đ"; ok = false; }
         if (product.stock === "" || product.stock === null) { errors.value.stock = "Số lượng kho là bắt buộc"; ok = false; }
+        if (product.has_sale) {
+            if (!product.sale_price) { errors.value.sale_price = "Bắt buộc"; ok = false; }
+            else if (Number(product.sale_price) < 1) { errors.value.sale_price = "Phải > 0đ"; ok = false; }
+        }
     } else {
         if (!product.variants.length) { errors.value.variants_global = "Cần ít nhất một biến thể"; ok = false; }
         else {
@@ -242,7 +270,12 @@ const validateForm = () => {
                             else sizeSet.add(sk);
                         }
                         if (!s.price) { se.price = "Giá là bắt buộc"; ok = false; }
+                        else if (Number(s.price) < 100000) { se.price = "Giá tối thiểu 100.000đ"; ok = false; }
                         if (s.stock === "" || s.stock === null) { se.stock = "Kho là bắt buộc"; ok = false; }
+                        if (s.has_sale) {
+                            if (!s.sale_price) { se.sale_price = "Bắt buộc"; ok = false; }
+                            else if (Number(s.sale_price) < 1) { se.sale_price = "Phải > 0đ"; ok = false; }
+                        }
                         const combo = `${(v.color || "").trim().toLowerCase()}-${(s.size || "").trim().toLowerCase()}`;
                         if (v.color && s.size && combos.has(combo)) { se.duplicate = "Biến thể trùng"; ok = false; }
                         else if (v.color && s.size) combos.add(combo);
@@ -283,8 +316,23 @@ const handleSubmit = async () => {
         fd.append("price", product.price);
         fd.append("compare_at_price", product.compare_at_price || "");
         fd.append("stock", product.stock);
+        if (product.has_sale && product.sale_price) {
+            fd.append("sale_price", product.sale_price);
+            fd.append("sale_starts_at", product.sale_starts_at || "");
+            fd.append("sale_ends_at", product.sale_ends_at || "");
+        }
     } else {
-        fd.append("variants", JSON.stringify(product.variants.map((v) => ({ color: v.color, sizes: v.sizes }))));
+        fd.append("variants", JSON.stringify(product.variants.map((v) => ({
+            color: v.color,
+            sizes: v.sizes.map((s) => ({
+                size: s.size,
+                stock: s.stock,
+                price: s.price,
+                sale_price: s.has_sale ? s.sale_price : null,
+                sale_starts_at: s.has_sale ? s.sale_starts_at : null,
+                sale_ends_at: s.has_sale ? s.sale_ends_at : null,
+            }))
+        }))));
         product.variants.forEach((v, vi) => {
             v.images.forEach((f, ii) => fd.append(`variant_images[${vi}][${ii}]`, f));
         });
@@ -296,12 +344,12 @@ const handleSubmit = async () => {
 
     try {
         await api.post(`/products/${productId.value}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
-        alert("Cập nhật sản phẩm thành công!");
+        Swal.fire('Thành công', 'Cập nhật sản phẩm thành công!', 'success');
         router.push("/admin/product");
     } catch (e) {
         console.error("Error:", e.response?.data || e);
         if (e.response?.data?.errors) errors.value = e.response.data.errors;
-        alert(e.response?.data?.message || "Có lỗi xảy ra khi cập nhật.");
+        Swal.fire('Lỗi', e.response?.data?.message || "Có lỗi xảy ra khi cập nhật.", 'error');
     } finally {
         isSaving.value = false;
     }
@@ -376,7 +424,7 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
                                 <label>Giá Bán <span class="required">*</span></label>
                                 <div class="input-with-prefix">
                                     <span class="prefix">₫</span>
-                                    <input type="number" v-model="product.price" class="form-control" :class="{'is-invalid': errors.price}" placeholder="0" />
+                                    <input type="number" min="100000" oninput="if(this.value < 0) this.value = Math.abs(this.value)" @keydown="if(['-','e','E'].includes($event.key)) $event.preventDefault();" v-model="product.price" class="form-control" :class="{'is-invalid': errors.price}" placeholder="0" />
                                 </div>
                                 <span v-if="errors.price" class="field-error">{{ errors.price }}</span>
                             </div>
@@ -384,14 +432,55 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
                                 <label>Giá Gốc Trước Giảm</label>
                                 <div class="input-with-prefix">
                                     <span class="prefix">₫</span>
-                                    <input type="number" v-model="product.compare_at_price" class="form-control" placeholder="0" />
+                                    <input type="number" min="100000" oninput="if(this.value < 0) this.value = Math.abs(this.value)" @keydown="if(['-','e','E'].includes($event.key)) $event.preventDefault();" v-model="product.compare_at_price" class="form-control" placeholder="0" />
                                 </div>
                             </div>
                             <div class="form-group" style="grid-column: span 2">
                                 <label>Số Lượng Kho <span class="required">*</span></label>
-                                <input type="number" v-model="product.stock" class="form-control" :class="{'is-invalid': errors.stock}" placeholder="0" />
+                                <input type="number" min="0" oninput="if(this.value < 0) this.value = Math.abs(this.value)" @keydown="if(['-','e','E'].includes($event.key)) $event.preventDefault();" v-model="product.stock" class="form-control" :class="{'is-invalid': errors.stock}" placeholder="0" />
                                 <span v-if="errors.stock" class="field-error">{{ errors.stock }}</span>
                             </div>
+                        </div>
+
+                        <!-- Khuyến Mãi Theo Thời Gian (Simple) -->
+                        <div class="sale-promo-section" v-if="product.product_type === 'simple'">
+                            <label class="toggle-switch-wrapper sale-toggle">
+                                <span class="toggle-label">
+                                    <strong>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px">
+                                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+                                            <line x1="7" y1="7" x2="7.01" y2="7"/>
+                                        </svg>
+                                        Khuyến Mãi Theo Thời Gian
+                                    </strong>
+                                    <span>Thiết lập giá giảm có thời hạn</span>
+                                </span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" v-model="product.has_sale" class="toggle-input" />
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                            <Transition name="slide-fade">
+                                <div v-if="product.has_sale" class="sale-fields-grid">
+                                    <div class="form-group">
+                                        <label>Giá Khuyến Mãi</label>
+                                        <div class="input-with-prefix" :class="{'is-invalid': errors.sale_price}">
+                                            <span class="prefix">₫</span>
+                                            <input type="number" min="1" oninput="if(this.value < 0) this.value = Math.abs(this.value)" @keydown="if(['-','e','E'].includes($event.key)) $event.preventDefault();" v-model="product.sale_price" class="form-control" placeholder="0" />
+                                        </div>
+                                        <span v-if="errors.sale_price" class="field-error">{{ errors.sale_price }}</span>
+                                        <span v-if="simpleSalePercent > 0 && !errors.sale_price" class="sale-preview-badge">Giảm {{ simpleSalePercent }}%</span>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Bắt Đầu</label>
+                                        <input type="datetime-local" v-model="product.sale_starts_at" class="form-control" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Kết Thúc</label>
+                                        <input type="datetime-local" v-model="product.sale_ends_at" class="form-control" />
+                                    </div>
+                                </div>
+                            </Transition>
                         </div>
                     </div>
 
@@ -453,20 +542,49 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
                                                         <span v-if="errors.variants?.[vIndex]?.sizes?.[sIndex]?.size" class="field-error">{{ errors.variants[vIndex].sizes[sIndex].size }}</span>
                                                     </td>
                                                     <td>
-                                                        <input type="number" v-model="s.stock" class="form-control input-sm" :class="{ 'is-invalid': errors.variants?.[vIndex]?.sizes?.[sIndex]?.stock, 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.stock }" placeholder="0" />
+                                                        <input type="number" min="0" oninput="if(this.value < 0) this.value = Math.abs(this.value)" @keydown="if(['-','e','E'].includes($event.key)) $event.preventDefault();" v-model="s.stock" class="form-control input-sm" :class="{ 'is-invalid': errors.variants?.[vIndex]?.sizes?.[sIndex]?.stock, 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.stock }" placeholder="0" />
                                                         <span v-if="errors.variants?.[vIndex]?.sizes?.[sIndex]?.stock" class="field-error">{{ errors.variants[vIndex].sizes[sIndex].stock }}</span>
                                                     </td>
                                                     <td>
-                                                        <input type="number" v-model="s.price" class="form-control input-sm" :class="{ 'is-invalid': errors.variants?.[vIndex]?.sizes?.[sIndex]?.price, 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.price }" placeholder="0" />
+                                                        <input type="number" min="100000" oninput="if(this.value < 0) this.value = Math.abs(this.value)" @keydown="if(['-','e','E'].includes($event.key)) $event.preventDefault();" v-model="s.price" class="form-control input-sm" :class="{ 'is-invalid': errors.variants?.[vIndex]?.sizes?.[sIndex]?.price, 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.price }" placeholder="0" />
                                                         <span v-if="errors.variants?.[vIndex]?.sizes?.[sIndex]?.price" class="field-error">{{ errors.variants[vIndex].sizes[sIndex].price }}</span>
                                                     </td>
-                                                    <td>
+                                                    <td class="action-cell">
+                                                        <button class="btn-sale-toggle" :class="{ active: s.has_sale }" type="button" title="Thiết lập khuyến mãi" @click.prevent="s.has_sale = !s.has_sale">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+                                                                <line x1="7" y1="7" x2="7.01" y2="7"/>
+                                                            </svg>
+                                                        </button>
                                                         <button class="btn-icon-danger square" type="button" @click.prevent="removeSize(vIndex, sIndex)">
                                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                                 <line x1="18" y1="6" x2="6" y2="18"></line>
                                                                 <line x1="6" y1="6" x2="18" y2="18"></line>
                                                             </svg>
                                                         </button>
+                                                    </td>
+                                                </tr>
+                                                <!-- Sale row (expandable) -->
+                                                <tr v-if="s.has_sale" class="sale-expand-row">
+                                                    <td colspan="4" class="sale-expand-cell">
+                                                        <div class="sale-inline-fields">
+                                                            <div class="sale-inline-field">
+                                                                <label>Giá KM (₫)</label>
+                                                                <input type="number" min="1" oninput="if(this.value < 0) this.value = Math.abs(this.value)" @keydown="if(['-','e','E'].includes($event.key)) $event.preventDefault();" v-model="s.sale_price" class="form-control input-sm" :class="{ 'is-invalid': errors.variants?.[vIndex]?.sizes?.[sIndex]?.sale_price, 'input-error': errors.variants?.[vIndex]?.sizes?.[sIndex]?.sale_price }" placeholder="0" />
+                                                                <span v-if="errors.variants?.[vIndex]?.sizes?.[sIndex]?.sale_price" class="field-error" style="margin-top:2px">{{ errors.variants[vIndex].sizes[sIndex].sale_price }}</span>
+                                                                <span v-if="s.sale_price && s.price && !errors.variants?.[vIndex]?.sizes?.[sIndex]?.sale_price" class="sale-preview-badge small">
+                                                                    -{{ Math.round((s.price - s.sale_price) / s.price * 100) }}%
+                                                                </span>
+                                                            </div>
+                                                            <div class="sale-inline-field">
+                                                                <label>Bắt đầu</label>
+                                                                <input type="datetime-local" v-model="s.sale_starts_at" class="form-control input-sm" />
+                                                            </div>
+                                                            <div class="sale-inline-field">
+                                                                <label>Kết thúc</label>
+                                                                <input type="datetime-local" v-model="s.sale_ends_at" class="form-control input-sm" />
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                                 <tr v-if="errors.variants?.[vIndex]?.sizes?.[sIndex]?.duplicate">
@@ -703,5 +821,110 @@ onMounted(() => { handleFetchCategories(); handleFetchBrands(); fetchProduct(); 
 .quill-wrapper:focus-within :deep(.ql-container.ql-snow) { border-color: var(--ocean-blue); }
 .quill-wrapper :deep(.ql-editor) { color: var(--text-main); }
 .editor-short :deep(.ql-editor) { min-height: 100px; max-height: 250px; }
-.editor-long :deep(.ql-editor) { min-height: 250px; }
+.editor-long :deep(.ql-editor) {
+    min-height: 250px;
+}
+
+/* Sale Promo Styles */
+.sale-promo-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--border-color);
+}
+.sale-toggle {
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    background: rgba(2, 136, 209, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(2, 136, 209, 0.1);
+}
+.sale-fields-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    position: relative;
+}
+.sale-preview-badge {
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    background: var(--coral);
+    color: white;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(239, 83, 80, 0.2);
+}
+.sale-preview-badge.small {
+    position: static;
+    display: inline-block;
+    margin-top: 6px;
+    margin-left: 0;
+}
+.sale-expand-row td {
+    padding: 0 8px 12px 8px;
+    border-bottom: 2px dashed var(--border-color) !important;
+}
+.sale-expand-cell {
+    background-color: rgba(2, 136, 209, 0.03);
+    border-radius: 0 0 6px 6px;
+}
+.sale-inline-fields {
+    display: flex;
+    gap: 16px;
+    padding: 12px;
+}
+.sale-inline-field {
+    flex: 1;
+}
+.sale-inline-field label {
+    font-size: 0.75rem;
+    color: var(--ocean-blue);
+    margin-bottom: 4px;
+    display: block;
+    font-weight: 600;
+}
+.action-cell {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.btn-sale-toggle {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: #f8fafc;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-sale-toggle:hover {
+    background: var(--ocean-deepest);
+    color: var(--ocean-blue);
+}
+.btn-sale-toggle.active {
+    background: rgba(2, 136, 209, 0.1);
+    color: var(--ocean-blue);
+    border-color: var(--ocean-blue);
+}
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+.slide-fade-leave-active {
+  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
+}
 </style>

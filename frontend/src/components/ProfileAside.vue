@@ -97,6 +97,20 @@
         <span>Đổi mật khẩu</span>
       </router-link>
 
+      <router-link
+        to="/profile/notifications"
+        class="aside-nav-item"
+        active-class="aside-nav-item--active"
+      >
+        <div class="aside-nav-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </div>
+        <span>Thông báo</span>
+      </router-link>
+
       <div class="aside-nav-divider"></div>
 
       <button class="aside-nav-item aside-nav-item--logout" @click="handleLogout">
@@ -117,6 +131,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import api from '@/axios';
+import Swal from 'sweetalert2';
 
 const router = useRouter();
 const route = useRoute();
@@ -144,7 +159,15 @@ onMounted(() => {
 });
 
 const handleLogout = async () => {
-  if (!confirm('Bạn có chắc chắn muốn đăng xuất?')) return;
+  const result = await Swal.fire({
+      title: 'Xác nhận',
+      text: 'Bạn có chắc chắn muốn đăng xuất?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Đăng xuất',
+      cancelButtonText: 'Hủy'
+  });
+  if (!result.isConfirmed) return;
   try { await api.post('/logout'); } catch (e) { /* ignore */ }
   localStorage.removeItem('auth_token');
   localStorage.removeItem('user');

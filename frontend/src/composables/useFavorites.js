@@ -43,7 +43,7 @@ export function useFavorites() {
      * Toggle trái tim (thêm/xoá)
      */
     const toggleFavorite = async (productId) => {
-        if (!localStorage.getItem('auth_token')) {
+        if (!isLoggedIn()) {
             Toast.fire({
                 icon: 'warning',
                 title: 'Vui lòng đăng nhập để yêu thích sản phẩm'

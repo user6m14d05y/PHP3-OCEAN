@@ -1,12 +1,13 @@
  <script setup>
 import { ref } from 'vue';
 import axios  from "axios";
+import Swal from 'sweetalert2';
 
 const email = ref('');
 
 const SubmitContact = async () => {
   if(email.value === ""){
-    alert ("Vui lòng nhập email!");
+    Swal.fire('Lưu ý', 'Vui lòng nhập email!', 'warning');
     return;
   }
 
@@ -15,11 +16,11 @@ const SubmitContact = async () => {
       email: email.value
     }); 
     if (reponse.data.status == "success"){
-     alert(reponse.data.message);
+     Swal.fire('Thành công', reponse.data.message, 'success');
      email.value = "";
     }
   } catch (error) {
-        alert("Lỗi gửi email: " + error);
+        Swal.fire('Lỗi', "Lỗi gửi email: " + error, 'error');
         console.error('Lỗi đăng ký:', error);
     };
 };

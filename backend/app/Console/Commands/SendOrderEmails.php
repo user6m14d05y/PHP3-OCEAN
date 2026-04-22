@@ -81,6 +81,33 @@ class SendOrderEmails extends Command
                 // ─── Bước 2: Gửi email qua SMTP ───
                 $this->sendEmail($order, $user);
 
+                // --- Bước 2.1: Tạo thông báo in-app (vào DB) ---
+                try {
+                    $notificationData = [
+                        'title'       => '📦 Đặt hàng thành công',
+                        'message'     => 'Đơn hàng ' . $order->order_code . ' của bạn đã được ghi nhận.',
+                        'order_code'  => $order->order_code,
+                        'grand_total' => $order->grand_total,
+                        'type'        => 'order_created'
+                    ];
+
+                    \Illuminate\Support\Facades\DB::table('notifications')->insert([
+                        'id'              => \Illuminate\Support\Str::uuid(),
+                        'type'            => 'App\Notifications\OrderCreatedNotification',
+                        'notifiable_type' => \App\Models\User::class,
+                        'notifiable_id'   => $user->user_id,
+                        'data'            => json_encode($notificationData),
+                        'read_at'         => null,
+                        'created_at'      => \Carbon\Carbon::now(),
+                        'updated_at'      => \Carbon\Carbon::now(),
+                    ]);
+
+                    // Broadcast realtime event
+                    event(new \App\Events\UserNotificationEvent($user->user_id, $notificationData));
+                } catch (\Exception $ex) {
+                    Log::error("Save order notification failed for {$order->order_code}: " . $ex->getMessage());
+                }
+
                 // ─── Bước 3: Đánh dấu đã gửi ───
                 $order->update(['email_sent' => true]);
 

@@ -11,8 +11,15 @@ const emit = defineEmits(['edit', 'delete']);
         <td>
             <div class="name-cell" :style="{ paddingLeft: (level * 24) + 'px' }">
                 <span v-if="level > 0" class="tree-icon">└</span>
+                <!-- Thumbnail ảnh danh mục hoặc icon mặc định -->
                 <div class="cat-icon-wrap">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <img
+                        v-if="category.image_url"
+                        :src="category.image_url"
+                        :alt="category.name"
+                        class="cat-thumbnail"
+                    />
+                    <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
                     </svg>
                 </div>
@@ -55,10 +62,13 @@ const emit = defineEmits(['edit', 'delete']);
 .name-cell { display: flex; align-items: center; gap: 10px; }
 .tree-icon { color: var(--text-light); font-family: monospace; font-size: 1rem; flex-shrink: 0; }
 .cat-icon-wrap {
-    width: 32px; height: 32px; border-radius: 7px; flex-shrink: 0;
+    width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
     background: rgba(2, 136, 209, 0.08); border: 1px solid rgba(2, 136, 209, 0.15);
     display: flex; align-items: center; justify-content: center;
-    color: var(--ocean-blue);
+    color: var(--ocean-blue); overflow: hidden;
+}
+.cat-thumbnail {
+    width: 100%; height: 100%; object-fit: cover; border-radius: 7px;
 }
 .cat-name { font-size: 0.88rem; font-weight: 700; color: var(--text-main); }
 .child-badge {

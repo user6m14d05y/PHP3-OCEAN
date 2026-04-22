@@ -56,40 +56,63 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $page = $request->query('page', 1);
-        $limit = $request->query('limit', 12);
-        $search = $request->query('search', '');
-        $status = $request->query('status', '');
-        $offset = ($page - 1) * $limit;
+        $page    = $request->query('page', 1);
+        $limit   = $request->query('limit', 12);
+        $search  = $request->query('search', '');
+        $status  = $request->query('status', '');
+        $offset  = ($page - 1) * $limit;
 
         $query = Product::with([
             'mainImage' => function ($q) {
                 $q->select('image_id', 'image_url', 'product_id');
             },
             'lowestPriceVariant' => function ($q) {
-                $q->select('variant_id', 'price', 'stock', 'product_id');
+                $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'product_id');
+            },
+            'variants' => function ($q) {
+                $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'product_id');
             },
             'category:category_id,name',
             'brand:brand_id,name',
         ])->withSum('variants', 'stock');
 
+        // ── Tìm kiếm qua Meilisearch Scout ─────────────────────────────────
         if ($search) {
-            $query->where(function ($q) use ($search)
-            {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('slug', 'like', "%{$search}%");
-            });
+            try {
+                $matchedIds = Product::search($search)->keys()->toArray();
+                if (empty($matchedIds)) {
+                    return response()->json([
+                        'data'        => [],
+                        'total'       => 0,
+                        'total_pages' => 0,
+                        'page'        => (int) $page,
+                        'limit'       => (int) $limit,
+                    ]);
+                }
+                $query->whereIn('product_id', $matchedIds);
+            } catch (\Throwable $e) {
+                // Fallback: nếu Meilisearch down thì dùng LIKE
+                Log::warning('[Scout] Meilisearch fallback: ' . $e->getMessage());
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('slug', 'like', "%{$search}%");
+                });
+            }
         }
 
-        if ($status && in_array($status, ['draft', 'active', 'inactive', 'out_of_stock'])) {
-            $query->where('status', $status);
+        if ($status) {
+            if ($status === 'deleted') {
+                $query->onlyTrashed();
+            } elseif (in_array($status, ['draft', 'active', 'inactive', 'out_of_stock'])) {
+                $query->where('status', $status)->whereNull('deleted_at');
+            }
         }
 
         // Lọc theo danh mục (bao gồm cả danh mục con)
         $categoryId = $request->query('category_id');
         if ($categoryId && $categoryId !== 'All') {
             $categoryIds = [$categoryId];
-            $childIds = \App\Models\Category::where('parent_id', $categoryId)->pluck('category_id')->toArray();
+            $childIds    = \App\Models\Category::where('parent_id', $categoryId)->pluck('category_id')->toArray();
             $categoryIds = array_merge($categoryIds, $childIds);
             $query->whereIn('category_id', $categoryIds);
         }
@@ -113,21 +136,18 @@ class ProductController extends Controller
         } elseif ($sortBy === 'price-desc') {
             $query->orderBy('min_price', 'desc');
         } else {
-            // newest hoặc default
             $query->orderBy('product_id', 'desc');
         }
 
-        $total = $query->count();
-        $products = $query->offset($offset)
-            ->limit($limit)
-            ->get();
+        $total    = $query->count();
+        $products = $query->offset($offset)->limit($limit)->get();
 
         return response()->json([
-            'data' => $products,
-            'total' => $total,
+            'data'        => $products,
+            'total'       => $total,
             'total_pages' => ceil($total / $limit),
-            'page' => (int) $page,
-            'limit' => (int) $limit,
+            'page'        => (int) $page,
+            'limit'       => (int) $limit,
         ]);
     }
     public function productFeatured(Request $request)
@@ -138,7 +158,10 @@ class ProductController extends Controller
                     $q->select('image_id', 'image_url', 'product_id');
                 },
                 'lowestPriceVariant' => function ($q) {
-                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'product_id');
+                },
+                'variants' => function ($q) {
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'product_id');
                 },
                 'category:category_id,name',
                 'brand:brand_id,name',
@@ -163,14 +186,22 @@ class ProductController extends Controller
     public function show($identifier)
     {
         $product = Cache::remember("product:identifier:{$identifier}", 1800, function () use ($identifier) {
-            $query = Product::with(['category', 'brand', 'images', 'variants']);
-            
+            $query = Product::with([
+                'category',
+                'brand',
+                'images',
+                'variants' => function ($q) {
+                    // Sắp xếp variants theo giá tăng dần để frontend dễ tính premium upsell
+                    $q->where('status', 'active')->orderBy('price', 'asc');
+                },
+            ]);
+
             if (is_numeric($identifier)) {
                 $query->where('product_id', $identifier)->orWhere('slug', $identifier);
             } else {
                 $query->where('slug', $identifier);
             }
-            
+
             return $query->first();
         });
 
@@ -179,6 +210,64 @@ class ProductController extends Controller
         }
 
         return response()->json($product);
+    }
+
+    /**
+     * Sản phẩm liên quan theo slug (cùng danh mục, loại trừ SP hiện tại)
+     * GET /products/{slug}/related
+     */
+    public function related($slug)
+    {
+        $product = Cache::remember("product:identifier:{$slug}", 1800, function () use ($slug) {
+            $query = Product::with(['category', 'brand', 'images', 'variants']);
+            if (is_numeric($slug)) {
+                $query->where('product_id', $slug)->orWhere('slug', $slug);
+            } else {
+                $query->where('slug', $slug);
+            }
+            return $query->first();
+        });
+
+        if (!$product) {
+            return response()->json(['status' => 'error', 'message' => 'Product not found'], 404);
+        }
+
+        $cacheKey = "products:related:{$product->product_id}";
+        $related = Cache::remember($cacheKey, 900, function () use ($product) {
+            return Product::with([
+                'mainImage' => function ($q) {
+                    $q->select('image_id', 'image_url', 'product_id');
+                },
+                'lowestPriceVariant' => function ($q) {
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'product_id');
+                },
+                'variants' => function ($q) {
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'product_id');
+                },
+                'category:category_id,name',
+            ])
+                ->where('category_id', $product->category_id)
+                ->where('product_id', '!=', $product->product_id)
+                ->where('status', 'active')
+                ->whereNull('deleted_at')
+                ->orderBy('product_id', 'desc')
+                ->limit(4)
+                ->get()
+                ->map(function ($p) {
+                    return [
+                        'product_id'  => $p->product_id,
+                        'name'        => $p->name,
+                        'slug'        => $p->slug,
+                        'min_price'   => $p->min_price,
+                        'thumbnail_url' => $p->mainImage?->image_url ?? $p->thumbnail_url,
+                    ];
+                });
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $related,
+        ]);
     }
 
     /**
@@ -193,7 +282,7 @@ class ProductController extends Controller
                     $q->select('image_id', 'image_url', 'product_id');
                 },
                 'lowestPriceVariant' => function ($q) {
-                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'product_id');
                 }
             ])
                 ->where('status', 'active')
@@ -259,7 +348,7 @@ class ProductController extends Controller
                     $q->select('image_id', 'image_url', 'product_id');
                 },
                 'lowestPriceVariant' => function ($q) {
-                    $q->select('variant_id', 'price', 'stock', 'product_id');
+                    $q->select('variant_id', 'price', 'compare_at_price', 'sale_price', 'sale_starts_at', 'sale_ends_at', 'stock', 'product_id');
                 }
             ])
                 ->where('status', 'active')
@@ -302,9 +391,12 @@ class ProductController extends Controller
             'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
             'gallery'           => 'nullable|array',
             'gallery.*'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-            'price'             => 'nullable|numeric|min:0',
-            'compare_at_price'  => 'nullable|numeric|min:0',
+            'price'             => 'nullable|numeric|min:100000',
+            'compare_at_price'  => 'nullable|numeric|min:100000',
             'stock'             => 'nullable|integer|min:0',
+            'sale_price'        => 'nullable|numeric|min:1',
+            'sale_starts_at'    => 'nullable|date',
+            'sale_ends_at'      => 'nullable|date|after_or_equal:sale_starts_at',
             'variants'          => 'nullable|string',
         ]);
 
@@ -325,6 +417,17 @@ class ProductController extends Controller
                 $variantsData = json_decode($request->variants, true);
                 if (!is_array($variantsData)) {
                     return response()->json(['message' => 'Dữ liệu variants không hợp lệ.'], 422);
+                }
+                // Validate giá biến thể >= 100.000đ
+                foreach ($variantsData as $vIdx => $vItem) {
+                    foreach (($vItem['sizes'] ?? []) as $sIdx => $sItem) {
+                        $sPrice = $sItem['price'] ?? 0;
+                        if ($sPrice < 100000) {
+                            return response()->json([
+                                'message' => "Giá biến thể #{$vIdx}-size #{$sIdx} phải tối thiểu 100.000đ.",
+                            ], 422);
+                        }
+                    }
                 }
             }
 
@@ -409,6 +512,9 @@ class ProductController extends Controller
                     'price'            => $price,
                     'compare_at_price' => $request->compare_at_price,
                     'stock'            => $request->stock ?? 0,
+                    'sale_price'       => $request->sale_price ?: null,
+                    'sale_starts_at'   => $request->sale_starts_at ?: null,
+                    'sale_ends_at'     => $request->sale_ends_at ?: null,
                     'status'           => 'active',
                 ]);
                 $this->generateQrCodeImage($barcode);
@@ -448,15 +554,18 @@ class ProductController extends Controller
 
                         $barcode = $this->generateUniqueBarcode();
                         $variant = ProductVariant::create([
-                            'product_id' => $product->product_id,
-                            'sku'        => $slug . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
-                            'barcode'    => $barcode,
-                            'color'      => $color,
-                            'size'       => $size,
-                            'price'      => $vPrice,
-                            'stock'      => $sData['stock'] ?? 0,
-                            'image_url'  => $variantImagePaths[0] ?? null,
-                            'status'     => 'active',
+                            'product_id'     => $product->product_id,
+                            'sku'            => $slug . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
+                            'barcode'        => $barcode,
+                            'color'          => $color,
+                            'size'           => $size,
+                            'price'          => $vPrice,
+                            'stock'          => $sData['stock'] ?? 0,
+                            'sale_price'     => !empty($sData['sale_price']) ? $sData['sale_price'] : null,
+                            'sale_starts_at' => !empty($sData['sale_starts_at']) ? $sData['sale_starts_at'] : null,
+                            'sale_ends_at'   => !empty($sData['sale_ends_at']) ? $sData['sale_ends_at'] : null,
+                            'image_url'      => $variantImagePaths[0] ?? null,
+                            'status'         => 'active',
                         ]);
                         $this->generateQrCodeImage($barcode);
 
@@ -519,9 +628,12 @@ class ProductController extends Controller
             'status'            => 'required|in:draft,active,inactive,out_of_stock',
             'is_featured'       => 'boolean',
             'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
-            'price'             => 'nullable|numeric|min:0',
-            'compare_at_price'  => 'nullable|numeric|min:0',
+            'price'             => 'nullable|numeric|min:100000',
+            'compare_at_price'  => 'nullable|numeric|min:100000',
             'stock'             => 'nullable|integer|min:0',
+            'sale_price'        => 'nullable|numeric|min:1',
+            'sale_starts_at'    => 'nullable|date',
+            'sale_ends_at'      => 'nullable|date|after_or_equal:sale_starts_at',
             'gallery'           => 'nullable|array',
             'gallery.*'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
             'deleted_gallery_ids'   => 'nullable|array',
@@ -547,7 +659,19 @@ class ProductController extends Controller
                 if (!is_array($variantsData)) {
                     return response()->json(['message' => 'Dữ liệu variants không hợp lệ.'], 422);
                 }
+                // Validate giá biến thể >= 100.000đ
+                foreach ($variantsData as $vIdx => $vItem) {
+                    foreach (($vItem['sizes'] ?? []) as $sIdx => $sItem) {
+                        $sPrice = $sItem['price'] ?? 0;
+                        if ($sPrice < 100000) {
+                            return response()->json([
+                                'message' => "Giá biến thể #{$vIdx}-size #{$sIdx} phải tối thiểu 100.000đ.",
+                            ], 422);
+                        }
+                    }
+                }
             }
+
 
             // 2. Thumbnail
             $thumbnailPath = $product->thumbnail_url;
@@ -637,6 +761,9 @@ class ProductController extends Controller
                         'price'            => $price,
                         'compare_at_price' => $request->compare_at_price,
                         'stock'            => $stock,
+                        'sale_price'       => $request->sale_price ?: null,
+                        'sale_starts_at'   => $request->sale_starts_at ?: null,
+                        'sale_ends_at'     => $request->sale_ends_at ?: null,
                     ];
                     // Nếu chưa có barcode thì tạo mới
                     if (empty($defaultVariant->barcode)) {
@@ -648,13 +775,16 @@ class ProductController extends Controller
                 } else {
                     $barcode = $this->generateUniqueBarcode();
                     ProductVariant::create([
-                        'product_id' => $product->product_id,
-                        'sku'        => Str::slug($product->name) . '-default',
-                        'barcode'    => $barcode,
+                        'product_id'       => $product->product_id,
+                        'sku'              => Str::slug($product->name) . '-default',
+                        'barcode'          => $barcode,
                         'price'            => $price,
                         'compare_at_price' => $request->compare_at_price,
                         'stock'            => $stock,
-                        'status'     => 'active',
+                        'sale_price'       => $request->sale_price ?: null,
+                        'sale_starts_at'   => $request->sale_starts_at ?: null,
+                        'sale_ends_at'     => $request->sale_ends_at ?: null,
+                        'status'           => 'active',
                     ]);
                     $this->generateQrCodeImage($barcode);
                 }
@@ -745,15 +875,18 @@ class ProductController extends Controller
 
                         $barcode = $this->generateUniqueBarcode();
                         $variant = ProductVariant::create([
-                            'product_id' => $product->product_id,
-                            'sku'        => Str::slug($product->name) . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
-                            'barcode'    => $barcode,
-                            'color'      => $color,
-                            'size'       => $size,
-                            'price'      => $vPrice,
-                            'stock'      => $sData['stock'] ?? 0,
-                            'image_url'  => $mainImageUrl,
-                            'status'     => 'active',
+                            'product_id'     => $product->product_id,
+                            'sku'            => Str::slug($product->name) . '-' . Str::slug($color ?? 'def') . '-' . Str::slug($size ?? 'def') . '-' . Str::random(4),
+                            'barcode'        => $barcode,
+                            'color'          => $color,
+                            'size'           => $size,
+                            'price'          => $vPrice,
+                            'stock'          => $sData['stock'] ?? 0,
+                            'sale_price'     => !empty($sData['sale_price']) ? $sData['sale_price'] : null,
+                            'sale_starts_at' => !empty($sData['sale_starts_at']) ? $sData['sale_starts_at'] : null,
+                            'sale_ends_at'   => !empty($sData['sale_ends_at']) ? $sData['sale_ends_at'] : null,
+                            'image_url'      => $mainImageUrl,
+                            'status'         => 'active',
                         ]);
                         $this->generateQrCodeImage($barcode);
 
@@ -815,77 +948,253 @@ class ProductController extends Controller
     public function destroy($id)
     {
         try {
-            $product = Product::findOrFail($id);
-            $product->delete();
+            $product = Product::withTrashed()->findOrFail($id);
+            
+            if ($product->trashed()) {
+                $product->forceDelete();
+                $msg = 'Xóa vĩnh viễn sản phẩm thành công.';
+            } else {
+                $product->delete();
+                $msg = 'Xóa sản phẩm thành công.';
+            }
+
             Cache::flush();
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Product deleted successfully',
+                'message' => $msg,
             ]);
         } catch (\Exception $e) {
             $isDbError = $e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException;
             $errorMsg = $isDbError ? 'Lỗi hệ thống.' : $e->getMessage();
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Xóa thất bại: ' . $errorMsg,
+                'message' => 'Lỗi khi xóa: ' . $errorMsg,
             ], 500);
         }
     }
 
     /**
-     * Import sản phẩm từ file Excel
+     * Khôi phục sản phẩm (restore)
+     */
+    public function restore($id)
+    {
+        try {
+            $product = Product::withTrashed()->findOrFail($id);
+            $product->restore();
+            Cache::flush();
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Khôi phục sản phẩm thành công.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không thể khôi phục sản phẩm.',
+            ], 500);
+        }
+    }
+
+    /**
+     * Import sản phẩm từ Excel - Kiến trúc CHUNK THEO FILE DISK
      *
-     * === FLOW ===
-     * 1. Validate: file phải là .xlsx hoặc .xls, tối đa 10MB
-     * 2. Gọi ProductsImport để đọc từng dòng và tạo sản phẩm
-     * 3. Trả kết quả: số SP thành công, số lỗi, chi tiết lỗi từng dòng
+     * FLOW:
+     * B1: Lưu file vào disk → KHÔNG parse toàn bộ, không tốn RAM
+     * B2: Trả về session_id + total_chunks ngay lập tức
+     * B3: Frontend gọi process-chunk từng phần → mỗi request chỉ đọc 200 dòng
      */
     public function importExcel(Request $request)
     {
         $request->validate([
-            'excel_file' => 'required|file|mimes:xlsx,xls|max:10240',
+            'excel_file' => 'required|file|mimes:xlsx,xls|max:20480',
         ], [
             'excel_file.required' => 'Vui lòng chọn file Excel.',
             'excel_file.mimes'    => 'File phải có định dạng .xlsx hoặc .xls.',
-            'excel_file.max'      => 'File không được vượt quá 10MB.',
+            'excel_file.max'      => 'File không được vượt quá 20MB.',
         ]);
 
         try {
+            $rowsPerChunk = 50; // 50 dòng/chunk → mỗi request ~5-15s, an toàn với Nginx 300s
+
+            // B1: Lưu file vào disk — không parse, không tốn RAM
+            $file        = $request->file('excel_file');
+            $sessionId   = Str::random(30);
+            $ext         = $file->getClientOriginalExtension();
+            $storagePath = 'imports/' . $sessionId . '.' . $ext;
+            Storage::disk('local')->put($storagePath, file_get_contents($file->getRealPath()));
+            $filePath = Storage::disk('local')->path($storagePath);
+
+            // B2: Đếm số dòng KHÔNG dùng SpreadSheet library (zero RAM overhead)
+            // .xlsx là file ZIP chứa XML → đọc thẳng rows XML bằng regex
+            $totalDataRows = 0;
+            $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+
+            if ($ext === 'xlsx') {
+                // Đọc sheet1.xml từ trong zip, đếm thẻ <row> bằng stream
+                $zip = new \ZipArchive();
+                if ($zip->open($filePath) === true) {
+                    $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+                    $zip->close();
+                    if ($sheetXml !== false) {
+                        // Đếm thẻ <row ...> (trừ 1 header row)
+                        $rowCount = preg_match_all('/<row\s/', $sheetXml);
+                        $totalDataRows = max(0, $rowCount - 1);
+                    }
+                    unset($sheetXml);
+                }
+            } else {
+                // Với .xls: dùng PhpSpreadsheet nhưng chỉ đọc cột A
+                $filter = new class implements \PhpOffice\PhpSpreadsheet\Reader\IReadFilter {
+                    public function readCell(string $columnAddress, int $row, string $worksheetName = ''): bool {
+                        return $columnAddress === 'A';
+                    }
+                };
+                $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($filePath);
+                $reader->setReadDataOnly(true);
+                $reader->setReadFilter($filter);
+                $spreadsheet   = $reader->load($filePath);
+                $highestRow    = $spreadsheet->getActiveSheet()->getHighestDataRow('A');
+                $spreadsheet->disconnectWorksheets();
+                unset($spreadsheet, $reader, $filter);
+                $totalDataRows = max(0, $highestRow - 1);
+            }
+
+
+            if ($totalDataRows === 0) {
+                Storage::disk('local')->delete($storagePath);
+                return response()->json(['success' => false, 'message' => 'File không có dữ liệu hợp lệ.'], 400);
+            }
+
+            $totalChunks = (int)ceil($totalDataRows / $rowsPerChunk);
+
+            // B3: Lưu metadata nhỏ vào cache (không serialize data lớn)
+            Cache::put('import_meta_' . $sessionId, [
+                'storage_path'   => $storagePath,
+                'rows_per_chunk' => $rowsPerChunk,
+                'total_chunks'   => $totalChunks,
+                'total_rows'     => $totalDataRows,
+            ], 7200);
+
+            return response()->json([
+                'success'      => true,
+                'session_id'   => $sessionId,
+                'total_chunks' => $totalChunks,
+                'total_rows'   => $totalDataRows,
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error('[ProductImportExcel] ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            // Dọn file nếu có lỗi
+            if (isset($storagePath)) {
+                Storage::disk('local')->delete($storagePath);
+            }
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi đọc file: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    /**
+     * Xử lý 1 chunk — Frontend gọi lặp với chunk_index = 0, 1, 2, ...
+     * Mỗi request chỉ đọc 200 dòng từ file đã lưu trên disk → không timeout
+     */
+    public function processImportChunk(Request $request)
+    {
+        $request->validate([
+            'session_id'  => 'required|string',
+            'chunk_index' => 'required|integer|min:0',
+        ]);
+
+        $sessionId  = $request->session_id;
+        $chunkIndex = (int)$request->chunk_index;
+
+        $meta = Cache::get('import_meta_' . $sessionId);
+        if (!$meta) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Session đã hết hạn. Vui lòng upload lại file.',
+            ], 400);
+        }
+
+        $storagePath  = $meta['storage_path'];
+        $rowsPerChunk = $meta['rows_per_chunk'];
+        $totalChunks  = $meta['total_chunks'];
+
+        // Dòng bắt đầu đọc (dòng 1 là header, data từ dòng 2)
+        $chunkStartRow = 2 + ($chunkIndex * $rowsPerChunk);
+        $filePath = Storage::disk('local')->path($storagePath);
+
+        if (!file_exists($filePath)) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'File không tồn tại trên server.',
+            ], 400);
+        }
+
+        try {
+            ini_set('memory_limit', '512M');
+            set_time_limit(120);
+
+            // Chỉ đọc $rowsPerChunk dòng từ dòng $chunkStartRow
+            $rowImport = new \App\Imports\ProductsRowImport($chunkStartRow, $rowsPerChunk);
+            Excel::import($rowImport, $filePath);
+            $rawRows = $rowImport->getRows();
+            unset($rowImport);
+
+            if (empty($rawRows)) {
+                return response()->json(['success' => true, 'success_count' => 0, 'errors' => []]);
+            }
+
+            // Gom nhóm theo tên sản phẩm trong chunk này
+            $groups = [];
+            $groupOrder = [];
+            foreach ($rawRows as $idx => $row) {
+                $name = trim((string)($row[0] ?? ''));
+                if (empty($name)) continue;
+                $key = mb_strtolower($name);
+                if (!isset($groups[$key])) {
+                    $groups[$key] = [];
+                    $groupOrder[] = $key;
+                }
+                $groups[$key][] = [
+                    'row'      => array_values((array)$row),
+                    'excelRow' => $chunkStartRow + $idx,
+                ];
+            }
+            unset($rawRows);
+
             $import = new ProductsImport();
-            Excel::import($import, $request->file('excel_file'));
+            foreach ($groupOrder as $key) {
+                $import->processProductGroup($groups[$key]);
+            }
+            unset($groups);
 
-            $successCount = $import->getSuccessCount();
-            $errors = $import->getErrors();
-
-            if ($successCount > 0) {
+            // Chunk cuối → dọn dẹp file tạm và refresh cache
+            $isLastChunk = ($chunkIndex >= $totalChunks - 1);
+            if ($isLastChunk) {
+                Storage::disk('local')->delete($storagePath);
+                Cache::forget('import_meta_' . $sessionId);
                 Cache::flush();
             }
 
             return response()->json([
                 'success'       => true,
-                'message'       => "Import hoàn tất: {$successCount} sản phẩm thành công.",
-                'success_count' => $successCount,
-                'error_count'   => count($errors),
-                'errors'        => $errors,
+                'success_count' => $import->getSuccessCount(),
+                'errors'        => $import->getErrors(),
             ]);
 
         } catch (\Throwable $e) {
-            Log::error('[ProductImportExcel] ' . $e->getMessage());
-            $isDbError = $e instanceof \Illuminate\Database\QueryException || $e instanceof \PDOException;
-            $errorMsg = $isDbError ? 'Lỗi hệ thống.' : $e->getMessage();
+            Log::error('[ProductImportChunk] chunk=' . $chunkIndex . ' ' . $e->getMessage());
             return response()->json([
-                'status' => 'error',
-                'message' => 'Lỗi khi import: ' . $errorMsg,
+                'success' => false,
+                'error'   => 'Lỗi chunk ' . $chunkIndex . ': ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Tải file Excel mẫu để người dùng tải về điền dữ liệu
-     *
-     * === FLOW ===
-     * 1. Gọi ProductsTemplateExport → sinh file .xlsx trong memory
-     * 2. Trả về response download (không lưu tạm trên server)
      */
     public function downloadTemplate()
     {

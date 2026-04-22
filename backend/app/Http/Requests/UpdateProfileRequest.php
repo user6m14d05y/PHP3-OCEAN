@@ -22,9 +22,10 @@ class UpdateProfileRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'full_name' => 'required|string|max:120',
-            'phone'     => 'nullable|string|max:20',
-            'avatar'    => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'full_name'     => 'required|string|max:120',
+            'phone'         => 'nullable|string|max:20',
+            'date_of_birth' => 'nullable|date',
+            'avatar'        => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ];
     }
 
@@ -37,6 +38,7 @@ class UpdateProfileRequest extends FormRequest
             'avatar.image' => 'File tải lên phải là hình ảnh (jpeg, png, jpg, gif).',
             'avatar.mimes' => 'Hình ảnh phải có định dạng: jpeg, png, jpg, gif.',
             'avatar.max' => 'Kích thước hình ảnh không được vượt quá 2MB.',
+            'date_of_birth.date' => 'Ngày sinh không hợp lệ.',
         ];
     }
 }

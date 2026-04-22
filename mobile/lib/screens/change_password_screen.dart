@@ -1,9 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-
-const String kBaseUrl = 'http://localhost:8383/api';
+import 'package:dio/dio.dart';
+import '../services/api_client.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -16,46 +13,46 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final currentCtrl = TextEditingController();
   final newCtrl = TextEditingController();
   final confirmCtrl = TextEditingController();
+  bool _isSaving = false;
+  bool _showCurrent = false;
+  bool _showNew = false;
+  bool _showConfirm = false;
 
   Future<void> submit() async {
+    if (currentCtrl.text.isEmpty || newCtrl.text.isEmpty || confirmCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng điền đầy đủ thông tin!'), backgroundColor: Colors.orange));
+      return;
+    }
     if (newCtrl.text != confirmCtrl.text) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Xác nhận mật khẩu không khớp!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Xác nhận mật khẩu không khớp!'), backgroundColor: Colors.red));
+      return;
+    }
+    if (newCtrl.text.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mật khẩu mới phải có ít nhất 8 ký tự!'), backgroundColor: Colors.orange));
       return;
     }
 
-    showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
-
+    setState(() => _isSaving = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-      final res = await http.put(
-        Uri.parse('$kBaseUrl/profile/password'),
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-        body: jsonEncode({
-          'current_password': currentCtrl.text,
-          'new_password': newCtrl.text,
-          'new_password_confirmation': confirmCtrl.text,
-        })
-      );
-      
-      final data = jsonDecode(res.body);
-      if (mounted) Navigator.pop(context); // Close spinner
-      
-      if (res.statusCode == 200 && data['status'] == 'success') {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đổi mật khẩu thành công!'), backgroundColor: Colors.green));
-          Navigator.pop(context);
-        }
-      } else {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['message'] ?? 'Lỗi thay đổi mật khẩu!'), backgroundColor: Colors.red));
-      }
-    } catch (e) {
+      final res = await ApiClient().dio.put('/profile/password', data: {
+        'current_password': currentCtrl.text,
+        'new_password': newCtrl.text,
+        'new_password_confirmation': confirmCtrl.text,
+      });
+
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đổi mật khẩu thành công!'), backgroundColor: Colors.green));
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi kết nối máy chủ!'), backgroundColor: Colors.red));
       }
+    } on DioException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.response?.data?['message'] ?? 'Lỗi thay đổi mật khẩu!'), backgroundColor: Colors.red));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi kết nối máy chủ!'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -76,54 +73,55 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Mật khẩu hiện tại', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: currentCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
-                ),
-              ),
+              _passField('Mật khẩu hiện tại', currentCtrl, _showCurrent, () => setState(() => _showCurrent = !_showCurrent)),
               const SizedBox(height: 20),
-              
-              const Text('Mật khẩu mới', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: newCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
-                ),
-              ),
+              _passField('Mật khẩu mới', newCtrl, _showNew, () => setState(() => _showNew = !_showNew)),
               const SizedBox(height: 20),
-
-              const Text('Xác nhận mật khẩu mới', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: confirmCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
-                ),
-              ),
+              _passField('Xác nhận mật khẩu mới', confirmCtrl, _showConfirm, () => setState(() => _showConfirm = !_showConfirm)),
               const SizedBox(height: 32),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: submit,
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0EA5E9), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  child: const Text('Cập Nhật', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  onPressed: _isSaving ? null : submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0EA5E9),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: _isSaving
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('Cập Nhật Mật Khẩu', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
-              )
+              ),
             ],
-          )
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _passField(String label, TextEditingController ctrl, bool show, VoidCallback toggle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+        const SizedBox(height: 8),
+        TextField(
+          controller: ctrl,
+          obscureText: !show,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF0EA5E9), width: 1.5)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            suffixIcon: IconButton(
+              icon: Icon(show ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: const Color(0xFF94A3B8), size: 20),
+              onPressed: toggle,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

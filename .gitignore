@@ -41,11 +41,10 @@ Thumbs.db
 !/backend/storage/logs/.gitignore
 !/backend/storage/framework/.gitignore
 
-# Cho phép push ảnh mẫu (không bị block bởi root gitignore)
-!/backend/storage/app/public/products/
-!/backend/storage/app/public/products/**
-!/backend/storage/app/public/banners/
-!/backend/storage/app/public/banners/**
+# Chặn push ảnh của backend
+/backend/storage/app/public/products/*
+/backend/storage/app/public/banners/*
+/backend/storage/tmp/*
 
 # MySQL data volume
 /mysql_data/

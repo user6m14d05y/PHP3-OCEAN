@@ -1,11 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
-
-const String kBaseUrl = 'http://localhost:8383/api';
+import '../services/api_client.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -48,42 +45,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
     setState(() => _isSaving = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
-
-      // Use multipart request to support avatar upload
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$kBaseUrl/profile'),
-      );
-      request.headers.addAll({
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
+      final token = await ApiClient().dio.options.headers['Authorization'];
+      
+      // Build FormData for multipart (avatar support)
+      final formData = FormData.fromMap({
+        'full_name': _nameCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim(),
+        if (_pickedImage != null)
+          'avatar': await MultipartFile.fromFile(_pickedImage!.path, filename: 'avatar.jpg'),
       });
-      request.fields['full_name'] = _nameCtrl.text.trim();
-      request.fields['phone'] = _phoneCtrl.text.trim();
 
-      if (_pickedImage != null) {
-        request.files.add(await http.MultipartFile.fromPath('avatar', _pickedImage!.path));
+      final response = await ApiClient().dio.post(
+        '/profile',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cập nhật thành công!'), backgroundColor: Colors.green));
+        Navigator.pop(context, response.data['data'] ?? response.data['user']);
       }
-
-      final streamedRes = await request.send();
-      final response = await http.Response.fromStream(streamedRes);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cập nhật thành công!'), backgroundColor: Colors.green));
-          Navigator.pop(context, data['data']); // Return updated user data
-        }
-      } else {
-        final data = jsonDecode(response.body);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(data['message'] ?? 'Cập nhật thất bại!'),
-            backgroundColor: Colors.red,
-          ));
-        }
+    } on DioException catch (e) {
+      if (mounted) {
+        final msg = e.response?.data?['message'] ?? 'Cập nhật thất bại!';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
       }
     } catch (_) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi kết nối!'), backgroundColor: Colors.red));
@@ -96,8 +81,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final avatar = widget.userData['avatar_url'];
     final avatarUrl = avatar != null
-      ? (avatar.startsWith('http') ? avatar : 'http://localhost:8383/api/image-proxy?path=$avatar')
-      : null;
+        ? (avatar.toString().startsWith('http') ? avatar.toString() : 'http://127.0.0.1:8383/api/image-proxy?path=$avatar')
+        : null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -111,16 +96,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           TextButton(
             onPressed: _isSaving ? null : _save,
             child: _isSaving
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0EA5E9)))
-              : const Text('Lưu', style: TextStyle(color: Color(0xFF0EA5E9), fontWeight: FontWeight.bold, fontSize: 16)),
-          )
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0EA5E9)))
+                : const Text('Lưu', style: TextStyle(color: Color(0xFF0EA5E9), fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Avatar
+            // Avatar picker
             Center(
               child: Stack(
                 children: [
@@ -131,13 +116,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: const Color(0xFF0EA5E9), width: 3),
+                        boxShadow: [BoxShadow(color: const Color(0xFF0EA5E9).withOpacity(0.2), blurRadius: 12)],
                       ),
                       child: ClipOval(
                         child: _pickedImage != null
-                          ? Image.file(File(_pickedImage!.path), fit: BoxFit.cover)
-                          : (avatarUrl != null
-                              ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar())
-                              : _defaultAvatar()),
+                            ? Image.file(File(_pickedImage!.path), fit: BoxFit.cover)
+                            : (avatarUrl != null
+                                ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar())
+                                : _defaultAvatar()),
                       ),
                     ),
                   ),
@@ -146,9 +132,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: GestureDetector(
                       onTap: _pickImage,
                       child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(color: Color(0xFF0EA5E9), shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0EA5E9),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
                       ),
                     ),
                   ),
@@ -156,20 +146,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text('Nhấn để đổi ảnh', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-            const SizedBox(height: 24),
+            const Text('Nhấn để đổi ảnh đại diện', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+            const SizedBox(height: 28),
 
-            // Form fields
+            // Editable fields
             _buildCard(children: [
-              _buildField(label: 'Họ và tên', controller: _nameCtrl, hint: 'Nhập họ tên của bạn', icon: Icons.person_outline),
+              _buildField(label: 'Họ và tên', ctrl: _nameCtrl, hint: 'Nhập họ tên của bạn', icon: Icons.person_outline),
               const Divider(color: Color(0xFFF1F5F9), height: 1),
-              _buildField(label: 'Số điện thoại', controller: _phoneCtrl, hint: 'Nhập số điện thoại', icon: Icons.phone_outlined, type: TextInputType.phone),
+              _buildField(label: 'Số điện thoại', ctrl: _phoneCtrl, hint: 'Nhập số điện thoại', icon: Icons.phone_outlined, type: TextInputType.phone),
             ]),
             const SizedBox(height: 16),
 
-            // Email (read-only)
+            // Read-only fields
             _buildCard(children: [
-              _buildReadOnly(label: 'Email', value: widget.userData['email'] ?? '', icon: Icons.email_outlined),
+              _buildReadOnly(label: 'Email', value: widget.userData['email']?.toString() ?? '', icon: Icons.email_outlined),
+              const Divider(color: Color(0xFFF1F5F9), height: 1),
+              _buildReadOnly(label: 'Vai trò', value: _formatRole(widget.userData['role']), icon: Icons.badge_outlined),
             ]),
 
             const SizedBox(height: 32),
@@ -185,18 +177,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 child: _isSaving
-                  ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                      SizedBox(width: 10),
-                      Text('Đang lưu...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    ])
-                  : const Text('Lưu thay đổi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                        SizedBox(width: 10),
+                        Text('Đang lưu...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ])
+                    : const Text('Lưu thay đổi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _formatRole(dynamic role) {
+    switch (role?.toString()) {
+      case 'admin': return '👑 Quản trị viên';
+      case 'seller': return '🏪 Nhân viên bán hàng';
+      case 'staff': return '👷 Nhân viên kho';
+      default: return '👤 Khách hàng';
+    }
   }
 
   Widget _defaultAvatar() => Container(
@@ -209,7 +210,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     child: Column(children: children),
   );
 
-  Widget _buildField({required String label, required TextEditingController controller, required String hint, required IconData icon, TextInputType type = TextInputType.text}) {
+  Widget _buildField({required String label, required TextEditingController ctrl, required String hint, required IconData icon, TextInputType type = TextInputType.text}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -223,16 +224,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500)),
                 const SizedBox(height: 4),
                 TextField(
-                  controller: controller,
+                  controller: ctrl,
                   keyboardType: type,
                   style: const TextStyle(fontSize: 15, color: Color(0xFF0F172A), fontWeight: FontWeight.w500),
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
+                  decoration: InputDecoration(hintText: hint, hintStyle: const TextStyle(color: Color(0xFFCBD5E1)), border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
                 ),
               ],
             ),

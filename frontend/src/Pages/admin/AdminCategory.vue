@@ -19,9 +19,17 @@ const defaultForm = () => ({
     description: '',
     sort_order: 0,
     is_active: 1,
+    // Ảnh hiện tại (URL để preview khi edit)
+    current_image_url: null,
 });
 
 const form = ref(defaultForm());
+
+// File ảnh mới được chọn
+const imageFile = ref(null);
+const imagePreview = ref(null);
+const imageInputRef = ref(null);
+const isDeletingImage = ref(false);
 
 const toast = ref({ message: '', type: 'success' });
 const deletingCategoryId = ref(null);
@@ -66,11 +74,47 @@ const totalCount = computed(() => countAll(categories.value));
 
 onMounted(fetchCategories);
 
+// ── Xử lý chọn ảnh ──
+const onImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    imageFile.value = file;
+    const reader = new FileReader();
+    reader.onload = (ev) => { imagePreview.value = ev.target.result; };
+    reader.readAsDataURL(file);
+};
+
+const clearImageSelection = () => {
+    imageFile.value = null;
+    imagePreview.value = null;
+    if (imageInputRef.value) imageInputRef.value.value = '';
+};
+
+// ── Xóa ảnh hiện tại (đã lưu trên server) ──
+const removeCurrentImage = async () => {
+    if (!form.value.category_id || !form.value.current_image_url) {
+        form.value.current_image_url = null;
+        return;
+    }
+    isDeletingImage.value = true;
+    try {
+        await api.delete(`/categories/${form.value.category_id}/image`);
+        form.value.current_image_url = null;
+        showToast('Đã xóa ảnh danh mục!', 'success');
+        await fetchCategories();
+    } catch {
+        showToast('Xóa ảnh thất bại!', 'danger');
+    } finally {
+        isDeletingImage.value = false;
+    }
+};
+
 const openCreateModal = () => {
     isEditing.value = false;
     formError.value = '';
     errors.value = {};
     form.value = defaultForm();
+    clearImageSelection();
     isModalOpen.value = true;
 };
 
@@ -85,12 +129,15 @@ const openEditModal = (category) => {
         description: category.description || '',
         sort_order: category.sort_order || 0,
         is_active: category.is_active,
+        current_image_url: category.image_url || null,
     };
+    clearImageSelection();
     isModalOpen.value = true;
 };
 
 const closeModal = () => {
     isModalOpen.value = false;
+    clearImageSelection();
 };
 
 const formError = ref('');
@@ -108,15 +155,31 @@ const handleSubmit = async () => {
 
     if (hasError) return;
 
-    const data = { ...form.value, parent_id: form.value.parent_id || null };
     isSubmitting.value = true;
+
+    // Luôn dùng FormData để hỗ trợ upload file
+    const fd = new FormData();
+    fd.append('name', form.value.name);
+    fd.append('parent_id', form.value.parent_id ?? '');
+    fd.append('description', form.value.description || '');
+    fd.append('sort_order', form.value.sort_order ?? 0);
+    fd.append('is_active', form.value.is_active ?? 1);
+    if (imageFile.value) {
+        fd.append('image', imageFile.value);
+    }
 
     try {
         if (isEditing.value) {
-            const res = await api.put(`/categories/${data.category_id}`, data);
+            // Dùng POST + _method=PUT hoặc route POST categories/{id}
+            fd.append('_method', 'PUT');
+            const res = await api.post(`/categories/${form.value.category_id}`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
             showToast(res.data.message || 'Cập nhật thành công!', 'success');
         } else {
-            const res = await api.post('/categories', data);
+            const res = await api.post('/categories', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
             showToast(res.data.message || 'Thêm danh mục thành công!', 'success');
         }
         await fetchCategories();
@@ -127,7 +190,6 @@ const handleSubmit = async () => {
             for (const key in backendErrors) {
                 errors.value[key] = backendErrors[key][0];
             }
-            // formError.value = error.response.data.message || 'Vui lòng kiểm tra lại các trường nhập liệu!';
         } else {
             formError.value = error.response?.data?.message || (isEditing.value ? 'Cập nhật thất bại!' : 'Thêm danh mục thất bại!');
         }
@@ -293,7 +355,55 @@ const confirmDeleteCategory = async () => {
                             <label>Mô tả</label>
                             <textarea v-model="form.description" rows="3" class="form-control" placeholder="Mô tả ngắn về danh mục (không bắt buộc)..."></textarea>
                         </div>
-                        
+
+                        <!-- ── Phần Upload Ảnh ── -->
+                        <div class="form-group">
+                            <label>Hình ảnh danh mục</label>
+
+                            <!-- Preview ảnh đang chọn mới -->
+                            <div v-if="imagePreview" class="image-preview-wrap">
+                                <img :src="imagePreview" alt="Xem trước ảnh mới" class="image-preview" />
+                                <button type="button" class="img-remove-btn" @click="clearImageSelection" title="Hủy chọn ảnh">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                                <span class="img-new-badge">Ảnh mới</span>
+                            </div>
+
+                            <!-- Preview ảnh hiện tại (server) -->
+                            <div v-else-if="form.current_image_url" class="image-preview-wrap">
+                                <img :src="form.current_image_url" alt="Ảnh hiện tại" class="image-preview" />
+                                <button
+                                    type="button"
+                                    class="img-remove-btn"
+                                    @click="removeCurrentImage"
+                                    :disabled="isDeletingImage"
+                                    title="Xóa ảnh"
+                                >
+                                    <svg v-if="!isDeletingImage" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                    <span v-else class="mini-spinner"></span>
+                                </button>
+                            </div>
+
+                            <!-- Drop zone / Chọn file -->
+                            <label v-if="!imagePreview" class="image-drop-zone" :class="{'has-image': form.current_image_url}">
+                                <input
+                                    ref="imageInputRef"
+                                    type="file"
+                                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                                    class="file-input-hidden"
+                                    @change="onImageChange"
+                                />
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                                </svg>
+                                <span class="drop-zone-text">
+                                    {{ form.current_image_url ? 'Thay ảnh mới' : 'Chọn hoặc kéo thả ảnh' }}
+                                </span>
+                                <span class="drop-zone-hint">JPG, PNG, WebP, GIF — tối đa 2MB</span>
+                            </label>
+                            <span v-if="errors.image" class="field-error">{{ errors.image }}</span>
+                        </div>
+
                         <!-- Inline error -->
                         <div v-if="formError" class="form-error-box">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
@@ -452,10 +562,12 @@ const confirmDeleteCategory = async () => {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px);
     display: flex; align-items: center; justify-content: center; z-index: 1000;
+    overflow-y: auto; padding: 24px 0;
 }
 .modal-box {
-    width: 100%; max-width: 520px; padding: 0;
+    width: 100%; max-width: 560px; padding: 0;
     border-radius: 16px; overflow: hidden;
+    margin: auto;
 }
 .modal-head {
     display: flex; justify-content: space-between; align-items: center;
@@ -519,6 +631,56 @@ const confirmDeleteCategory = async () => {
 .toggle-input:checked + .toggle-slider { background-color: var(--ocean-blue); }
 .toggle-input:checked + .toggle-slider:before { transform: translateX(20px); }
 .toggle-text { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+
+/* ── Image Upload ── */
+.image-preview-wrap {
+    position: relative; display: inline-block; margin-bottom: 10px;
+    border-radius: 10px; overflow: visible;
+}
+.image-preview {
+    width: 120px; height: 90px; object-fit: cover;
+    border-radius: 10px; border: 2px solid var(--border-color);
+    display: block;
+}
+.img-remove-btn {
+    position: absolute; top: -8px; right: -8px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--coral); color: white; border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s; z-index: 1;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+.img-remove-btn:hover { transform: scale(1.1); }
+.img-remove-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.img-new-badge {
+    position: absolute; bottom: 6px; left: 6px;
+    background: var(--ocean-blue); color: white;
+    font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+.image-drop-zone {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; padding: 20px; border: 2px dashed var(--border-color);
+    border-radius: 10px; cursor: pointer; transition: all 0.2s;
+    color: var(--text-light); text-align: center;
+    background: var(--ocean-deepest);
+}
+.image-drop-zone:hover {
+    border-color: var(--ocean-blue); color: var(--ocean-blue);
+    background: rgba(2, 136, 209, 0.04);
+}
+.image-drop-zone.has-image { padding: 12px; border-style: solid; }
+.file-input-hidden { display: none; }
+.drop-zone-text { font-size: 0.82rem; font-weight: 600; }
+.drop-zone-hint { font-size: 0.72rem; color: var(--text-light); }
+
+/* Mini spinner */
+.mini-spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+}
 
 /* Modal Transition */
 .modal-enter-active, .modal-leave-active { transition: all 0.25s ease; }

@@ -8,6 +8,10 @@
       </div>
       <div class="actions">
         <!-- Optional Actions like PDF, Excel -->
+        <button class="btn btn-outline-success me-2" @click="handleExportExcel" title="Xuất Doanh Thu Tháng Vừa Rồi">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Xuất Excel (Tháng trước)
+        </button>
         <button class="btn btn-outline-ocean me-2" @click="handlePrintPdf">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           Xuất PDF
@@ -126,6 +130,29 @@ const fetchData = async () => {
 
 const handlePrintPdf = () => {
   window.print();
+};
+
+const handleExportExcel = async () => {
+  try {
+    const response = await api.get('/admin/statistics/export-revenue-last-month', { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Tạo tên file an toàn với định dạng tháng trước
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    const mm = String(lastMonth.getMonth() + 1).padStart(2, '0');
+    const yyyy = lastMonth.getFullYear();
+    
+    link.setAttribute('download', `Doanh_Thu_Thang_${mm}_${yyyy}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+  } catch (error) {
+    console.error("Lỗi xuất Excel:", error);
+    alert("Không thể xuất file Excel. Vui lòng kiểm tra lại quyền hoặc dữ liệu.");
+  }
 };
 
 onMounted(() => {
