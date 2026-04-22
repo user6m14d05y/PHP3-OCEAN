@@ -21,6 +21,8 @@ export default defineConfig({
     host: true,
     strictPort: true,
     port: 3302,
+    // Cho phép domain production truy cập dev server
+    allowedHosts: ['ocean.pro.vn', 'www.ocean.pro.vn', 'api.ocean.pro.vn'],
     // HMR qua WebSocket → hot reload nhanh hơn
     hmr: {
       overlay: true,
