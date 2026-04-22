@@ -9,8 +9,7 @@ use Illuminate\Support\Facades\Cache;
 class LocationController extends Controller
 {
     /**
-     * API base URL cho provinces.open-api.vn
-     * Sau khi sáp nhập đơn vị hành chính VN (2025)
+     * API base URL cho GHN (Giao Hàng Nhanh) master data
      */
     private string $apiBaseUrl = 'https://online-gateway.ghn.vn/shiip/public-api/master-data/';
     private string $token = '';
@@ -27,19 +26,22 @@ class LocationController extends Controller
     public function getProvinces()
     {
         $data = Cache::remember('vn_provinces', 86400, function () {
-            $response = Http::timeout(10)->withToken($this->token)->get($this->apiBaseUrl . 'province', [
-                'depth' => 1
-            ]);
+            $response = Http::timeout(10)
+                ->withHeaders(['Token' => $this->token])
+                ->get($this->apiBaseUrl . 'province');
 
             if ($response->successful()) {
-                return collect($response->json())->map(function ($province) {
+                $result = $response->json();
+                $items = $result['data'] ?? [];
+
+                return collect($items)->map(function ($province) {
                     return [
-                        'code' => $province['code'],
-                        'name' => $province['name'],
-                        'division_type' => $province['division_type'],
-                        'codename' => $province['codename'],
+                        'code' => $province['ProvinceID'],
+                        'name' => $province['ProvinceName'],
+                        'division_type' => 'tỉnh',
+                        'codename' => $province['Code'] ?? '',
                     ];
-                })->values()->toArray();
+                })->sortBy('name')->values()->toArray();
             }
 
             return [];
@@ -52,26 +54,30 @@ class LocationController extends Controller
     }
 
     /**
-     * Lấy danh sách quận/huyện theo mã tỉnh
+     * Lấy danh sách quận/huyện theo mã tỉnh (GHN ProvinceID)
      * GET /api/location/districts/{provinceCode}
      */
     public function getDistricts($provinceCode)
     {
         $data = Cache::remember("vn_districts_{$provinceCode}", 86400, function () use ($provinceCode) {
-            $response = Http::timeout(10)->get($this->apiBaseUrl . "p/{$provinceCode}", [
-                'depth' => 2
-            ]);
+            $response = Http::timeout(10)
+                ->withHeaders(['Token' => $this->token])
+                ->get($this->apiBaseUrl . 'district', [
+                    'province_id' => (int) $provinceCode,
+                ]);
 
             if ($response->successful()) {
                 $result = $response->json();
-                return collect($result['districts'] ?? [])->map(function ($district) {
+                $items = $result['data'] ?? [];
+
+                return collect($items)->map(function ($district) {
                     return [
-                        'code' => $district['code'],
-                        'name' => $district['name'],
-                        'division_type' => $district['division_type'],
-                        'codename' => $district['codename'],
+                        'code' => $district['DistrictID'],
+                        'name' => $district['DistrictName'],
+                        'division_type' => 'quận/huyện',
+                        'codename' => $district['Code'] ?? '',
                     ];
-                })->values()->toArray();
+                })->sortBy('name')->values()->toArray();
             }
 
             return [];
@@ -84,26 +90,30 @@ class LocationController extends Controller
     }
 
     /**
-     * Lấy danh sách phường/xã theo mã quận
+     * Lấy danh sách phường/xã theo mã quận (GHN DistrictID)
      * GET /api/location/wards/{districtCode}
      */
     public function getWards($districtCode)
     {
         $data = Cache::remember("vn_wards_{$districtCode}", 86400, function () use ($districtCode) {
-            $response = Http::timeout(10)->get($this->apiBaseUrl . "d/{$districtCode}", [
-                'depth' => 2
-            ]);
+            $response = Http::timeout(10)
+                ->withHeaders(['Token' => $this->token])
+                ->get($this->apiBaseUrl . 'ward', [
+                    'district_id' => (int) $districtCode,
+                ]);
 
             if ($response->successful()) {
                 $result = $response->json();
-                return collect($result['wards'] ?? [])->map(function ($ward) {
+                $items = $result['data'] ?? [];
+
+                return collect($items)->map(function ($ward) {
                     return [
-                        'code' => $ward['code'],
-                        'name' => $ward['name'],
-                        'division_type' => $ward['division_type'],
-                        'codename' => $ward['codename'],
+                        'code' => $ward['WardCode'],
+                        'name' => $ward['WardName'],
+                        'division_type' => 'phường/xã',
+                        'codename' => $ward['WardCode'] ?? '',
                     ];
-                })->values()->toArray();
+                })->sortBy('name')->values()->toArray();
             }
 
             return [];
@@ -116,7 +126,7 @@ class LocationController extends Controller
     }
 
     /**
-     * Tìm kiếm địa điểm theo tên
+     * Tìm kiếm địa điểm theo tên (không hỗ trợ bởi GHN API — dùng local filter)
      * GET /api/location/search?q=keyword
      */
     public function search(Request $request)
@@ -130,20 +140,16 @@ class LocationController extends Controller
             ], 422);
         }
 
-        $response = Http::timeout(10)->get($this->apiBaseUrl . 'p/search/', [
-            'q' => $keyword
-        ]);
-
-        if ($response->successful()) {
-            return response()->json([
-                'status' => 'success',
-                'data' => $response->json(),
-            ]);
-        }
+        // Tìm kiếm trong danh sách tỉnh đã cache
+        $provinces = Cache::get('vn_provinces', []);
+        $results = collect($provinces)->filter(function ($p) use ($keyword) {
+            return str_contains(mb_strtolower($p['name']), mb_strtolower($keyword));
+        })->values()->toArray();
 
         return response()->json([
-            'status' => 'error',
-            'message' => 'Không thể tìm kiếm địa điểm.',
-        ], 500);
+            'status' => 'success',
+            'data' => $results,
+        ]);
     }
 }
+

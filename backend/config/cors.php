@@ -20,9 +20,12 @@ return [
     'allowed_methods' => ['*'],
 
     // .env ip address
-    'allowed_origins' => ['*'],
+    'allowed_origins' => array_filter([
+        env('URL_CORS', 'https://ocean.pro.vn'),
+        env('URL_CORS_LOCAL', null),
+    ]),
 
-    'allowed_origins_patterns' => ['*'],
+    'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
 

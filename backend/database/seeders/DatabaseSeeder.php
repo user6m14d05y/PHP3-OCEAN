@@ -16,18 +16,18 @@ class DatabaseSeeder extends Seeder
     {
         $now = Carbon::now()->toDateTimeString();
 
-        // Kiểm tra super admin đã tồn tại chưa
-        $exists = DB::select("SELECT * FROM users WHERE email = ?", ['admin123@gmail.com']);
+        // Kiểm tra super admin đã tồn tại chưa (trong bảng admins)
+        $exists = DB::select("SELECT * FROM admins WHERE email = ?", ['admin123@gmail.com']);
 
         if (count($exists) === 0) {
             DB::insert(
-                "INSERT INTO users (full_name, email, password, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO admins (full_name, email, password, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 ['Super Admin', 'admin123@gmail.com', Hash::make('123456'), 'admin', 'active', $now, $now]
             );
 
-            echo "✅ Super Admin created: admin123@gmail.com / 123456\n";
+            echo "✅ Super Admin created in 'admins' table: admin123@gmail.com / 123456\n";
         } else {
-            echo "ℹ️ Super Admin already exists, skipping.\n";
+            echo "ℹ️ Super Admin already exists in 'admins' table, skipping.\n";
         }
 
         // Gọi thêm CouponSeeder
@@ -36,3 +36,4 @@ class DatabaseSeeder extends Seeder
         ]);
     }
 }
+

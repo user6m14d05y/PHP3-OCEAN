@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
+
+        // Trust Nginx reverse proxy headers (X-Forwarded-For, X-Forwarded-Proto, etc.)
+        // Đảm bảo url() helper tạo https:// URL khi request đến qua proxy
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

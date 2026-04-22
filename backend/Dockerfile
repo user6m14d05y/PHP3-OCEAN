@@ -43,6 +43,8 @@ RUN { \
 } > /usr/local/etc/php/conf.d/custom.ini
 
 # ==================== PHP-FPM TUNING ====================
+# Fix: Ensure www.conf binds to all interfaces (not just 127.0.0.1)
+RUN sed -i 's/listen = 127.0.0.1:9000/listen = 0.0.0.0:9000/' /usr/local/etc/php-fpm.d/www.conf
 RUN { \
     echo "[www]"; \
     echo "listen = 0.0.0.0:9000"; \
