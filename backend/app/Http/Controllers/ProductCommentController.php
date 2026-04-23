@@ -87,13 +87,13 @@ class ProductCommentController extends Controller
                 'is_approved' => 0,
             ]);
 
-            // Recalculate average rating for the product
+            // Recalculate average rating for the product (chỉ tính review đã duyệt)
             $product = Product::find($request->product_id);
             $avgRating = ProductComment::where('product_id', $product->product_id)
-                            ->where('is_approved', 0)
+                            ->where('is_approved', 1)
                             ->avg('rating');
             $countRating = ProductComment::where('product_id', $product->product_id)
-                            ->where('is_approved', 0)
+                            ->where('is_approved', 1)
                             ->count();
             
             $product->rating_avg = round($avgRating, 0);
@@ -120,7 +120,7 @@ class ProductCommentController extends Controller
     {
         $comments = ProductComment::with('user:user_id,full_name,avatar_url')
                         ->where('product_id', $productId)
-                        ->where('is_approved', 0)
+                        ->where('is_approved', 1)
                         ->orderBy('created_at', 'desc')
                         ->paginate(10);
 

@@ -14,12 +14,21 @@ class PostController extends Controller
      */
     public function index()
     {
-        $posts = Post::with('category')->get();
+        $posts = Post::with('category')->orderBy('post_id', 'desc')->get();
         return response()->json($posts);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Lấy chi tiết bài viết theo ID (admin edit)
+     */
+    public function edit($id)
+    {
+        $post = Post::with('category')->findOrFail($id);
+        return response()->json($post);
+    }
+
+    /**
+     * Tạo bài viết mới
      */
     public function create(Request $request)
     {
@@ -31,88 +40,135 @@ class PostController extends Controller
             'post_type' => 'nullable|string',
             'status' => 'nullable|string',
             'is_featured' => 'nullable|boolean',
-            'view_count' => 'nullable|integer',
             'published_at' => 'nullable|date',
-            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'banner' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
+            'banner' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
             'seo_title' => 'nullable|string',
             'seo_description' => 'nullable|string',
             'seo_keywords' => 'nullable|string',
         ]);
-        $post = Post::where('slug', Str::slug($request->title))->first();
-        if($post){
-            $request['slug'] = Str::slug($request->title).'-'.rand(1, 100);
-        }else{
-            $request['slug'] = Str::slug($request->title);
-        }
-        $request['post_type'] = $request->post_type ?? 'news';
-        $request['status'] = $request->status ?? 'draft';
-        $request['is_featured'] = $request->is_featured ?? false;
-        $request['view_count'] = $request->view_count ?? 0;
-        $request['published_at'] = $request->published_at ?? date('Y-m-d H:i:s');
-        $request['thumbnail'] = $request->thumbnail ?? null;
-        $request['banner'] = $request->banner ?? null;
-        $request['seo_title'] = $request->seo_title ?? null;
-        $request['seo_description'] = $request->seo_description ?? null;
-        $request['seo_keywords'] = $request->seo_keywords ?? null;
 
+        // Tạo slug unique
+        $slug = Str::slug($request->title);
+        if (Post::where('slug', $slug)->exists()) {
+            $slug = $slug . '-' . rand(1, 100);
+        }
+
+        // Upload ảnh
+        $thumbnailUrl = null;
         if ($request->hasFile('thumbnail')) {
-            $thumbnail = $request->file('thumbnail');
-            $thumbnailPath = $thumbnail->store('uploads/posts', 'public');
-            $request['thumbnail'] = 'storage/' . $thumbnailPath;
+            $path = $request->file('thumbnail')->store('uploads/posts', 'public');
+            $thumbnailUrl = 'storage/' . $path;
         }
 
+        $bannerUrl = null;
         if ($request->hasFile('banner')) {
-            $banner = $request->file('banner');
-            $bannerPath = $banner->store('uploads/posts', 'public');
-            $request['banner'] = 'storage/' . $bannerPath;
+            $path = $request->file('banner')->store('uploads/posts', 'public');
+            $bannerUrl = 'storage/' . $path;
         }
 
-        $post = Post::create($request->all());
+        $post = Post::create([
+            'post_category_id' => $request->post_category_id,
+            'title' => $request->title,
+            'slug' => $slug,
+            'summary' => $request->summary,
+            'content' => $request->content,
+            'thumbnail_url' => $thumbnailUrl,
+            'banner_url' => $bannerUrl,
+            'post_type' => $request->post_type ?? 'news',
+            'status' => $request->status ?? 'draft',
+            'is_featured' => $request->is_featured ?? false,
+            'published_at' => $request->published_at ?? now(),
+            'seo_title' => $request->seo_title,
+            'seo_description' => $request->seo_description,
+            'seo_keywords' => $request->seo_keywords,
+        ]);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm bài viết thành công',
+            'data' => $post,
         ]);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Cập nhật bài viết
      */
-    public function store(Request $request)
+    public function update(Request $request, $id)
     {
-        //
+        $post = Post::findOrFail($id);
+
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'summary' => 'nullable|string',
+            'content' => 'nullable|string',
+            'post_category_id' => 'required|exists:post_categories,post_category_id',
+            'post_type' => 'nullable|string',
+            'status' => 'nullable|string',
+            'is_featured' => 'nullable|boolean',
+            'published_at' => 'nullable|date',
+            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
+            'banner' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
+            'seo_title' => 'nullable|string',
+            'seo_description' => 'nullable|string',
+            'seo_keywords' => 'nullable|string',
+        ]);
+
+        $data = [
+            'post_category_id' => $request->post_category_id,
+            'title' => $request->title,
+            'slug' => $request->slug ?: Str::slug($request->title),
+            'summary' => $request->summary,
+            'content' => $request->content,
+            'post_type' => $request->post_type ?? $post->post_type,
+            'status' => $request->status ?? $post->status,
+            'is_featured' => $request->is_featured ?? $post->is_featured,
+            'published_at' => $request->published_at ?? $post->published_at,
+            'seo_title' => $request->seo_title,
+            'seo_description' => $request->seo_description,
+            'seo_keywords' => $request->seo_keywords,
+        ];
+
+        // Upload ảnh mới nếu có
+        if ($request->hasFile('thumbnail')) {
+            // Xóa ảnh cũ
+            if ($post->getRawOriginal('thumbnail_url')) {
+                $oldPath = str_replace('storage/', '', $post->getRawOriginal('thumbnail_url'));
+                Storage::disk('public')->delete($oldPath);
+            }
+            $path = $request->file('thumbnail')->store('uploads/posts', 'public');
+            $data['thumbnail_url'] = 'storage/' . $path;
+        }
+
+        if ($request->hasFile('banner')) {
+            if ($post->getRawOriginal('banner_url')) {
+                $oldPath = str_replace('storage/', '', $post->getRawOriginal('banner_url'));
+                Storage::disk('public')->delete($oldPath);
+            }
+            $path = $request->file('banner')->store('uploads/posts', 'public');
+            $data['banner_url'] = 'storage/' . $path;
+        }
+
+        $post->update($data);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Cập nhật bài viết thành công',
+            'data' => $post->fresh()->load('category'),
+        ]);
     }
 
     /**
-     * Display the specified resource.
+     * Xóa bài viết
      */
-    public function show(Post $post)
+    public function destroy($id)
     {
-        //
-    }
+        $post = Post::findOrFail($id);
+        $post->delete();
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Post $post)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Post $post)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Post $post)
-    {
-        //
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã xóa bài viết thành công',
+        ]);
     }
 }

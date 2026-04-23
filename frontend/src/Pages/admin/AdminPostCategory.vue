@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, nextTick } from 'vue';
 import api from '../../axios.js';
 import { Toast, Modal } from 'bootstrap';
-import AdminCategoryFormTree from '../../components/AdminCategoryFormTree.vue';
+import AdminPostCategoryFormTree from '../../components/AdminPostCategoryFormTree.vue';
 import AdminCategoryRow from '../../components/AdminCategoryRow.vue'; // We can safely use this component if the props match (e.g., category_id vs post_category_id)
 
 const categories = ref([]);
@@ -238,7 +238,7 @@ const deleteCategory = async (id) => {
                             <label>Danh mục cha</label>
                             <select v-model="form.parent_id" class="form-control form-select">
                                 <option :value="null">— Không có (Danh mục gốc)</option>
-                                <AdminCategoryFormTree :categories="categories" :currentParentId="form.post_category_id" />
+                                <AdminPostCategoryFormTree :categories="categories" :currentParentId="form.post_category_id" />
                             </select>
                         </div>
                         <div class="form-row">

@@ -76,7 +76,7 @@ Route::middleware(['auth:api,admin', 'role:admin'])->group(function () {
     // Posts routes
     Route::post('/posts', [PostController::class, 'create']);
     Route::post('/posts/upload-image', [PostController::class, 'uploadImage']);
-    Route::put('/posts/{id}', [PostController::class, 'update']);
+    Route::post('/posts/{id}', [PostController::class, 'update']);
     Route::delete('/posts/{id}', [PostController::class, 'destroy']);
     Route::get('posts/edit/{id}', [PostController::class, 'edit']);
 });

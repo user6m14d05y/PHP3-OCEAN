@@ -84,7 +84,7 @@ class CategoryController extends Controller
             'description' => 'nullable|string',
             'sort_order'  => 'nullable|integer',
             'is_active'   => 'nullable|boolean',
-            'image'       => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:2048',
+            'image'       => 'nullable|image|mimes:jpeg,jpg,png,webp,gif,svg|max:10240',
         ]);
 
         if ($validator->fails()) {
@@ -167,7 +167,7 @@ class CategoryController extends Controller
             'description' => 'nullable|string',
             'sort_order'  => 'nullable|integer',
             'is_active'   => 'nullable|boolean',
-            'image'       => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:2048',
+            'image'       => 'nullable|image|mimes:jpeg,jpg,png,webp,gif,svg|max:10240',
         ]);
 
         if ($validator->fails()) {

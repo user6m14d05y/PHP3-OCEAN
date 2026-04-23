@@ -173,7 +173,6 @@ const handleSubmit = async () => {
 
     isSubmitting.value = true;
     const formData = new FormData();
-    formData.append("_method", "PUT");
     formData.append("title", post.title);
     if(post.summary) formData.append("summary", post.summary);
     formData.append("content", post.content);

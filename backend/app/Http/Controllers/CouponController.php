@@ -38,7 +38,10 @@ class CouponController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'code' => 'required|string|max:20|unique:coupons,code',
+            'code' => [
+                'required', 'string', 'max:20',
+                \Illuminate\Validation\Rule::unique('coupons', 'code')->whereNull('deleted_at'),
+            ],
             'type' => 'required|in:percent,fixed,free_ship',
             'value' => 'required|numeric|min:0',
             'max_discount_value' => 'nullable|numeric|min:0',

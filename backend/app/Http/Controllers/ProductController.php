@@ -391,9 +391,9 @@ class ProductController extends Controller
             'product_type'      => 'required|in:simple,variant',
             'status'            => 'required|in:draft,active,inactive,out_of_stock',
             'is_featured'       => 'boolean',
-            'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
+            'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
             'gallery'           => 'nullable|array',
-            'gallery.*'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
+            'gallery.*'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
             'price'             => 'nullable|numeric|min:100000',
             'compare_at_price'  => 'nullable|numeric|min:100000',
             'stock'             => 'nullable|integer|min:0',
@@ -630,7 +630,7 @@ class ProductController extends Controller
             'product_type'      => 'required|in:simple,variant',
             'status'            => 'required|in:draft,active,inactive,out_of_stock',
             'is_featured'       => 'boolean',
-            'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
+            'thumbnail'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
             'price'             => 'nullable|numeric|min:100000',
             'compare_at_price'  => 'nullable|numeric|min:100000',
             'stock'             => 'nullable|integer|min:0',
@@ -638,7 +638,7 @@ class ProductController extends Controller
             'sale_starts_at'    => 'nullable|date',
             'sale_ends_at'      => 'nullable|date|after_or_equal:sale_starts_at',
             'gallery'           => 'nullable|array',
-            'gallery.*'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
+            'gallery.*'         => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
             'deleted_gallery_ids'   => 'nullable|array',
             'deleted_gallery_ids.*' => 'integer',
             'variants'              => 'nullable|string',
@@ -952,8 +952,22 @@ class ProductController extends Controller
     {
         try {
             $product = Product::withTrashed()->findOrFail($id);
-            
+
+            // Xóa tất cả cart items liên quan đến sản phẩm này (tránh FK constraint & dữ liệu mồ côi)
+            $variantIds = $product->variants()->pluck('variant_id')->toArray();
+            if (!empty($variantIds)) {
+                CartItem::whereIn('variant_id', $variantIds)->delete();
+            }
+
             if ($product->trashed()) {
+                // Xóa favorites và comments liên quan trước khi force delete
+                $product->favorites()->delete();
+                $product->comments()->delete();
+                $product->images()->each(function ($img) {
+                    Storage::disk('public')->delete($img->image_url);
+                    $img->delete();
+                });
+                $product->variants()->delete();
                 $product->forceDelete();
                 $msg = 'Xóa vĩnh viễn sản phẩm thành công.';
             } else {
