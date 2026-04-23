@@ -7,6 +7,10 @@ const reverbKey = import.meta.env.VITE_REVERB_APP_KEY;
 if (reverbKey) {
     window.Pusher = Pusher;
 
+    // Xác định API base URL cho auth endpoint (production: https://api.ocean.pro.vn/api)
+    const apiBase = import.meta.env.VITE_API_URL 
+        || `${import.meta.env.VITE_REVERB_SCHEME ?? 'https'}://${import.meta.env.VITE_REVERB_HOST}`;
+
     window.Echo = new Echo({
         broadcaster: 'reverb',
         key: reverbKey,
@@ -15,11 +19,11 @@ if (reverbKey) {
         wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
         forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
         enabledTransports: ['ws', 'wss'],
-        authEndpoint: `${import.meta.env.VITE_REVERB_SCHEME ?? 'http'}://${window.location.hostname}:8383/api/broadcasting/auth`,
+        authEndpoint: `${apiBase}/broadcasting/auth`,
         authorizer: (channel, options) => {
             return {
                 authorize: (socketId, callback) => {
-                    axios.post(`${import.meta.env.VITE_REVERB_SCHEME ?? 'http'}://${window.location.hostname}:8383/api/broadcasting/auth`, {
+                    axios.post(`${apiBase}/broadcasting/auth`, {
                         socket_id: socketId,
                         channel_name: channel.name
                     }, {
@@ -41,3 +45,4 @@ if (reverbKey) {
 } else {
     console.warn('[Echo] VITE_REVERB_APP_KEY chưa được cấu hình. WebSocket bị tắt.');
 }
+
