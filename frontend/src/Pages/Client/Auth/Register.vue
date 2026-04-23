@@ -2,7 +2,7 @@
 import { ref, computed, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import api from '../../../axios.js';
 import { useRouter } from 'vue-router';
-import Swal from 'sweetalert2';
+import { Toast, Modal } from 'bootstrap';
 import ClientHeader from '../../../components/ClientHeader.vue';
 import ClientFooter from '../../../components/ClientFooter.vue';
 
@@ -19,7 +19,7 @@ const router = useRouter();
 const turnstileToken = ref('');
 let turnstileWidgetId = null;
 
-
+const toast = ref({ message: '', type: 'success' });
 
 // Field-level validation
 const fieldErrors = reactive({ name: '', email: '', password: '', confirm: '', terms: '' });
@@ -53,14 +53,10 @@ const onBlur = (field) => {
 };
 
 const showToast = (message, type = 'success') => {
-  Swal.fire({
-    toast: true,
-    position: 'top-end',
-    icon: type === 'danger' ? 'error' : type,
-    title: message,
-    showConfirmButton: false,
-    timer: 3000,
-    timerProgressBar: true,
+  toast.value = { message, type };
+  nextTick(() => {
+    const el = document.getElementById('registerToast');
+    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
   });
 };
 
@@ -133,26 +129,9 @@ const handleRegister = async () => {
         });
 
         if (response.data.status === 'success') {
-            Swal.fire({
-                icon: 'success',
-                title: 'Đăng ký thành công!',
-                html: `
-                    <div style="margin-top:8px;color:#64748b;font-size:0.95rem;line-height:1.6">
-                        <p style="margin:0">Chào mừng bạn đến với <strong style="color:#0ea5e9">Ocean</strong>!</p>
-                        <p style="margin:6px 0 0">Vui lòng đăng nhập để bắt đầu mua sắm.</p>
-                    </div>
-                `,
-                confirmButtonText: 'Đến trang Đăng nhập',
-                confirmButtonColor: '#0ea5e9',
-                allowOutsideClick: false,
-                customClass: {
-                    popup: 'swal-ocean-popup',
-                    confirmButton: 'swal-ocean-btn',
-                },
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    router.push('/client/login');
-                }
+            nextTick(() => {
+                const el = document.getElementById('registerSuccessModal');
+                if (el) Modal.getOrCreateInstance(el).show();
             });
         }
     } catch (error) {
@@ -175,7 +154,20 @@ const handleRegister = async () => {
     }
 };
 
-
+const goToLogin = () => {
+  // Properly dispose Bootstrap Modal and cleanup backdrop before navigating
+  const el = document.getElementById('registerSuccessModal');
+  if (el) {
+    const modalInstance = Modal.getInstance(el);
+    if (modalInstance) modalInstance.dispose();
+  }
+  // Remove any leftover backdrop
+  document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+  document.body.classList.remove('modal-open');
+  document.body.style.removeProperty('overflow');
+  document.body.style.removeProperty('padding-right');
+  router.push('/client/login');
+};
 </script>
 
 <template>
@@ -297,7 +289,42 @@ const handleRegister = async () => {
 
     <ClientFooter />
 
+    <!-- Success Modal - Premium Design -->
+    <div class="modal fade" id="registerSuccessModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content success-modal-content">
+          <div class="success-modal-body">
+            <!-- Animated Check Icon -->
+            <div class="success-icon-wrapper">
+              <svg class="success-checkmark" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
 
+            <h3 class="success-title">Đăng ký thành công!</h3>
+            <p class="success-subtitle">Chào mừng bạn đến với <strong>Ocean</strong> 🌊</p>
+            <p class="success-desc">Tài khoản của bạn đã được tạo thành công.<br>Vui lòng đăng nhập để bắt đầu mua sắm.</p>
+
+            <button type="button" class="success-btn" @click="goToLogin">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+              </svg>
+              Đến trang Đăng nhập
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
+      <div class="toast align-items-center border-0" :class="toast.type === 'danger' ? 'text-bg-danger' : 'text-bg-success'" id="registerToast" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">{{ toast.message }}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -346,4 +373,97 @@ const handleRegister = async () => {
 .auth-switch { text-align: center; font-size: 0.85rem; color: #666; margin-top: 24px; }
 .auth-switch a { color: #4f6ef7; font-weight: 600; text-decoration: underline; }
 .auth-switch a:hover { color: #3b5de7; }
+
+/* ===== Premium Success Modal ===== */
+.success-modal-content {
+  border: none;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.success-modal-body {
+  padding: 48px 36px 36px;
+  text-align: center;
+  background: #fff;
+}
+
+.success-icon-wrapper {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.3);
+  animation: icon-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes icon-pop {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.success-checkmark {
+  animation: draw-check 0.4s ease-out 0.3s forwards;
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+}
+
+@keyframes draw-check {
+  to { stroke-dashoffset: 0; }
+}
+
+.success-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.success-subtitle {
+  font-size: 1rem;
+  color: #0ea5e9;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.success-desc {
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+
+.success-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: 'Inter', system-ui, sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
+}
+
+.success-btn:hover {
+  background: linear-gradient(135deg, #0284c7, #0891b2);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
+}
+
+.success-btn:active {
+  transform: translateY(0);
+}
 </style>
