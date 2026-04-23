@@ -4,7 +4,7 @@ import { instantMeiliSearch } from '@meilisearch/instant-meilisearch';
 const MEILI_HOST = import.meta.env.VITE_MEILISEARCH_HOST || 'http://localhost:7700';
 const MEILI_KEY  = import.meta.env.VITE_MEILISEARCH_KEY  || 'masterKey';
 
-const BASE_STORAGE = (import.meta.env.VITE_BASE_URL || 'http://localhost:8383').replace('/api', '');
+const BASE_STORAGE = (import.meta.env.VITE_BASE_URL || 'http://localhost:8383').replace(/\/api$/, '');
 
 /**
  * Tạo searchClient Meilisearch cho vue-instantsearch

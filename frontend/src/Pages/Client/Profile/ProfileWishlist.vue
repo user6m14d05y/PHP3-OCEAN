@@ -41,7 +41,7 @@ import ProductCard from '@/components/ProductCard.vue';
 import ProductSkeleton from '@/components/ProductSkeleton.vue';
 
 // Lấy base URL từ env API
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace(/\/api$/, '');
 
 const favorites = ref([]);
 const loading = ref(true);

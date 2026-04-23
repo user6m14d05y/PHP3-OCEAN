@@ -157,7 +157,7 @@ const productThumb = computed(() => {
   const t = sale.value?.product_thumbnail;
   if (!t) return '/images/no-image.png';
   if (t.startsWith('http')) return t;
-  const base = (import.meta.env.VITE_API_URL || '').replace('/api', '');
+  const base = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
   return `${base}/storage/${t}`;
 });
 

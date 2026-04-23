@@ -137,7 +137,7 @@ const checkAuth = () => {
             if (path) {
                 const API_URL = (
                     import.meta.env.VITE_API_URL || "http://localhost:8383/api"
-                ).replace("/api", "");
+                ).replace(/\/api$/, "");
                 userAvatar.value = path.startsWith("http")
                     ? path
                     : `${API_URL}${path}`;

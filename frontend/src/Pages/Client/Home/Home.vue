@@ -36,7 +36,7 @@ const heroSlides = ref([
 ]);
 let slideInterval = null;
 
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace(/\/api$/, '');
 
 const NEW_IMAGES = [
     'products/luxury_watch_1776303372051.png','products/leather_wallet_1776303390698.png',

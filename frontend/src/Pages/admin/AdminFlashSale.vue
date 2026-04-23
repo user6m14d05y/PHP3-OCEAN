@@ -69,7 +69,7 @@ const resolveThumbnail = (url) => {
     if (!url) return '/images/no-image.png';
     if (url.startsWith('http')) return url;
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8383/api';
-    return `${apiUrl.replace('/api', '')}/storage/${url}`;
+    return `${apiUrl.replace(/\/api$/, '')}/storage/${url}`;
 };
 
 const addProductToItems = (product) => {

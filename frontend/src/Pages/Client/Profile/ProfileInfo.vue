@@ -157,7 +157,7 @@ import { ref, computed, onMounted } from 'vue';
 import api from '@/axios';
 
 // Lấy base URL từ env (ví dụ: http://localhost:8383)
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace('/api', '');
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8383/api').replace(/\/api$/, '');
 
 const user = ref({});
 const addressCount = ref(0);
