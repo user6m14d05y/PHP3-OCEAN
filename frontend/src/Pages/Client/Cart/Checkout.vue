@@ -233,7 +233,7 @@ const getShippingFee = async (district_id, ward_code) => {
         shippingFee.value = response.data?.data?.total || 0;
     } catch (error) {
         console.error("Lỗi tính phí vận chuyển GHN:", error.response?.data || error.message);
-        shippingFee.value = 0;
+        shippingFee.value = 30000;
     } finally {
         isCalculatingFee.value = false;
     }
