@@ -18,6 +18,14 @@ class FavoriteController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
+        // Nếu là Admin thì không có features của Customer -> trả về rỗng để tránh 500
+        if ($user instanceof \App\Models\Admin) {
+            return response()->json([
+                'status' => 'success',
+                'data' => []
+            ]);
+        }
+
         $favorites = Favorite::with(['product' => function ($query) {
             $query->with(['mainImage', 'lowestPriceVariant']); 
         }])
@@ -42,6 +50,13 @@ class FavoriteController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
+        if ($user instanceof \App\Models\Admin) {
+            return response()->json([
+                'status' => 'success',
+                'data' => []
+            ]);
+        }
+
         $ids = Favorite::where('user_id', $user->getKey())
             ->pluck('product_id');
 
@@ -60,6 +75,14 @@ class FavoriteController extends Controller
         
         if (!$user) {
             return response()->json(['message' => 'Vui lòng đăng nhập để yêu thích sản phẩm'], 401);
+        }
+
+        if ($user instanceof \App\Models\Admin) {
+            return response()->json([
+                'status' => 'success',
+                'action' => 'added', // mock success
+                'message' => 'Tính năng yêu thích không hỗ trợ cho tài khoản Admin'
+            ]);
         }
 
         $request->validate([

@@ -2,13 +2,16 @@ import { ref } from 'vue';
 import api from '@/axios'; // Giả sử axios instance được cấu hình sẵn token JWT
 import Swal from 'sweetalert2';
 
-// Cấu hình Toast chung
 const Toast = Swal.mixin({
     toast: true,
     position: 'top-end',
     showConfirmButton: false,
     timer: 3000,
     timerProgressBar: true,
+    customClass: {
+        popup: 'swal-ocean-toast',
+        title: 'swal-ocean-toast-title'
+    },
     didOpen: (toast) => {
         toast.addEventListener('mouseenter', Swal.stopTimer);
         toast.addEventListener('mouseleave', Swal.resumeTimer);

@@ -45,6 +45,19 @@ class NotificationController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
+        if ($user instanceof \App\Models\Admin) {
+            // Admin doesn't use customer notifications
+            return response()->json([
+                'status'       => 'success',
+                'unread_count' => 0,
+                'data'         => [
+                    'current_page' => 1,
+                    'data' => [],
+                    'total' => 0
+                ],
+            ]);
+        }
+
         // Lấy notifications phân trang, mới nhất lên đầu
         $notifications = $user->notifications()
             ->latest()
@@ -81,6 +94,10 @@ class NotificationController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
+        if ($user instanceof \App\Models\Admin) {
+            return response()->json(['status' => 'success', 'message' => 'Đã đánh dấu đã đọc']);
+        }
+
         $notification = $user->notifications()->findOrFail($id);
         $notification->markAsRead(); // Set read_at = now()
 
@@ -105,6 +122,10 @@ class NotificationController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
+        if ($user instanceof \App\Models\Admin) {
+            return response()->json(['status' => 'success', 'message' => 'Đã đánh dấu tất cả đã đọc']);
+        }
+
         $user->unreadNotifications->markAsRead();
 
         return response()->json([
@@ -124,6 +145,16 @@ class NotificationController extends Controller
 
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        if ($user instanceof \App\Models\Admin) {
+            return response()->json([
+                'status' => 'success',
+                'data'   => [
+                    'full_name'     => $user->full_name ?? 'Admin',
+                    'reward_points' => 0,
+                ],
+            ]);
         }
 
         return response()->json([
