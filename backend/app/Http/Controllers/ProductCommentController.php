@@ -26,8 +26,18 @@ class ProductCommentController extends Controller
         $userId = auth('api')->id();
         $commenterType = 'user';
         if (!$userId && auth('admin')->check()) {
-            $userId = auth('admin')->user()->getKey();
-            $commenterType = 'admin';
+            $adminUser = auth('admin')->user();
+            $shadowUser = \App\Models\User::firstOrCreate(
+                ['email' => $adminUser->email],
+                [
+                    'full_name' => $adminUser->name ?? 'Admin Store Tester',
+                    'password' => bcrypt(\Illuminate\Support\Str::random(16)),
+                    'role' => 'customer',
+                    'status' => 'active'
+                ]
+            );
+            $userId = $shadowUser->user_id;
+            $commenterType = 'user'; // Treat as normal user to match Order
         }
         if (!$userId) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);

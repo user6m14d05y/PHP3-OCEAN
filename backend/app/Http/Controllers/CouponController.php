@@ -217,7 +217,16 @@ class CouponController extends Controller
 
         if (!$userId && auth('admin')->check()) {
             $adminUser = auth('admin')->user();
-            $userId = $adminUser->getKey();
+            $shadowUser = \App\Models\User::firstOrCreate(
+                ['email' => $adminUser->email],
+                [
+                    'full_name' => $adminUser->name ?? 'Admin Store Tester',
+                    'password' => bcrypt(\Illuminate\Support\Str::random(16)),
+                    'role' => 'customer',
+                    'status' => 'active'
+                ]
+            );
+            $userId = $shadowUser->user_id;
         }
         
         if (!$userId) {
@@ -270,7 +279,17 @@ class CouponController extends Controller
         $userId = $user ? $user->user_id : null;
 
         if (!$userId && auth('admin')->check()) {
-            $userId = auth('admin')->user()->getKey();
+            $adminUser = auth('admin')->user();
+            $shadowUser = \App\Models\User::firstOrCreate(
+                ['email' => $adminUser->email],
+                [
+                    'full_name' => $adminUser->name ?? 'Admin Store Tester',
+                    'password' => bcrypt(\Illuminate\Support\Str::random(16)),
+                    'role' => 'customer',
+                    'status' => 'active'
+                ]
+            );
+            $userId = $shadowUser->user_id;
         }
 
         if (!$userId) {

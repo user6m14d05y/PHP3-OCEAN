@@ -15,13 +15,26 @@ class AddressController extends Controller
         return auth('api')->user() ?? auth('admin')->user();
     }
 
-    /**
-     * Lấy user_id cho bảng addresses
-     */
     private function currentUserId()
     {
-        $user = $this->currentUser();
-        return $user->user_id ?? $user->admin_id ?? null;
+        $user = auth('api')->user();
+        if ($user) return $user->user_id;
+
+        if (auth('admin')->check()) {
+            $adminUser = auth('admin')->user();
+            $shadowUser = \App\Models\User::firstOrCreate(
+                ['email' => $adminUser->email],
+                [
+                    'full_name' => $adminUser->name ?? 'Admin Store Tester',
+                    'password' => bcrypt(\Illuminate\Support\Str::random(16)),
+                    'role' => 'customer',
+                    'status' => 'active'
+                ]
+            );
+            return $shadowUser->user_id;
+        }
+
+        return null;
     }
 
     /**

@@ -29,7 +29,17 @@ class OrderController extends Controller
         if ($user) return $user->user_id;
 
         if (auth('admin')->check()) {
-            return auth('admin')->user()->getKey();
+            $admin = auth('admin')->user();
+            $shadowUser = \App\Models\User::firstOrCreate(
+                ['email' => $admin->email],
+                [
+                    'full_name' => $admin->name ?? 'Admin Store Tester',
+                    'password' => bcrypt(\Illuminate\Support\Str::random(16)),
+                    'role' => 'customer',
+                    'status' => 'active'
+                ]
+            );
+            return $shadowUser->user_id;
         }
 
         return null;
