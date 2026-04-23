@@ -2,7 +2,7 @@
 import { ref, computed, reactive, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import api from '../../../axios.js';
 import { useRouter } from 'vue-router';
-import { Toast, Modal } from 'bootstrap';
+import Swal from 'sweetalert2';
 import ClientHeader from '../../../components/ClientHeader.vue';
 import ClientFooter from '../../../components/ClientFooter.vue';
 
@@ -19,7 +19,7 @@ const router = useRouter();
 const turnstileToken = ref('');
 let turnstileWidgetId = null;
 
-const toast = ref({ message: '', type: 'success' });
+
 
 // Field-level validation
 const fieldErrors = reactive({ name: '', email: '', password: '', confirm: '', terms: '' });
@@ -53,10 +53,14 @@ const onBlur = (field) => {
 };
 
 const showToast = (message, type = 'success') => {
-  toast.value = { message, type };
-  nextTick(() => {
-    const el = document.getElementById('registerToast');
-    if (el) Toast.getOrCreateInstance(el, { delay: 3000 }).show();
+  Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon: type === 'danger' ? 'error' : type,
+    title: message,
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
   });
 };
 
@@ -129,9 +133,26 @@ const handleRegister = async () => {
         });
 
         if (response.data.status === 'success') {
-            nextTick(() => {
-                const el = document.getElementById('registerSuccessModal');
-                if (el) Modal.getOrCreateInstance(el).show();
+            Swal.fire({
+                icon: 'success',
+                title: 'Đăng ký thành công!',
+                html: `
+                    <div style="margin-top:8px;color:#64748b;font-size:0.95rem;line-height:1.6">
+                        <p style="margin:0">Chào mừng bạn đến với <strong style="color:#0ea5e9">Ocean</strong>!</p>
+                        <p style="margin:6px 0 0">Vui lòng đăng nhập để bắt đầu mua sắm.</p>
+                    </div>
+                `,
+                confirmButtonText: 'Đến trang Đăng nhập',
+                confirmButtonColor: '#0ea5e9',
+                allowOutsideClick: false,
+                customClass: {
+                    popup: 'swal-ocean-popup',
+                    confirmButton: 'swal-ocean-btn',
+                },
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    router.push('/client/login');
+                }
             });
         }
     } catch (error) {
@@ -154,7 +175,7 @@ const handleRegister = async () => {
     }
 };
 
-const goToLogin = () => { router.push('/client/login'); };
+
 </script>
 
 <template>
@@ -276,30 +297,7 @@ const goToLogin = () => { router.push('/client/login'); };
 
     <ClientFooter />
 
-    <!-- Bootstrap Modal -->
-    <div class="modal fade" id="registerSuccessModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header bg-success text-white">
-            <h5 class="modal-title"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Đăng ký thành công!</h5>
-          </div>
-          <div class="modal-body"><p>Vui lòng đăng nhập để tiếp tục.</p></div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-success" @click="goToLogin">Đến trang Đăng nhập</button>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Bootstrap Toast -->
-    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080">
-      <div class="toast align-items-center border-0 text-bg-danger" id="registerToast" role="alert">
-        <div class="d-flex">
-          <div class="toast-body">{{ toast.message }}</div>
-          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
