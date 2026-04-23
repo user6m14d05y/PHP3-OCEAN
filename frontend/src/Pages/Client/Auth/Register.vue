@@ -122,7 +122,7 @@ const handleRegister = async () => {
 
     try {
         const response = await api.post('/register', {
-            name: name.value,
+            full_name: name.value,
             email: email.value,
             password: password.value,
             turnstile_token: turnstileToken.value
