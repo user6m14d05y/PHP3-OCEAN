@@ -262,8 +262,8 @@ html.dark .swal2-popup {
   line-height: 1.5 !important;
 }
 
-/* Modern Icons Override */
-.swal2-icon {
+/* Modern Icons Override (for Modals only, not Toasts) */
+.swal2-popup:not(.swal2-toast) .swal2-icon {
   border-width: 0 !important;
   width: 4rem !important;
   height: 4rem !important;
