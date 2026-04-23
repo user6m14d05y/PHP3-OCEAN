@@ -18,18 +18,13 @@ class FavoriteController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        // Nếu là Admin thì không có features của Customer -> trả về rỗng để tránh 500
-        if ($user instanceof \App\Models\Admin) {
-            return response()->json([
-                'status' => 'success',
-                'data' => []
-            ]);
-        }
+        $isAdmin = $user instanceof \App\Models\Admin;
+        $column = $isAdmin ? 'admin_id' : 'user_id';
 
         $favorites = Favorite::with(['product' => function ($query) {
             $query->with(['mainImage', 'lowestPriceVariant']); 
         }])
-        ->where('user_id', $user->getKey())
+        ->where($column, $user->getKey())
         ->orderBy('created_at', 'desc')
         ->get();
 
@@ -50,14 +45,10 @@ class FavoriteController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        if ($user instanceof \App\Models\Admin) {
-            return response()->json([
-                'status' => 'success',
-                'data' => []
-            ]);
-        }
+        $isAdmin = $user instanceof \App\Models\Admin;
+        $column = $isAdmin ? 'admin_id' : 'user_id';
 
-        $ids = Favorite::where('user_id', $user->getKey())
+        $ids = Favorite::where($column, $user->getKey())
             ->pluck('product_id');
 
         return response()->json([
@@ -77,13 +68,8 @@ class FavoriteController extends Controller
             return response()->json(['message' => 'Vui lòng đăng nhập để yêu thích sản phẩm'], 401);
         }
 
-        if ($user instanceof \App\Models\Admin) {
-            return response()->json([
-                'status' => 'success',
-                'action' => 'added', // mock success
-                'message' => 'Tính năng yêu thích không hỗ trợ cho tài khoản Admin'
-            ]);
-        }
+        $isAdmin = $user instanceof \App\Models\Admin;
+        $column = $isAdmin ? 'admin_id' : 'user_id';
 
         $request->validate([
             'product_id' => 'required|exists:products,product_id',
@@ -91,7 +77,7 @@ class FavoriteController extends Controller
 
         $productId = $request->product_id;
 
-        $favorite = Favorite::where('user_id', $user->getKey())
+        $favorite = Favorite::where($column, $user->getKey())
             ->where('product_id', $productId)
             ->first();
 
@@ -106,7 +92,7 @@ class FavoriteController extends Controller
         } else {
             // Chưa thích -> Thêm
             Favorite::create([
-                'user_id' => $user->getKey(),
+                $column => $user->getKey(),
                 'product_id' => $productId,
             ]);
             return response()->json([
