@@ -1,22 +1,44 @@
 import { ref } from 'vue';
 import api from '@/axios'; // Giả sử axios instance được cấu hình sẵn token JWT
-import Swal from 'sweetalert2';
+import { Toast } from 'bootstrap';
 
-const Toast = Swal.mixin({
-    toast: true,
-    position: 'top-end',
-    showConfirmButton: false,
-    timer: 3000,
-    timerProgressBar: true,
-    customClass: {
-        popup: 'swal-ocean-toast',
-        title: 'swal-ocean-toast-title'
-    },
-    didOpen: (toast) => {
-        toast.addEventListener('mouseenter', Swal.stopTimer);
-        toast.addEventListener('mouseleave', Swal.resumeTimer);
+// Hàm hiển thị Bootstrap Toast động
+const showBootstrapToast = (message, type = 'success') => {
+    let container = document.getElementById('global-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'global-toast-container';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3 mt-5 mt-md-0';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
     }
-});
+
+    const toastEl = document.createElement('div');
+    const bgClass = type === 'success' ? 'text-bg-success' : (type === 'danger' || type === 'error' ? 'text-bg-danger' : (type === 'warning' ? 'text-bg-warning' : 'text-bg-info'));
+    
+    toastEl.className = `toast align-items-center border-0 ${bgClass}`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body fw-medium" style="font-family: 'Inter', sans-serif;">
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+
+    container.appendChild(toastEl);
+    const toastInstance = new Toast(toastEl, { delay: 3000 });
+    toastInstance.show();
+
+    // Dọn dẹp DOM sau khi ẩn
+    toastEl.addEventListener('hidden.bs.toast', () => {
+        toastEl.remove();
+        if (container.children.length === 0) {
+            container.remove();
+        }
+    });
+};
 
 // State global, chỉ khởi tạo 1 lần
 const favoriteIds = ref([]);
@@ -47,10 +69,7 @@ export function useFavorites() {
      */
     const toggleFavorite = async (productId) => {
         if (!isLoggedIn()) {
-            Toast.fire({
-                icon: 'warning',
-                title: 'Vui lòng đăng nhập để yêu thích sản phẩm'
-            });
+            showBootstrapToast('Vui lòng đăng nhập để yêu thích sản phẩm', 'warning');
             return false;
         }
 
@@ -67,16 +86,12 @@ export function useFavorites() {
         try {
             const response = await api.post('/profile/favorites/toggle', { product_id: productId });
             if (response.data && response.data.status === 'success') {
+                const customMsg = response.data.message; // Bắt message từ backend (VD: Admin không hỗ trợ)
+                
                 if (originallyFavorited) {
-                    Toast.fire({
-                        icon: 'info',
-                        title: 'Đã bỏ yêu thích sản phẩm'
-                    });
+                    showBootstrapToast(customMsg || 'Đã bỏ yêu thích sản phẩm', 'info');
                 } else {
-                    Toast.fire({
-                        icon: 'success',
-                        title: 'Đã thêm vào yêu thích'
-                    });
+                    showBootstrapToast(customMsg || 'Đã thêm vào yêu thích', 'success');
                 }
                 return true;
             }
@@ -89,10 +104,7 @@ export function useFavorites() {
                 const idx = favoriteIds.value.indexOf(productId);
                 if (idx !== -1) favoriteIds.value.splice(idx, 1);
             }
-            Toast.fire({
-                icon: 'error',
-                title: 'Có lỗi xảy ra, vui lòng thử lại.'
-            });
+            showBootstrapToast('Có lỗi xảy ra, vui lòng thử lại.', 'danger');
             return false;
         }
     };
