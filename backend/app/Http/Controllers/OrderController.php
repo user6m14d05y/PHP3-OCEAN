@@ -55,7 +55,7 @@ class OrderController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
         }
 
-        $query = Order::with(['items.product', 'items.variant', 'items.comment'])
+        $query = Order::with(['items.product.images', 'items.variant', 'items.comment'])
             ->where('user_id', $userId)
             ->orderBy('created_at', 'desc');
 

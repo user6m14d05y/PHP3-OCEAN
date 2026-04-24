@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/axios';
 import { useFavorites } from '@/composables/useFavorites';
@@ -97,6 +97,7 @@ const fetchProduct = async (currentSlug) => {
 
         if (product.value.product_id) {
             fetchReviews(product.value.product_id);
+            subscribeToProductRealtime(product.value.product_id);
         }
         fetchRelatedProducts(currentSlug);
 
@@ -137,6 +138,38 @@ const fetchReviews = async (productId) => {
         console.error(err);
     }
 };
+
+const currentListeningProductId = ref(null);
+
+const subscribeToProductRealtime = (productId) => {
+    if (!window.Echo) return;
+    
+    // Unsubscribe from previous if any
+    if (currentListeningProductId.value && currentListeningProductId.value !== productId) {
+        window.Echo.leave(`product.${currentListeningProductId.value}`);
+    }
+    
+    currentListeningProductId.value = productId;
+    
+    window.Echo.channel(`product.${productId}`)
+        .listen('.ProductReviewUpdatedEvent', (e) => {
+            console.log('Realtime Product Update:', e);
+            // Cập nhật lại list review
+            fetchReviews(productId);
+            
+            // Cập nhật rating trung bình
+            if (e.productRating && product.value) {
+                product.value.rating_avg = e.productRating.avg;
+                product.value.rating_count = e.productRating.count;
+            }
+        });
+};
+
+onUnmounted(() => {
+    if (window.Echo && currentListeningProductId.value) {
+        window.Echo.leave(`product.${currentListeningProductId.value}`);
+    }
+});
 
 const formatDate = (dateString) => {
     if (!dateString) return '';

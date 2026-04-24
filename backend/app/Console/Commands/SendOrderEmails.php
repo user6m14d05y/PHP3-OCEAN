@@ -134,8 +134,8 @@ class SendOrderEmails extends Command
      */
     private function sendEmail(Order $order, $user): void
     {
-        $emailUser = env('MAIL_USERNAME', env('EMAIL_USER'));
-        $emailPass = env('MAIL_PASSWORD', env('EMAIL_PASS'));
+        $emailUser = env('EMAIL_USER', env('MAIL_USERNAME'));
+        $emailPass = env('EMAIL_PASS', env('MAIL_PASSWORD'));
 
         if (!$emailUser || !$emailPass) {
             throw new \RuntimeException('MAIL_USERNAME hoặc MAIL_PASSWORD chưa được cấu hình trong .env');
@@ -208,7 +208,7 @@ class SendOrderEmails extends Command
                     <p><strong>Phương thức TT:</strong> ' . strtoupper($order->payment_method) . '</p>
 
                     <div style="text-align: center; margin-top: 30px;">
-                        <a href="http://localhost:3302/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lịch sử đơn hàng</a>
+                        <a href="' . (env('FRONTEND_URL', 'https://ocean.pro.vn')) . '/profile/orders" style="background: #0288d1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Xem lịch sử đơn hàng</a>
                     </div>
                 </div>
             </div>

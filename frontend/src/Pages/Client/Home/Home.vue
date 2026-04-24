@@ -216,7 +216,7 @@ onUnmounted(() => {
                 <router-link
                     v-for="cat in Categories.slice(0, 8)"
                     :key="cat.id"
-                    :to="{ name: 'product', query: { category: cat.slug } }"
+                    :to="{ name: 'product-category', params: { categorySlug: cat.slug } }"
                     class="luxury-cat-item"
                 >
                     <div class="cat-img-wrapper">
@@ -293,7 +293,7 @@ onUnmounted(() => {
             >
                 <div class="section-head">
                     <h2 class="section-title">{{ cat.name }}</h2>
-                    <router-link :to="{ name: 'product', query: { category: cat.slug } }" class="link-more">
+                    <router-link :to="{ name: 'product-category', params: { categorySlug: cat.slug } }" class="link-more">
                         Xem tất cả
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                     </router-link>

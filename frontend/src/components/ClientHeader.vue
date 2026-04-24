@@ -342,9 +342,9 @@ watch(
                     <router-link
                         v-for="cat in topCategories"
                         :key="cat.category_id"
-                        :to="'/product?category=' + cat.category_id"
+                        :to="'/product/danh-muc/' + cat.slug"
                         class="nav-link"
-                        :class="{ active: route.path === '/product' && route.query.category == cat.category_id }"
+                        :class="{ active: route.params.categorySlug === cat.slug }"
                     >
                         {{ cat.name }}
                     </router-link>

@@ -170,16 +170,13 @@ watch([selectedCategory, selectedSubcategory, selectedPriceRange, sortBy], () =>
     }
     fetchProducts();
     
-    const newQuery = { ...route.query };
-    if (selectedCategory.value !== 'All') {
-        newQuery.category = selectedCategory.value;
+    // Đồng bộ URL: dùng clean URL /product/danh-muc/:slug thay vì query string
+    const selectedCat = Categories.value.find(c => c.category_id === selectedCategory.value);
+    if (selectedCat && selectedCat.slug) {
+        router.replace({ name: 'product-category', params: { categorySlug: selectedCat.slug } }).catch(() => {});
     } else {
-        delete newQuery.category;
+        router.replace({ name: 'product' }).catch(() => {});
     }
-    
-    if (currentPage.value === 1) delete newQuery.page;
-    
-    router.replace({ query: newQuery }).catch(() => {});
 });
 
 // Lắng nghe khi header search điều hướng sang /product?search=...
@@ -197,10 +194,10 @@ watch(() => route.query.q, (newQ) => {
     }
 });
 
-// Lắng nghe khi điều hướng danh mục từ Header
-watch(() => route.query.category, (newCategory) => {
-    if (newCategory) {
-        const cat = Categories.value.find(c => c.category_id == newCategory || c.slug === newCategory);
+// Lắng nghe khi điều hướng danh mục từ Header (clean URL: /product/danh-muc/:slug)
+watch(() => route.params.categorySlug, (newSlug) => {
+    if (newSlug) {
+        const cat = Categories.value.find(c => c.slug === newSlug);
         if (cat) {
             selectedCategory.value = cat.category_id;
             selectedSubcategory.value = "All";
@@ -258,10 +255,10 @@ onMounted(async () => {
     // Load categories first to match URL params
     await fetchCategories();
 
-    // Xử lý query param ?category=...
-    const categoryParam = route.query.category;
-    if (categoryParam) {
-        const cat = Categories.value.find(c => c.category_id == categoryParam || c.slug === categoryParam);
+    // Xử lý clean URL: /product/danh-muc/:categorySlug
+    const categorySlug = route.params.categorySlug;
+    if (categorySlug) {
+        const cat = Categories.value.find(c => c.slug === categorySlug);
         if (cat) {
             selectedCategory.value = cat.category_id;
             expandedCategories.value[cat.category_id] = true;

@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import api from '../../axios'; // Use configured axios instance
 
 const stats = ref([
@@ -138,7 +138,7 @@ const displayedRevenue = computed(() => {
 
 const orders = ref([]);
 
-onMounted(async () => {
+const fetchDashboardData = async () => {
     try {
         const response = await api.get('/admin/dashboard');
         if (response.data && response.data.status === 'success') {
@@ -159,6 +159,26 @@ onMounted(async () => {
         }
     } catch (error) {
         console.error('Lỗi khi lấy dữ liệu dashboard:', error);
+    }
+};
+
+onMounted(() => {
+    fetchDashboardData();
+
+    // Lắng nghe sự kiện có đơn hàng mới để tự động cập nhật dashboard (Realtime)
+    if (window.Echo) {
+        window.Echo.private('admin-notifications')
+            .listen('.OrderCreatedAdmin', (e) => {
+                console.log('Realtime Order Event received in Dashboard:', e);
+                fetchDashboardData();
+            });
+    }
+});
+
+onUnmounted(() => {
+    if (window.Echo) {
+        // Tùy chọn rời kênh nếu không còn component nào ở admin cần nghe (nhưng thường Header vẫn cần)
+        // Chúng ta không leave() hẳn channel để tránh làm hỏng listener của Header
     }
 });
 </script>

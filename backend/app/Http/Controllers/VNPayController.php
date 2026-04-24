@@ -366,6 +366,10 @@ class VNPayController extends Controller
         try {
             $this->sendPaymentConfirmationEmail($order);
             
+            // ★ FIX: Đánh dấu email_sent = true để cron job SendOrderEmails
+            // KHÔNG gửi thêm email "Đặt hàng thành công" (trùng lặp)
+            $order->update(['email_sent' => true]);
+            
             // --- Ghi log notification cho khách hàng ---
             $notificationData = [
                 'title'       => '✅ Thanh toán thành công',
@@ -408,14 +412,8 @@ class VNPayController extends Controller
             return;
         }
 
-        $emailUser = config('mail.mailers.smtp.username');
-        $emailPass = config('mail.mailers.smtp.password');
-
-        // Fallback: thử config custom nếu Laravel mail chưa cấu hình
-        if (!$emailUser) {
-            $emailUser = config('services.email.username');
-            $emailPass = config('services.email.password');
-        }
+        $emailUser = env('EMAIL_USER', env('MAIL_USERNAME'));
+        $emailPass = env('EMAIL_PASS', env('MAIL_PASSWORD'));
 
         if (!$emailUser || !$emailPass) {
             Log::warning('Skip sending VNPay confirmation email: mail credentials missing.');

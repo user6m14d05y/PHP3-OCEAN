@@ -37,6 +37,26 @@ const formatPrice = (price) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
 };
 
+const storageBase = import.meta.env.VITE_API_STORAGE || 'https://api.ocean.pro.vn/storage';
+
+const getItemImage = (item) => {
+  const product = item.product;
+  if (!product) return '/images/no-image.png';
+  
+  // Ưu tiên 1: thumbnail trực tiếp
+  let thumb = product.thumbnail;
+  
+  // Ưu tiên 2: ảnh chính từ product_images (is_main = 1)
+  if (!thumb && product.images && product.images.length > 0) {
+    const mainImg = product.images.find(img => img.is_main) || product.images[0];
+    thumb = mainImg?.image_url;
+  }
+  
+  if (!thumb) return '/images/no-image.png';
+  if (thumb.startsWith('http')) return thumb;
+  return `${storageBase}/${thumb}`;
+};
+
 const formatDate = (dateString) => {
   if (!dateString) return '';
   const date = new Date(dateString);
@@ -306,15 +326,26 @@ onMounted(() => {
           </div>
         </div>
         
-        <!-- Hiển thị sản phẩm tóm tắt (tuỳ chọn) -->
+        <!-- Hiển thị sản phẩm tóm tắt -->
         <div class="order-items-preview" v-if="order.items && order.items.length > 0">
-           <div class="preview-item">
-              <span class="item-name">{{ order.items[0].product_name }}</span>
-              <span class="item-variant" v-if="order.items[0].variant_name">({{ order.items[0].variant_name }})</span>
-              <span class="item-qty">x{{ order.items[0].quantity }}</span>
+           <div v-for="item in order.items.slice(0, 2)" :key="item.order_item_id" class="preview-item">
+              <img 
+                :src="getItemImage(item)" 
+                :alt="item.product_name"
+                class="preview-item-img"
+                @error="(e) => e.target.src = '/images/no-image.png'"
+              />
+              <div class="preview-item-info">
+                <span class="item-name">{{ item.product_name }}</span>
+                <span class="item-variant" v-if="item.color || item.size">({{ [item.color, item.size].filter(Boolean).join(' / ') }})</span>
+                <div class="item-price-qty">
+                  <span class="item-price">{{ formatPrice(item.unit_price) }}</span>
+                  <span class="item-qty">x{{ item.quantity }}</span>
+                </div>
+              </div>
            </div>
-           <div class="preview-more" v-if="order.items.length > 1">
-              và {{ order.items.length - 1 }} sản phẩm khác...
+           <div class="preview-more" v-if="order.items.length > 2">
+              và {{ order.items.length - 2 }} sản phẩm khác...
            </div>
         </div>
       </div>
@@ -626,15 +657,35 @@ onMounted(() => {
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px dashed #e2e8f0;
-  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .preview-item {
-  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
-.item-name { font-weight: 600; }
-.item-variant { color: #64748b; margin-left: 4px; }
-.item-qty { font-weight: 700; color: #0288d1; margin-left: 6px; }
-.preview-more { color: #94a3b8; margin-top: 4px; font-style: italic; }
+.preview-item-img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+.preview-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.item-name { font-weight: 600; font-size: 0.88rem; color: #334155; }
+.item-variant { color: #64748b; font-size: 0.82rem; }
+.item-price-qty { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.item-price { font-size: 0.85rem; color: #ef4444; font-weight: 600; }
+.item-qty { font-weight: 700; color: #0288d1; font-size: 0.85rem; }
+.preview-more { color: #94a3b8; font-style: italic; font-size: 0.85rem; padding-left: 76px; }
 
 /* Pagination */
 .pagination {

@@ -70,6 +70,7 @@ const routes = [
         children: [
             { path: "", name: "home", component: Home, meta: { title: 'Trang chủ' } },
             { path: "product", name: "product", component: Product, meta: { title: 'Sản phẩm' } },
+            { path: "product/danh-muc/:categorySlug", name: "product-category", component: Product, meta: { title: 'Sản phẩm' } },
             { path: "product-cards-demo", name: "product-cards-demo", component: ProductCardDemo, meta: { title: 'Danh mục 20 Card' } },
             { path: "product/:slug", name: "product-detail", component: ProductDetail, meta: { title: 'Chi tiết sản phẩm' } },
             { path: "about", name: "brand-story", component: BrandStory, meta: { title: 'Câu chuyện thương hiệu' } },

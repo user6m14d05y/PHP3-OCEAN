@@ -192,6 +192,9 @@ class AdminOrderController extends Controller
                         'note' => '[Thanh toán] Tự động cập nhật theo trạng thái đơn hàng',
                     ]);
                 }
+
+                // --- Gửi thông báo đến User (Realtime) ---
+                $this->notifyUserOrderStatusChanged($order, $updates, $oldFulfillmentStatus, $oldPaymentStatus);
             }
 
             DB::commit();
@@ -340,6 +343,9 @@ class AdminOrderController extends Controller
                             'note' => '[Thanh toán] Tự động cập nhật theo trạng thái đơn hàng',
                         ]);
                     }
+
+                    // --- Gửi thông báo đến User (Realtime) ---
+                    $this->notifyUserOrderStatusChanged($order, $updates, $oldFulfillmentStatus, $oldPaymentStatus);
                 }
             }
 
@@ -390,6 +396,80 @@ class AdminOrderController extends Controller
                 'status' => 'error',
                 'message' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Gửi thông báo realtime cho người dùng khi đơn hàng cập nhật trạng thái
+     */
+    private function notifyUserOrderStatusChanged($order, $updates, $oldFulfillmentStatus, $oldPaymentStatus)
+    {
+        try {
+            $notificationData = [];
+            $message = "";
+
+            if (isset($updates['fulfillment_status']) && $updates['fulfillment_status'] !== $oldFulfillmentStatus) {
+                // Map status label
+                $statusLabels = [
+                    'pending' => 'Chờ xác nhận',
+                    'confirmed' => 'Đã xác nhận',
+                    'packing' => 'Đang đóng gói',
+                    'shipping' => 'Đang giao hàng',
+                    'delivered' => 'Đã giao hàng',
+                    'completed' => 'Đã hoàn thành',
+                    'cancelled' => 'Đã hủy',
+                    'returned' => 'Trả hàng'
+                ];
+                $newFulfillmentLabel = $statusLabels[$updates['fulfillment_status']] ?? $updates['fulfillment_status'];
+                $message = "Đơn hàng #{$order->order_code} đã chuyển sang trạng thái: {$newFulfillmentLabel}.";
+                
+                $notificationData = [
+                    'title' => 'Cập nhật đơn hàng',
+                    'content' => $message,
+                    'type' => 'order_status_update',
+                    'order_id' => $order->order_id,
+                    'order_code' => $order->order_code,
+                    'fulfillment_status' => $updates['fulfillment_status'],
+                    'time' => now()->format('H:i d/m/Y')
+                ];
+            } elseif (isset($updates['payment_status']) && $updates['payment_status'] !== $oldPaymentStatus) {
+                $paymentLabels = [
+                    'unpaid' => 'Chưa thanh toán',
+                    'paid' => 'Đã thanh toán',
+                    'refunded' => 'Đã hoàn tiền'
+                ];
+                $newPaymentLabel = $paymentLabels[$updates['payment_status']] ?? $updates['payment_status'];
+                $message = "Thanh toán cho đơn hàng #{$order->order_code} đã được cập nhật thành: {$newPaymentLabel}.";
+                
+                $notificationData = [
+                    'title' => 'Cập nhật thanh toán',
+                    'content' => $message,
+                    'type' => 'payment_status_update',
+                    'order_id' => $order->order_id,
+                    'order_code' => $order->order_code,
+                    'payment_status' => $updates['payment_status'],
+                    'time' => now()->format('H:i d/m/Y')
+                ];
+            }
+
+            if (!empty($notificationData)) {
+                // DB Insert (Laravel built-in notifications format)
+                DB::table('notifications')->insert([
+                    'id' => \Illuminate\Support\Str::uuid()->toString(),
+                    'type' => 'App\Notifications\OrderStatusNotification',
+                    'notifiable_type' => \App\Models\User::class,
+                    'notifiable_id' => $order->user_id,
+                    'data' => json_encode($notificationData),
+                    'read_at' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                // Dispatch Realtime Event to User channel
+                event(new \App\Events\UserNotificationEvent($order->user_id, $notificationData));
+            }
+        } catch (\Exception $e) {
+            Log::error("Lỗi gửi thông báo realtime cho order: {$order->order_id}: " . $e->getMessage());
         }
     }
 }

@@ -213,6 +213,14 @@ class ProductCommentController extends Controller
         $comment->save();
 
         $this->recalculateProductRating($comment->product_id);
+        
+        $product = Product::find($comment->product_id);
+        event(new \App\Events\ProductReviewUpdatedEvent(
+            $comment->product_id, 
+            'approve', 
+            $comment->comment_id, 
+            ['avg' => $product->rating_avg, 'count' => $product->rating_count]
+        ));
 
         return response()->json(['status' => 'success', 'message' => 'Đã duyệt đánh giá.']);
     }
@@ -227,6 +235,14 @@ class ProductCommentController extends Controller
         $comment->save();
 
         $this->recalculateProductRating($comment->product_id);
+        
+        $product = Product::find($comment->product_id);
+        event(new \App\Events\ProductReviewUpdatedEvent(
+            $comment->product_id, 
+            'reject', 
+            $comment->comment_id, 
+            ['avg' => $product->rating_avg, 'count' => $product->rating_count]
+        ));
 
         return response()->json(['status' => 'success', 'message' => 'Đã ẩn đánh giá.']);
     }
@@ -238,9 +254,18 @@ class ProductCommentController extends Controller
     {
         $comment = ProductComment::findOrFail($id);
         $productId = $comment->product_id;
+        $commentId = $comment->comment_id;
         $comment->delete();
 
         $this->recalculateProductRating($productId);
+        
+        $product = Product::find($productId);
+        event(new \App\Events\ProductReviewUpdatedEvent(
+            $productId, 
+            'delete', 
+            $commentId, 
+            ['avg' => $product->rating_avg, 'count' => $product->rating_count]
+        ));
 
         return response()->json(['status' => 'success', 'message' => 'Đã xóa đánh giá.']);
     }

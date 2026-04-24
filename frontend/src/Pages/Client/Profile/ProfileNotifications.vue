@@ -127,7 +127,18 @@ const handleNotificationClick = async (notification) => {
 
   // Navigate based on type
   if (notification.data.type === 'order_created' || notification.data.type === 'payment_success') {
-    router.push('/profile/orders'); // can navigate specifically to order detail if needed
+    if (notification.data.order_code) {
+      try {
+        const res = await api.get(`/orders/${notification.data.order_code}/order-id`);
+        if (res.data.status === 'success' && res.data.order_id) {
+          router.push({ name: 'profile-order-detail', params: { id: res.data.order_id } });
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to get order_id from order_code:', error);
+      }
+    }
+    router.push('/profile/orders'); // fallback
   } else if (notification.data.type === 'coupon_received') {
     router.push('/profile/coupon');
   }
