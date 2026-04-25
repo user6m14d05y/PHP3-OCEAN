@@ -18,12 +18,12 @@ class AuthController extends Controller
      */
     private function verifyTurnstile(?string $token): bool
     {
-        // Bypass CAPTCHA for Mobile App (Flutter) — kiểm tra User-Agent VÀ custom header
+        // Bypass CAPTCHA cho ứng dụng Mobile (Gửi header) HOẶC thiết bị Mobile (Trình duyệt Web trên điện thoại)
         $userAgent = request()->userAgent() ?? '';
-        $hasDartAgent = str_contains(strtolower($userAgent), 'dart');
+        $isMobileBrowser = preg_match('/iPhone|Android|iPad|iPod|BlackBerry|Windows Phone/i', $userAgent);
         $hasMobileHeader = request()->header('X-Ocean-Mobile-App') === config('app.mobile_app_key', 'ocean_mobile_2024');
 
-        if ($hasDartAgent && $hasMobileHeader) {
+        if ($isMobileBrowser || $hasMobileHeader) {
             return true;
         }
 
