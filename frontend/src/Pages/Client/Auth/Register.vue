@@ -79,8 +79,15 @@ const passwordsMatch = computed(() =>
   password.value && password_confirmation.value && password.value === password_confirmation.value
 );
 
+const isMobile = ref(false);
+
 // Cloudflare Turnstile
 const loadTurnstile = () => {
+  if (isMobile.value && import.meta.env.VITE_DISABLE_CAPTCHA_ON_MOBILE !== 'false') {
+    turnstileToken.value = 'mobile-bypass'; // Bypass captcha for mobile
+    return;
+  }
+
   if (window.turnstile) { renderTurnstile(); return; }
   const script = document.createElement('script');
   script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad';
@@ -102,7 +109,10 @@ const renderTurnstile = () => {
   });
 };
 
-onMounted(() => { loadTurnstile(); });
+onMounted(() => { 
+  isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+  loadTurnstile(); 
+});
 onBeforeUnmount(() => {
   if (turnstileWidgetId !== null && window.turnstile) window.turnstile.remove(turnstileWidgetId);
 });
@@ -282,7 +292,7 @@ const goToLogin = () => {
             </div>
 
             <!-- Cloudflare Turnstile CAPTCHA -->
-            <div class="turnstile-wrapper">
+            <div class="turnstile-wrapper" v-if="!isMobile || turnstileToken !== 'mobile-bypass'">
               <div id="turnstile-register"></div>
             </div>
 

@@ -22,8 +22,10 @@ class AuthController extends Controller
         $userAgent = request()->userAgent() ?? '';
         $isMobileBrowser = preg_match('/iPhone|Android|iPad|iPod|BlackBerry|Windows Phone/i', $userAgent);
         $hasMobileHeader = request()->header('X-Ocean-Mobile-App') === config('app.mobile_app_key', 'ocean_mobile_2024');
+        
+        $mobileBypassEnabled = filter_var(env('DISABLE_CAPTCHA_ON_MOBILE', true), FILTER_VALIDATE_BOOLEAN);
 
-        if ($isMobileBrowser || $hasMobileHeader) {
+        if ($mobileBypassEnabled && ($isMobileBrowser || $hasMobileHeader)) {
             return true;
         }
 

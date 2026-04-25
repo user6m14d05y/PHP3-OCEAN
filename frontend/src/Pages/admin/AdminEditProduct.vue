@@ -345,7 +345,8 @@ const handleSubmit = async () => {
     try {
         await api.post(`/products/${productId.value}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
         Swal.fire('Thành công', 'Cập nhật sản phẩm thành công!', 'success');
-        router.push("/admin/product");
+        const returnPage = route.query.page || 1;
+        router.push({ path: "/admin/product", query: { page: returnPage } });
     } catch (e) {
         console.error("Error:", e.response?.data || e);
         if (e.response?.data?.errors) errors.value = e.response.data.errors;

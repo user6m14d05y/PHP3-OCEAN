@@ -51,8 +51,15 @@ const showToast = (message, type = 'success') => {
   });
 };
 
+const isMobile = ref(false);
+
 // Cloudflare Turnstile
 const loadTurnstile = () => {
+  if (isMobile.value && import.meta.env.VITE_DISABLE_CAPTCHA_ON_MOBILE !== 'false') {
+    turnstileToken.value = 'mobile-bypass'; // Bypass captcha for mobile
+    return;
+  }
+
   if (window.turnstile) {
     renderTurnstile();
     return;
@@ -77,7 +84,10 @@ const renderTurnstile = () => {
   });
 };
 
-onMounted(() => { loadTurnstile(); });
+onMounted(() => { 
+  isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+  loadTurnstile(); 
+});
 onBeforeUnmount(() => {
   if (turnstileWidgetId !== null && window.turnstile) window.turnstile.remove(turnstileWidgetId);
 });
@@ -223,7 +233,7 @@ const login = async () => {
               </div>
 
               <!-- CAPTCHA -->
-              <div class="turnstile-container">
+              <div class="turnstile-container" v-if="!isMobile || turnstileToken !== 'mobile-bypass'">
                  <div class="captcha-box" v-show="!turnstileToken">
                     <div class="turnstile-wrapper">
                       <!-- Ensure valid turnstile rendering here -->
