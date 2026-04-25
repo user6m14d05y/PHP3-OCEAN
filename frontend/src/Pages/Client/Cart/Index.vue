@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';import { useRouter } from 'vue-router';
+import Swal from 'sweetalert2';
 import api from '@/axios';
 import FreeshipBar from '@/components/FreeshipBar.vue';
 import QuickAddSlider from '@/components/QuickAddSlider.vue';

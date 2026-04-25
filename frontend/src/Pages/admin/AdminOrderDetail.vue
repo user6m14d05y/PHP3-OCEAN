@@ -1,6 +1,7 @@
 <script setup>
 import { ref, nextTick, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import Swal from 'sweetalert2';
 import api from '@/axios';
 import { Toast, Modal } from 'bootstrap';
 import { storageUrl } from '@/utils/storage';
