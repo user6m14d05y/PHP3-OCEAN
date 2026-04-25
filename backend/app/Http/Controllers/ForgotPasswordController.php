@@ -213,8 +213,8 @@ class ForgotPasswordController extends Controller
     private function sendOtpEmail(string $email, string $otp, string $name): bool
     {
         try {
-            $emailUser = config('mail.mailers.smtp.username', config('services.email.username'));
-            $emailPass = config('mail.mailers.smtp.password', config('services.email.password'));
+            $emailUser = config('mail.mailers.smtp.username') ?? config('services.email.username');
+            $emailPass = config('mail.mailers.smtp.password') ?? config('services.email.password');
 
             // Sử dụng Symfony Mailer qua SMTP (port 587 = STARTTLS)
             $transport = new \Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport(
