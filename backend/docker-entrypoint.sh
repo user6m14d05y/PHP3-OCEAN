@@ -104,8 +104,11 @@ echo " WebSocket (Reverb) READY on port 8383"
 echo " Cron (Laravel Scheduler) RUNNING"
 echo "======================================="
 
-# Khởi chạy Reverb WebSocket Server chạy ngầm (Background) và gắn nohup để không bị kill khi exec php-fpm
-nohup php artisan reverb:start --host="0.0.0.0" --port=8383 > /var/www/storage/logs/reverb.log 2>&1 &
-
-# Thực thi PHP-FPM
-exec php-fpm
+# ===============================================
+# 8. Thực thi lệnh từ CMD của Docker
+# ===============================================
+if [ $# -gt 0 ]; then
+    exec "$@"
+else
+    exec php-fpm
+fi

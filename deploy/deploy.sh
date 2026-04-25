@@ -145,10 +145,10 @@ echo -e "\n${BLUE}[8/9]${NC} ${BOLD}Build và khởi chạy Docker Compose...${N
 cd $PROJECT_DIR
 
 # Dùng production docker-compose nếu có, không thì dùng file gốc
-if [ -f "deploy/docker-compose.prod.yml" ]; then
+if [ -f "docker-compose.prod.yml" ]; then
     echo -e "${YELLOW}→ Sử dụng docker-compose.prod.yml...${NC}"
-    docker compose -f deploy/docker-compose.prod.yml build --no-cache
-    docker compose -f deploy/docker-compose.prod.yml up -d
+    docker compose -f docker-compose.prod.yml build --no-cache
+    docker compose -f docker-compose.prod.yml up -d
 else
     echo -e "${YELLOW}→ Sử dụng docker-compose.yml gốc...${NC}"
     docker compose build --no-cache

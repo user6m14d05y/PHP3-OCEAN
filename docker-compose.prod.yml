@@ -59,6 +59,29 @@ services:
       - ./backend:/var/www:ro
     depends_on:
       - backend
+      - reverb
+
+  # WEBSOCKET REVERB
+  reverb:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ocean_reverb
+    restart: always
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    expose:
+      - "8080"
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/var/www
+      - ./.env:/var/www/.env
+      - vendor_data:/var/www/vendor
+    depends_on:
+      db:
+        condition: service_healthy
 
   # MEILISEARCH
   meilisearch:
