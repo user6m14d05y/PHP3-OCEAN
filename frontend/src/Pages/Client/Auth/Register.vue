@@ -155,18 +155,32 @@ const handleRegister = async () => {
 };
 
 const goToLogin = () => {
-  // Properly dispose Bootstrap Modal and cleanup backdrop before navigating
   const el = document.getElementById('registerSuccessModal');
   if (el) {
-    const modalInstance = Modal.getInstance(el);
-    if (modalInstance) modalInstance.dispose();
+    const modalInstance = Modal.getInstance(el) || Modal.getOrCreateInstance(el);
+    // Listen for modal fully hidden, then navigate
+    const onHidden = () => {
+      el.removeEventListener('hidden.bs.modal', onHidden);
+      // Cleanup any leftover backdrop
+      document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('padding-right');
+      router.push('/client/login');
+    };
+    el.addEventListener('hidden.bs.modal', onHidden);
+    modalInstance.hide();
+    // Safety fallback: if hide event doesn't fire within 500ms, force navigate
+    setTimeout(() => {
+      document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('padding-right');
+      router.push('/client/login');
+    }, 500);
+  } else {
+    router.push('/client/login');
   }
-  // Remove any leftover backdrop
-  document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-  document.body.classList.remove('modal-open');
-  document.body.style.removeProperty('overflow');
-  document.body.style.removeProperty('padding-right');
-  router.push('/client/login');
 };
 </script>
 
